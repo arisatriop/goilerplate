@@ -27,19 +27,17 @@ func CreateDBConnection() {
 }
 
 func SqlConnection() *pgx.Conn {
-	// Example connection url
-	connString := "postgres://username:password@host:post/dbname"
+	// exampleConnString := "postgres://username:password@host:post/dbname"
 
-	connString = fmt.Sprintf(
+	connString := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_NAME"),
+		App.DbUser,
+		App.DbPassword,
+		App.DbHost,
+		App.DbPort,
+		App.DbName,
 	)
 
-	connString = fmt.Sprintf("postgres://arisatrio:%s@localhost:5432/goilerplate", "")
 	db, err := pgx.Connect(context.Background(), connString)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
@@ -52,10 +50,9 @@ func SqlConnection() *pgx.Conn {
 }
 
 func GormConnection() *gorm.DB {
-	// Example connection url
-	dsn := "host=localhost dbname=goilerplate password=postgres user=postgres port=5432 sslmode=disable TimeZone=Asia/Jakarta"
+	// exampleDSN := "host=localhost dbname=goilerplate password=postgres user=postgres port=5432 sslmode=disable TimeZone=Asia/Jakarta"
 
-	dsn = fmt.Sprintf(`
+	dsn := fmt.Sprintf(`
 		host=%s
 		dbname=%s
 		password=%s
@@ -63,14 +60,13 @@ func GormConnection() *gorm.DB {
 		port=%s
 		sslmode=disable
 		TimeZone=Asia/Jakarta`,
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PORT"),
+		App.DbHost,
+		App.DbName,
+		App.DbPassword,
+		App.DbUser,
+		App.DbPort,
 	)
 
-	dsn = fmt.Sprintf("host=localhost dbname=goilerplate password=%s user=arisatrio port=5432 sslmode=disable TimeZone=Asia/Jakarta", "")
 	gdb, err := gorm.Open(postgres.New(postgres.Config{
 		DSN: dsn,
 		// PreferSimpleProtocol: true, // disables implicit prepared statement usage

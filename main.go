@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/arisatriop/goilerplate/config"
-	"github.com/arisatriop/goilerplate/routes"
+	"goilerplate/config"
+	"goilerplate/delivery/http/routes"
+
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	// Set up Application Variable
+	config.SetAppVariable()
 
 	// Capture database connection
 	config.CreateDBConnection()
