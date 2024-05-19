@@ -23,7 +23,7 @@ type Con struct {
 func CreateDBConnection() {
 	db = SqlConnection()
 	gdb = GormConnection()
-	fmt.Println("Connected to database")
+	fmt.Println("Database: connected")
 }
 
 func SqlConnection() *pgx.Conn {
@@ -45,7 +45,7 @@ func SqlConnection() *pgx.Conn {
 	}
 	defer db.Close(context.Background())
 
-	fmt.Println("Postgres ok")
+	fmt.Println("Postgres: ok")
 	return db
 }
 
@@ -77,7 +77,7 @@ func GormConnection() *gorm.DB {
 		os.Exit(1)
 	}
 
-	fmt.Println("Gorm ok")
+	fmt.Println("Gorm: ok")
 	return gdb
 }
 

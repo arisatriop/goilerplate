@@ -1,4 +1,4 @@
-FROM arisatrio03/golang:1.17-ubuntu
+FROM golang:1.22.3
 
 LABEL MAINTAINER="Ari Satrio<arisatrioputra03@gmail.com>"
 
@@ -9,9 +9,10 @@ COPY go.mod ./
 COPY go.sum ./
 RUN go mod download
 
-# Install library auto-reload
-RUN go install github.com/cosmtrek/air@v1.42.0
+RUN go install github.com/cosmtrek/air@v1.52.0
 
 COPY . ./
 
-CMD [ "air" ]
+RUN go build -o main .
+
+CMD ["air"]
