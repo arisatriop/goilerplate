@@ -2,28 +2,29 @@ package middleware
 
 import (
 	"fmt"
+	"goilerplate/config"
 	"mime/multipart"
 	"strings"
 	"time"
 
+	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/gofiber/fiber/v2"
 )
 
-type Detail struct {
-	Timestamp       string
-	RequestId       interface{}
-	Ip              string
-	Method          string
-	BaseUrl         string
-	Endpoint        string
-	OriginalUrl     string
-	Headers         string
-	RequestContent  interface{}
-	RequestBody     interface{}
-	Status          int
-	ResponseContent interface{}
-	ResponseBody    string
-	Latency         time.Duration
+type Document struct {
+	Timestamp       string              `json:"timestamp"`
+	RequestId       interface{}         `json:"request_id"`
+	Ip              string              `json:"ip"`
+	Method          string              `json:"method"`
+	BaseUrl         string              `json:"base_url"`
+	Endpoint        string              `json:"endpoint"`
+	OriginalUrl     string              `json:"original_url"`
+	RequestHeaders  map[string][]string `json:"request_headers"`
+	RequestBody     interface{}         `json:"request_body"`
+	Status          int                 `json:"status"`
+	ResponseHeaders map[string][]string `json:"response_headers"`
+	ResponseBody    string              `json:"response_body"`
+	Latency         time.Duration       `json:"latency"`
 }
 
 func Log(app *fiber.App) {
@@ -38,27 +39,31 @@ func Log(app *fiber.App) {
 }
 
 func pushToElastic(c *fiber.Ctx) {
-	request := map[string]interface{}{
-		"timestamp":       c.Context().Time().Format("2006-01-02 15:04:05.000"),
-		"requestId":       c.Locals("requestid"),
-		"ip":              c.IP(),
-		"method":          c.Method(),
-		"baseUrl":         c.BaseURL(),
-		"endpoint":        c.Path(),
-		"originalUrl":     c.BaseURL() + c.OriginalURL(),
-		"headers":         c.Request().Header.String(),
-		"requestContent":  c.Request(),
-		"requestBody":     getRequestBody(c.Request()),
-		"status":          c.Response().StatusCode(),
-		"responseContent": c.Response(),
-		"responseBody":    string(c.Response().Body()),
+
+	document := Document{
+		Timestamp:       c.Context().Time().Format("2006-01-02 15:04:05.000"),
+		RequestId:       c.Locals("requestid"),
+		Ip:              c.IP(),
+		Method:          c.Method(),
+		BaseUrl:         c.BaseURL(),
+		Endpoint:        c.Path(),
+		OriginalUrl:     c.BaseURL() + c.OriginalURL(),
+		RequestHeaders:  c.GetReqHeaders(),
+		RequestBody:     getRequestBody(c.Request()),
+		Status:          c.Response().StatusCode(),
+		ResponseHeaders: c.GetRespHeaders(),
+		ResponseBody:    string(c.Response().Body()),
 	}
 
 	latency := time.Since(c.Context().Time())
-	request["latency"] = latency
+	document.Latency = latency
 
-	// TODO
-	// push to elastic
+	es := config.GetElasticConnection()
+	_, err := es.Index("api-log", esutil.NewJSONReader(&document))
+	if err != nil {
+		fmt.Println("error store log to elastic", err)
+		return
+	}
 }
 
 func getRequestBody(request *fiber.Request) map[string]interface{} {
