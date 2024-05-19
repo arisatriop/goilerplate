@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"fmt"
 	"goilerplate/config"
 	"mime/multipart"
@@ -12,19 +13,19 @@ import (
 )
 
 type Document struct {
-	Timestamp       string              `json:"timestamp"`
-	RequestId       interface{}         `json:"request_id"`
-	Ip              string              `json:"ip"`
-	Method          string              `json:"method"`
-	BaseUrl         string              `json:"base_url"`
-	Endpoint        string              `json:"endpoint"`
-	OriginalUrl     string              `json:"original_url"`
-	RequestHeaders  map[string][]string `json:"request_headers"`
-	RequestBody     interface{}         `json:"request_body"`
-	Status          int                 `json:"status"`
-	ResponseHeaders map[string][]string `json:"response_headers"`
-	ResponseBody    string              `json:"response_body"`
-	Latency         time.Duration       `json:"latency"`
+	Timestamp       time.Time              `json:"timestamp"`
+	RequestId       interface{}            `json:"request_id"`
+	Ip              string                 `json:"ip"`
+	Method          string                 `json:"method"`
+	BaseUrl         string                 `json:"base_url"`
+	Endpoint        string                 `json:"endpoint"`
+	OriginalUrl     string                 `json:"original_url"`
+	RequestHeaders  map[string][]string    `json:"request_headers"`
+	RequestBody     interface{}            `json:"request_body"`
+	Status          int                    `json:"status"`
+	ResponseHeaders map[string][]string    `json:"response_headers"`
+	ResponseBody    map[string]interface{} `json:"response_body"`
+	Latency         string                 `json:"latency"`
 }
 
 func Log(app *fiber.App) {
@@ -39,9 +40,8 @@ func Log(app *fiber.App) {
 }
 
 func pushToElastic(c *fiber.Ctx) {
-
 	document := Document{
-		Timestamp:       c.Context().Time().Format("2006-01-02 15:04:05.000"),
+		Timestamp:       c.Context().Time(),
 		RequestId:       c.Locals("requestid"),
 		Ip:              c.IP(),
 		Method:          c.Method(),
@@ -52,10 +52,10 @@ func pushToElastic(c *fiber.Ctx) {
 		RequestBody:     getRequestBody(c.Request()),
 		Status:          c.Response().StatusCode(),
 		ResponseHeaders: c.GetRespHeaders(),
-		ResponseBody:    string(c.Response().Body()),
+		ResponseBody:    getResponseBody(c.Response().Body()),
 	}
 
-	latency := time.Since(c.Context().Time())
+	latency := time.Since(c.Context().Time()).String()
 	document.Latency = latency
 
 	es := config.GetElasticConnection()
@@ -64,6 +64,9 @@ func pushToElastic(c *fiber.Ctx) {
 		fmt.Println("error store log to elastic", err)
 		return
 	}
+
+	// TODO
+	// Check is response 201 to make sure successfully store log to elastic
 }
 
 func getRequestBody(request *fiber.Request) map[string]interface{} {
@@ -93,6 +96,20 @@ func getRequestBody(request *fiber.Request) map[string]interface{} {
 		"Content-Type": contentType,
 		"Payload":      payload.String(),
 	}
+}
+
+func getResponseBody(body []byte) map[string]interface{} {
+	// Define a map to store the unmarshaled data
+	var response map[string]interface{}
+
+	// Unmarshal the JSON data into the map
+	err := json.Unmarshal(body, &response)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+	fmt.Println("response: ", response)
+	return response
 }
 
 func setFields(payload *strings.Builder, form *multipart.Form) {

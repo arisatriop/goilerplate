@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	elastic "github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
@@ -41,18 +42,40 @@ func CreateElasticConnection() {
 }
 
 func createIndices(index string) (*esapi.Response, error) {
-	res, err := es.Indices.Create(index)
+	mapping := `{
+		"mappings": {
+			"properties": {
+				"timestamp": {
+					"type": "date",
+					"fields": {
+						"keyword": {
+							"type": "keyword"
+						}
+					}
+				},
+				"request_id": {
+					"type": "text",
+					"fields": {
+						"keyword": {
+							"type": "keyword"
+						}
+					}
+				}
+			}
+		}
+	}`
+	res, err := es.Indices.Create(index, func(a *esapi.IndicesCreateRequest) {
+		a.Body = strings.NewReader(mapping)
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	if res.IsError() {
 		return nil, err
-
 	}
 
 	return res, nil
-
 }
 
 func GetElasticConnection() *elastic.Client {
