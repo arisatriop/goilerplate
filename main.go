@@ -26,15 +26,18 @@ func main() {
 	middleware.Fiber(app)
 	middleware.Log(app)
 
+	// Init route
+	route.Init(app)
+
 	// app.Get("/", func(c *fiber.Ctx) error {
 	// 	time.Sleep(1 * time.Second)
 	// 	return c.SendString("Hello, World")
 	// })
 
-	app.Post("/:foo", func(c *fiber.Ctx) error {
-		foo := c.Params("foo")
-		return c.Status(200).JSON(fiber.Map{"foo": foo, "bar": "bar"})
-	})
+	// app.Post("/:foo", func(c *fiber.Ctx) error {
+	// 	foo := c.Params("foo")
+	// 	return c.Status(200).JSON(fiber.Map{"foo": foo, "bar": "bar"})
+	// })
 
 	route.Init(app)
 
