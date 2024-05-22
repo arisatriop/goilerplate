@@ -1,6 +1,6 @@
 package response
 
-import "goilerplate/src/entity"
+import "goilerplate/app/entity"
 
 type Example struct {
 	Uuid    string `json:"uuid"`

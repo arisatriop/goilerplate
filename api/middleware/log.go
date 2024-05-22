@@ -108,7 +108,7 @@ func getResponseBody(body []byte) map[string]interface{} {
 		fmt.Println("Error:", err)
 		return nil
 	}
-	fmt.Println("response: ", response)
+
 	return response
 }
 

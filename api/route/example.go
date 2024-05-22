@@ -2,10 +2,10 @@ package route
 
 import (
 	"goilerplate/api/request"
+	handler "goilerplate/app/handler/v1"
+	repository "goilerplate/app/repository/v1"
+	usecase "goilerplate/app/usecase/v1"
 	"goilerplate/config"
-	handler "goilerplate/src/handler/v1"
-	repository "goilerplate/src/repository/v1"
-	usecase "goilerplate/src/usecase/v1"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -27,7 +27,7 @@ import (
 
 func Example(prefix string, r fiber.Router, con *config.Con, validator *validator.Validate) {
 
-	repository := repository.NewExampleImpl()
+	repository := repository.NewExampleImpl(con)
 	usecase := usecase.NewExampleUsecase(repository)
 	request := request.NewExampleRequest()
 	handler := handler.NewExampleHandler(validator, request, usecase)

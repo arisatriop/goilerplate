@@ -1,6 +1,8 @@
 package request
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"github.com/gofiber/fiber/v2"
+)
 
 type ExampleImpl struct{}
 
@@ -30,14 +32,18 @@ func NewExampleRequest() IExample {
 	return &ExampleImpl{}
 }
 
-func (payload *ExampleImpl) GetReadPayload(ctx *fiber.Ctx) (*ExampleReadPayload, error) {
-	panic("Not implement")
+func (p *ExampleImpl) GetReadPayload(ctx *fiber.Ctx) (*ExampleReadPayload, error) {
+	// panic("Not implement")
+	return nil, nil
+
 }
 
-func (payload *ExampleImpl) GetCreatePayload(ctx *fiber.Ctx) (*ExampleCreatePayload, error) {
-	panic("Not implement")
+func (p *ExampleImpl) GetCreatePayload(ctx *fiber.Ctx) (*ExampleCreatePayload, error) {
+	// panic("Not implement")
+	return nil, nil
 }
 
-func (payload *ExampleImpl) GetUpdatePayload(ctx *fiber.Ctx) (*ExampleUpdatePayload, error) {
-	panic("Not implement")
+func (p *ExampleImpl) GetUpdatePayload(ctx *fiber.Ctx) (*ExampleUpdatePayload, error) {
+	// panic("Not implement")
+	return nil, nil
 }
