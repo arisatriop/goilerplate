@@ -24,6 +24,5 @@ func Init(app *fiber.App) {
 
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
-
 	Example("/example", v1, con, validator)
 }

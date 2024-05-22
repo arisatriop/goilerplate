@@ -1,12 +1,16 @@
 package v1
 
 import (
+	"database/sql"
 	"fmt"
 	"goilerplate/api/response"
 	"goilerplate/app/entity"
 	repository "goilerplate/app/repository/v1"
+	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 type IExample interface {
@@ -43,7 +47,29 @@ func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 }
 
 func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
-	panic("Not implement")
+	id, err := strconv.Atoi(ctx.Params("id"))
+	if err != nil {
+		return fmt.Errorf("usecase (update example): %s", err)
+	}
+
+	example, err := u.Repository.FindById(int64(id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return err
+		}
+		return fmt.Errorf("usecase (update example): %s", err)
+	}
+
+	example.Code = ctx.FormValue("code")
+	example.Example = ctx.FormValue("example")
+	example.UpdatedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	example.UpdatedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
+	err = u.Repository.Update(example.Id, example)
+	if err != nil {
+		return fmt.Errorf("usecase (update example): %s", err)
+	}
+
+	return nil
 }
 
 func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {

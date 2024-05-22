@@ -6,6 +6,8 @@ import (
 	"goilerplate/api/request"
 	"goilerplate/app/entity"
 	"goilerplate/config"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type IExample interface {
@@ -44,7 +46,23 @@ func (r *ExampleImpl) Create(example *entity.Example) error {
 }
 
 func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
-	panic("Not implement")
+	if _, err := r.Con.Db.Exec(context.Background(), `
+		update example set 
+			code = $1,
+			example = $2,
+			updated_at = $3,
+			updated_by = $4
+		where id = $5`,
+		example.Code,
+		example.Example,
+		example.UpdatedAt,
+		example.UpdatedBy,
+		id,
+	); err != nil {
+		return fmt.Errorf("repository (update example): %v", err)
+	}
+
+	return nil
 }
 
 func (r *ExampleImpl) Delete(id int64) error {
@@ -56,5 +74,39 @@ func (r *ExampleImpl) FindAll(payload *request.ExampleReadPayload) ([]*entity.Ex
 }
 
 func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
-	panic("Not implement")
+	var exp entity.Example
+
+	row := r.Con.Db.QueryRow(context.Background(), `
+		select 
+		id,
+		code,
+		example,
+		created_at,
+		created_by,
+		updated_at,
+		updated_by,
+		deleted_at,
+		deleted_by,
+		uuid
+		from example 
+		where id = $1`, id,
+	)
+
+	err := row.Scan(
+		&exp.Id,
+		&exp.Code,
+		&exp.Example,
+		&exp.CreatedAt,
+		&exp.CreatedBy,
+		&exp.UpdatedAt,
+		&exp.UpdatedBy,
+		&exp.DeletedAt,
+		&exp.DeletedBy,
+		&exp.Uuid,
+	)
+	if err != nil && err != pgx.ErrNoRows {
+		return &exp, fmt.Errorf("repository (find by id example): %v", err)
+	}
+
+	return &exp, err
 }

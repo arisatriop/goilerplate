@@ -1,6 +1,9 @@
 package entity
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type Example struct {
 	Id        int64
@@ -8,9 +11,9 @@ type Example struct {
 	Example   string
 	CreatedAt time.Time
 	CreatedBy string
-	UpdatedAt time.Time
-	UpdatedBy string
-	DeletedAt time.Time
-	DeletedBy string
+	UpdatedAt sql.NullTime
+	UpdatedBy sql.NullString
+	DeletedAt sql.NullTime
+	DeletedBy sql.NullString
 	Uuid      string
 }

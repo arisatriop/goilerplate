@@ -46,6 +46,8 @@ func (p *ExampleImpl) GetCreatePayload(ctx *fiber.Ctx) (*ExampleCreatePayload, e
 }
 
 func (p *ExampleImpl) GetUpdatePayload(ctx *fiber.Ctx) (*ExampleUpdatePayload, error) {
-	// panic("Not implement")
-	return nil, nil
+	return &ExampleUpdatePayload{
+		Code:    ctx.FormValue("code"),
+		Example: ctx.FormValue("example"),
+	}, nil
 }
