@@ -2,6 +2,7 @@ package route
 
 import (
 	"goilerplate/api/request"
+	"goilerplate/api/response"
 	handler "goilerplate/app/handler/v1"
 	repository "goilerplate/app/repository/v1"
 	usecase "goilerplate/app/usecase/v1"
@@ -27,10 +28,11 @@ import (
 
 func Example(prefix string, r fiber.Router, con *config.Con, validator *validator.Validate) {
 
-	repository := repository.NewExampleImpl(con)
+	repository := repository.NewExampleRepository(con)
 	usecase := usecase.NewExampleUsecase(repository)
 	request := request.NewExampleRequest()
-	handler := handler.NewExampleHandler(validator, request, usecase)
+	response := response.NewExampleResponse()
+	handler := handler.NewExampleHandler(validator, request, response, usecase)
 
 	example := r.Group(prefix)
 	example.Post("/", handler.Create())

@@ -3,7 +3,6 @@ package v1
 import (
 	"database/sql"
 	"fmt"
-	"goilerplate/api/response"
 	"goilerplate/app/entity"
 	repository "goilerplate/app/repository/v1"
 	"strconv"
@@ -17,8 +16,8 @@ type IExample interface {
 	Create(ctx *fiber.Ctx) error
 	Update(ctx *fiber.Ctx) error
 	Delete(ctx *fiber.Ctx) error
-	FindAll(ctx *fiber.Ctx) ([]*response.Example, error)
-	FindById(ctx *fiber.Ctx) (*response.Example, error)
+	FindAll(ctx *fiber.Ctx) ([]*entity.Example, error)
+	FindById(ctx *fiber.Ctx) (*entity.Example, error)
 }
 
 type ExampleImpl struct {
@@ -96,17 +95,17 @@ func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 	return nil
 }
 
-func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*response.Example, error) {
+func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*entity.Example, error) {
 	panic("Not implement")
 }
 
-func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*response.Example, error) {
+func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*entity.Example, error) {
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
 		return nil, fmt.Errorf("usecase (find by id example): %s", err)
 	}
 
-	_, err = u.Repository.FindById(int64(id))
+	example, err := u.Repository.FindById(int64(id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, err
@@ -114,5 +113,5 @@ func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*response.Example, error) {
 		return nil, fmt.Errorf("usecase (find by id example): %s", err)
 	}
 
-	return nil, nil
+	return example, nil
 }

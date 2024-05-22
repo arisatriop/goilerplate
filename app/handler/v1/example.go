@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	"goilerplate/api/request"
+	"goilerplate/api/response"
 	usecase "goilerplate/app/usecase/v1"
 
 	"github.com/go-playground/validator/v10"
@@ -26,13 +27,15 @@ type IExample interface {
 type ExampleImpl struct {
 	Validator *validator.Validate
 	Request   request.IExample
+	Response  response.IExample
 	Usecase   usecase.IExample
 }
 
-func NewExampleHandler(validator *validator.Validate, request request.IExample, usecase usecase.IExample) IExample {
+func NewExampleHandler(validator *validator.Validate, request request.IExample, response response.IExample, usecase usecase.IExample) IExample {
 	return &ExampleImpl{
 		Validator: validator,
 		Request:   request,
+		Response:  response,
 		Usecase:   usecase,
 	}
 }
@@ -221,11 +224,22 @@ func (h *ExampleImpl) FindById() fiber.Handler {
 			})
 		}
 
+		response, err := h.Response.FindById(example)
+		if err != nil {
+			fmt.Println("ERROR: handler (find by id example): ", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    5001,
+				"result":  false,
+				"message": "Whops, something went wrong. Please try again in a moment",
+				"data":    nil,
+			})
+		}
+
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"code":    2001,
 			"result":  true,
 			"message": "Sucess",
-			"data":    example,
+			"data":    response,
 		})
 	}
 }

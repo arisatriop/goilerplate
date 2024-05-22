@@ -22,7 +22,7 @@ type ExampleImpl struct {
 	Con *config.Con
 }
 
-func NewExampleImpl(con *config.Con) IExample {
+func NewExampleRepository(con *config.Con) IExample {
 	return &ExampleImpl{
 		Con: con,
 	}
@@ -106,7 +106,8 @@ func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
 		deleted_by,
 		uuid
 		from example 
-		where id = $1`, id,
+		where id = $1
+		and deleted_at is null`, id,
 	)
 
 	err := row.Scan(
