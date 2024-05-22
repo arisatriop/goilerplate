@@ -4,19 +4,20 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-var db *pgx.Conn
+var db *pgxpool.Pool
 var gdb *gorm.DB
 
 type Con struct {
-	Db  *pgx.Conn
+	Db  *pgxpool.Pool
 	Gdb *gorm.DB
-	Dtx *pgx.Tx
+	Dtx *pgxpool.Tx
 	Gtx *gorm.Tx
 }
 
@@ -26,7 +27,7 @@ func CreateDBConnection() {
 	fmt.Println("Database: connected")
 }
 
-func SqlConnection() *pgx.Conn {
+func SqlConnection() *pgxpool.Pool {
 	// exampleConnString := "postgres://username:password@host:post/dbname"
 
 	connString := fmt.Sprintf(
@@ -38,15 +39,31 @@ func SqlConnection() *pgx.Conn {
 		App.DbName,
 	)
 
-	db, err := pgx.Connect(context.Background(), connString)
+	config, err := pgxpool.ParseConfig(connString)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to parse config: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close(context.Background())
+
+	conn, err := pgxpool.NewWithConfig(context.Background(), setPgxConfig(config))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to postgres: %v\n", err)
+		os.Exit(1)
+	}
+	// defer conn.Close()
 
 	fmt.Println("Postgres: ok")
-	return db
+	return conn
+}
+
+func setPgxConfig(config *pgxpool.Config) *pgxpool.Config {
+	config.MaxConns = 50
+	config.MinConns = 10
+	config.MaxConnLifetime = 1 * time.Hour
+	config.MaxConnIdleTime = 15 * time.Minute
+	config.HealthCheckPeriod = time.Minute
+
+	return config
 }
 
 func GormConnection() *gorm.DB {

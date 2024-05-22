@@ -27,22 +27,20 @@ func NewExampleImpl(con *config.Con) IExample {
 }
 
 func (r *ExampleImpl) Create(example *entity.Example) error {
-	_, err := r.Con.Db.Exec(context.Background(), `
+	if _, err := r.Con.Db.Exec(context.Background(), `
 		insert into example (
 			code, 
 			example, 
 			created_by
-		)`,
+		) values ($1, $2, $3)`,
 		example.Code,
 		example.Example,
 		example.CreatedBy,
-	)
-
-	if err != nil {
-		return fmt.Errorf("add example: %v", err)
+	); err != nil {
+		return fmt.Errorf("repository (create example): %v", err)
 	}
 
-	return err
+	return nil
 }
 
 func (r *ExampleImpl) Update(id int64, example *entity.Example) error {

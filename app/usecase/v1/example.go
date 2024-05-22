@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"goilerplate/api/response"
 	"goilerplate/app/entity"
 	repository "goilerplate/app/repository/v1"
@@ -33,7 +34,12 @@ func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 		CreatedBy: ctx.Get("x-user"),
 	}
 
-	return u.Repository.Create(&example)
+	err := u.Repository.Create(&example)
+	if err != nil {
+		return fmt.Errorf("usecase (create example): %s", err)
+	}
+
+	return err
 }
 
 func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
