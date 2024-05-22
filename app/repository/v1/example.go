@@ -13,7 +13,7 @@ import (
 type IExample interface {
 	Create(example *entity.Example) error
 	Update(id int64, example *entity.Example) error
-	Delete(id int64) error
+	Delete(id int64, example *entity.Example) error
 	FindAll(payload *request.ExampleReadPayload) ([]*entity.Example, error)
 	FindById(id int64) (*entity.Example, error)
 }
@@ -65,8 +65,25 @@ func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
 	return nil
 }
 
-func (r *ExampleImpl) Delete(id int64) error {
-	panic("Not implement")
+func (r *ExampleImpl) Delete(id int64, example *entity.Example) error {
+	stmt, err := r.Con.Db.Acquire(context.Background())
+	if err != nil {
+		return fmt.Errorf("repository (delete example): %v", err)
+	}
+
+	if _, err = stmt.Exec(context.Background(), `
+		update example set
+			deleted_at = $1,
+			deleted_by = $2
+		where id = $3`,
+		example.DeletedAt,
+		example.DeletedBy,
+		example.Id,
+	); err != nil {
+		return fmt.Errorf("repository (delete example): %v", err)
+	}
+
+	return nil
 }
 
 func (r *ExampleImpl) FindAll(payload *request.ExampleReadPayload) ([]*entity.Example, error) {

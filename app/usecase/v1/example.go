@@ -73,7 +73,27 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 }
 
 func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
-	panic("Not implement")
+	id, err := strconv.Atoi(ctx.Params("id"))
+	if err != nil {
+		return fmt.Errorf("usecase (delete example): %s", err)
+	}
+
+	example, err := u.Repository.FindById(int64(id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return err
+		}
+		return fmt.Errorf("usecase (delete example): %s", err)
+	}
+
+	example.DeletedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	example.DeletedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
+	err = u.Repository.Delete(example.Id, example)
+	if err != nil {
+		return fmt.Errorf("usecase (delete example): %s", err)
+	}
+
+	return nil
 }
 
 func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*response.Example, error) {
@@ -81,5 +101,18 @@ func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*response.Example, error) {
 }
 
 func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*response.Example, error) {
-	panic("Not implement")
+	id, err := strconv.Atoi(ctx.Params("id"))
+	if err != nil {
+		return nil, fmt.Errorf("usecase (find by id example): %s", err)
+	}
+
+	_, err = u.Repository.FindById(int64(id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, err
+		}
+		return nil, fmt.Errorf("usecase (find by id example): %s", err)
+	}
+
+	return nil, nil
 }

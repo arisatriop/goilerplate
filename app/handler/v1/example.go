@@ -162,8 +162,35 @@ func (h *ExampleImpl) Update() fiber.Handler {
 }
 
 func (h *ExampleImpl) Delete() fiber.Handler {
-	// panic("Not implement")
-	return nil
+	return func(c *fiber.Ctx) error {
+
+		err := h.Usecase.Delete(c)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"code":    4041,
+					"result":  false,
+					"message": "Data not found",
+					"data":    nil,
+				})
+			}
+
+			fmt.Println("ERROR: handler (delete example): ", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    5001,
+				"result":  false,
+				"message": "Whops, something went wrong. Please try again in a moment",
+				"data":    nil,
+			})
+		}
+
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"code":    2001,
+			"result":  true,
+			"message": "Sucess",
+			"data":    nil,
+		})
+	}
 }
 
 func (h *ExampleImpl) FindAll() fiber.Handler {
@@ -172,6 +199,33 @@ func (h *ExampleImpl) FindAll() fiber.Handler {
 }
 
 func (h *ExampleImpl) FindById() fiber.Handler {
-	// panic("Not implement")
-	return nil
+	return func(c *fiber.Ctx) error {
+
+		example, err := h.Usecase.FindById(c)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"code":    4041,
+					"result":  false,
+					"message": "Data not found",
+					"data":    nil,
+				})
+			}
+
+			fmt.Println("ERROR: handler (find by id example): ", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    5001,
+				"result":  false,
+				"message": "Whops, something went wrong. Please try again in a moment",
+				"data":    nil,
+			})
+		}
+
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"code":    2001,
+			"result":  true,
+			"message": "Sucess",
+			"data":    example,
+		})
+	}
 }
