@@ -26,7 +26,7 @@ A boilerplate for Golang Restful API with auto-reload for every change that happ
 --------- | v1\
 --------- | ...\
 ------ | helper \
------- | logs\
+------ | logs
 
 ##
 
@@ -34,18 +34,18 @@ Alyaws remember the rules: **Avoid importing packages at the same or higher laye
 
 ### Project hierarchy
 
-| main
-    | api
-        | route
-            | handler 
-                | usecase 
-                    | repository
-                        | middleware
-                        | request
-                        | response 
-                            | config
-                                | entity
-                                    | helper
+| main\
+--- | api\
+------ | route\
+--------- | handler\
+------------ | usecase\
+--------------- | repository\
+------------------ | middleware\
+------------------ | request\
+------------------ | response\
+--------------------- | config\
+------------------------ | entity\
+--------------------------- | helper
 
 ## 
 
