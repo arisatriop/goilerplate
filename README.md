@@ -5,7 +5,7 @@ A boilerplate for Golang Restful API with auto-reload for every change that happ
 
 ## Attention please
 
-**Project structure**
+### Project structure
 | main
     | config
     | api
@@ -28,6 +28,7 @@ A boilerplate for Golang Restful API with auto-reload for every change that happ
         | helper 
         | logs
 
+##
 
 Alyaws remember the rules: **Avoid importing packages at the same or higher layer to avoid circular import problems**
 
