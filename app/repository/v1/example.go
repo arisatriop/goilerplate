@@ -66,16 +66,25 @@ func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
 }
 
 func (r *ExampleImpl) Delete(id int64, example *entity.Example) error {
-	stmt, err := r.Con.Db.Acquire(context.Background())
+
+	conn, err := r.Con.Db.Acquire(context.Background())
 	if err != nil {
 		return fmt.Errorf("repository (delete example): %v", err)
 	}
+	defer conn.Release()
 
-	if _, err = stmt.Exec(context.Background(), `
+	stmt := "deleteExampleById"
+	if _, err = conn.Conn().Prepare(context.Background(), stmt, `
 		update example set
 			deleted_at = $1,
 			deleted_by = $2
 		where id = $3`,
+	); err != nil {
+		return fmt.Errorf("repository (delete example): %v", err)
+	}
+
+	if _, err = conn.Conn().Exec(context.Background(),
+		stmt,
 		example.DeletedAt,
 		example.DeletedBy,
 		example.Id,
@@ -87,13 +96,22 @@ func (r *ExampleImpl) Delete(id int64, example *entity.Example) error {
 }
 
 func (r *ExampleImpl) FindAll(payload *request.ExampleReadPayload) ([]*entity.Example, error) {
-	panic("Not implement")
+	var exps []*entity.Example
+	return exps, nil
 }
 
 func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
+
 	var exp entity.Example
 
-	row := r.Con.Db.QueryRow(context.Background(), `
+	conn, err := r.Con.Db.Acquire(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("repository (find by id example): %v", err)
+	}
+	defer conn.Release()
+
+	stmt := "findExampleById"
+	if _, err = conn.Conn().Prepare(context.Background(), stmt, `
 		select 
 		id,
 		code,
@@ -107,10 +125,12 @@ func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
 		uuid
 		from example 
 		where id = $1
-		and deleted_at is null`, id,
-	)
+		and deleted_at is null`,
+	); err != nil {
+		return nil, fmt.Errorf("repository (find by id example): %v", err)
+	}
 
-	err := row.Scan(
+	if err = conn.QueryRow(context.Background(), stmt, id).Scan(
 		&exp.Id,
 		&exp.Code,
 		&exp.Example,
@@ -121,9 +141,11 @@ func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
 		&exp.DeletedAt,
 		&exp.DeletedBy,
 		&exp.Uuid,
-	)
-	if err != nil && err != pgx.ErrNoRows {
-		return &exp, fmt.Errorf("repository (find by id example): %v", err)
+	); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, err
+		}
+		return nil, fmt.Errorf("repository (find by id example): %v", err)
 	}
 
 	return &exp, err
