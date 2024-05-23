@@ -13,19 +13,20 @@ import (
 )
 
 type Document struct {
-	Timestamp       time.Time              `json:"timestamp"`
-	RequestId       interface{}            `json:"request_id"`
-	Ip              string                 `json:"ip"`
-	Method          string                 `json:"method"`
-	BaseUrl         string                 `json:"base_url"`
-	Endpoint        string                 `json:"endpoint"`
-	OriginalUrl     string                 `json:"original_url"`
-	RequestHeaders  map[string][]string    `json:"request_headers"`
-	RequestBody     interface{}            `json:"request_body"`
-	Status          int                    `json:"status"`
-	ResponseHeaders map[string][]string    `json:"response_headers"`
-	ResponseBody    map[string]interface{} `json:"response_body"`
-	Latency         string                 `json:"latency"`
+	Timestamp          time.Time              `json:"timestamp"`
+	RequestId          interface{}            `json:"request_id"`
+	Ip                 string                 `json:"ip"`
+	Method             string                 `json:"method"`
+	BaseUrl            string                 `json:"base_url"`
+	Endpoint           string                 `json:"endpoint"`
+	OriginalUrl        string                 `json:"original_url"`
+	RequestHeaders     map[string][]string    `json:"request_headers"`
+	RequestBody        interface{}            `json:"request_body"`
+	Status             int                    `json:"status"`
+	ResponseHeaders    map[string][]string    `json:"response_headers"`
+	ResponseBody       map[string]interface{} `json:"response_body"`
+	ResponseBodyString string                 `json:"response_body_string"`
+	Latency            string                 `json:"latency"`
 }
 
 func Log(app *fiber.App) {
@@ -41,18 +42,19 @@ func Log(app *fiber.App) {
 
 func pushToElastic(c *fiber.Ctx) {
 	document := Document{
-		Timestamp:       c.Context().Time(),
-		RequestId:       c.Locals("requestid"),
-		Ip:              c.IP(),
-		Method:          c.Method(),
-		BaseUrl:         c.BaseURL(),
-		Endpoint:        c.Path(),
-		OriginalUrl:     c.BaseURL() + c.OriginalURL(),
-		RequestHeaders:  c.GetReqHeaders(),
-		RequestBody:     getRequestBody(c.Request()),
-		Status:          c.Response().StatusCode(),
-		ResponseHeaders: c.GetRespHeaders(),
-		ResponseBody:    getResponseBody(c.Response().Body()),
+		Timestamp:          c.Context().Time(),
+		RequestId:          c.Locals("requestid"),
+		Ip:                 c.IP(),
+		Method:             c.Method(),
+		BaseUrl:            c.BaseURL(),
+		Endpoint:           c.Path(),
+		OriginalUrl:        c.BaseURL() + c.OriginalURL(),
+		RequestHeaders:     c.GetReqHeaders(),
+		RequestBody:        getRequestBody(c.Request()),
+		Status:             c.Response().StatusCode(),
+		ResponseHeaders:    c.GetRespHeaders(),
+		ResponseBody:       getResponseBody(c.Response().Body()),
+		ResponseBodyString: string(c.Response().Body()),
 	}
 
 	latency := time.Since(c.Context().Time()).String()
