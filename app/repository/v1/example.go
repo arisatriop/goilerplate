@@ -108,7 +108,17 @@ func (r *ExampleImpl) Delete(id int64, example *entity.Example) error {
 }
 
 func (r *ExampleImpl) FindAll(payload *request.ExampleReadPayload) ([]*entity.Example, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
 	var exps []*entity.Example
+
+	rows, err := r.Con.Db.Query(ctx, getSqlFindAll(payload), getArgsFindAll(payload))
+	if err != nil {
+		return nil, fmt.Errorf("repository (find all example): %v", err)
+	}
+
 	return exps, nil
 }
 
@@ -164,4 +174,29 @@ func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
 	}
 
 	return &exp, err
+}
+
+// TODO
+// Make this singleton
+func GetSqlFindAllExample(payload *request.ExampleReadPayload) string {
+	sql := `
+		select 
+		id,
+		code,
+		example,
+		created_at,
+		created_by,
+		updated_at,
+		updated_by,
+		deleted_at,
+		deleted_by,
+		uuid
+		from example 
+		where deleted_at is null
+	`
+
+	if payload.Search != "" {
+		sql += " and ()"
+	}
+
 }
