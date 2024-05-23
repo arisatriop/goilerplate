@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func Recovery(app *fiber.App) {
+func Recover(app *fiber.App) {
 
 	app.Use(func(c *fiber.Ctx) error {
 		defer func() {

@@ -26,7 +26,7 @@ func main() {
 	// Init middleware
 	middleware.Fiber(app)
 	middleware.Log(app)
-	middleware.Recovery(app)
+	middleware.Recover(app)
 
 	// Init route
 	route.Init(app)
