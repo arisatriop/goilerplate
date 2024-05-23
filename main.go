@@ -11,6 +11,7 @@ import (
 )
 
 func main() {
+
 	// Set up Application Variable
 	config.SetAppVariable()
 
@@ -25,6 +26,7 @@ func main() {
 	// Init middleware
 	middleware.Fiber(app)
 	middleware.Log(app)
+	middleware.Recovery(app)
 
 	// Init route
 	route.Init(app)

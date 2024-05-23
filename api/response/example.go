@@ -35,6 +35,7 @@ func (r *NewExampleImpl) Delete(example *entity.Example) *Example {
 }
 
 func (r *NewExampleImpl) FindAll(example []*entity.Example) ([]*Example, error) {
+
 	var exps []*Example
 	for _, e := range example {
 		exps = append(exps, &Example{
