@@ -6,6 +6,7 @@ import (
 	"goilerplate/api/request"
 	"goilerplate/app/entity"
 	"goilerplate/config"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -29,7 +30,11 @@ func NewExampleRepository(con *config.Con) IExample {
 }
 
 func (r *ExampleImpl) Create(example *entity.Example) error {
-	if _, err := r.Con.Db.Exec(context.Background(), `
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if _, err := r.Con.Db.Exec(ctx, `
 		insert into example (
 			code, 
 			example, 
@@ -46,7 +51,11 @@ func (r *ExampleImpl) Create(example *entity.Example) error {
 }
 
 func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
-	if _, err := r.Con.Db.Exec(context.Background(), `
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if _, err := r.Con.Db.Exec(ctx, `
 		update example set 
 			code = $1,
 			example = $2,
@@ -67,7 +76,10 @@ func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
 
 func (r *ExampleImpl) Delete(id int64, example *entity.Example) error {
 
-	conn, err := r.Con.Db.Acquire(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	conn, err := r.Con.Db.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("repository (delete example): %v", err)
 	}
@@ -102,9 +114,12 @@ func (r *ExampleImpl) FindAll(payload *request.ExampleReadPayload) ([]*entity.Ex
 
 func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
 
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	var exp entity.Example
 
-	conn, err := r.Con.Db.Acquire(context.Background())
+	conn, err := r.Con.Db.Acquire(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repository (find by id example): %v", err)
 	}
