@@ -7,26 +7,26 @@ A boilerplate for Golang Restful API with auto-reload for every change that happ
 
 ### Project structure
 | main\
-  --- | config\
-  --- | api\
-      --- | middleware
-      --- | request
-      --- | response
-      --- | route 
-      --- | ...
-  --- | app
-      --- | entity
-      --- | handler
-          --- | v1
-          --- | ...
-      --- | usecase 
-          --- | v1
-          --- | ...
-      --- | repository
-          --- | v1
-          --- | ...
-      --- | helper 
-      --- | logs
+--- | config\
+--- | api\
+------ | middleware\
+------ | request\
+------ | response\
+------ | route \
+------ | ...\
+--- | app\
+------ | entity\
+------ | handler\
+--------- | v1\
+--------- | ...\
+------ | usecase \
+--------- | v1\
+--------- | ...\
+------ | repository\
+--------- | v1\
+--------- | ...\
+------ | helper \
+------ | logs\
 
 ##
 
