@@ -6,8 +6,8 @@ A boilerplate for Golang Restful API with auto-reload for every change that happ
 ## Attention please
 
 ### Project structure
-| main
-    | config
+| main\
+    | config\
     | api
         | middleware
         | request
@@ -32,7 +32,7 @@ A boilerplate for Golang Restful API with auto-reload for every change that happ
 
 Alyaws remember the rules: **Avoid importing packages at the same or higher layer to avoid circular import problems**
 
-**Project hierarchy:**
+### Project hierarchy
 
 | main
     | api
@@ -46,6 +46,8 @@ Alyaws remember the rules: **Avoid importing packages at the same or higher laye
                             | config
                                 | entity
                                     | helper
+
+## 
 
                                     
 
