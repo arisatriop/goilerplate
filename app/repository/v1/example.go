@@ -31,7 +31,7 @@ func NewExampleRepository(con *config.Con) IExample {
 
 func (r *ExampleImpl) Create(example *entity.Example) error {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	if _, err := r.Con.Db.Exec(ctx, `
@@ -52,7 +52,7 @@ func (r *ExampleImpl) Create(example *entity.Example) error {
 
 func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	if _, err := r.Con.Db.Exec(ctx, `
@@ -76,7 +76,7 @@ func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
 
 func (r *ExampleImpl) Delete(id int64, example *entity.Example) error {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	conn, err := r.Con.Db.Acquire(ctx)
@@ -114,7 +114,7 @@ func (r *ExampleImpl) FindAll(payload *request.ExampleReadPayload) ([]*entity.Ex
 
 func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	var exp entity.Example
