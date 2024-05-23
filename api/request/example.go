@@ -33,8 +33,11 @@ func NewExampleRequest() IExample {
 }
 
 func (p *ExampleImpl) GetReadPayload(ctx *fiber.Ctx) (*ExampleReadPayload, error) {
-	// panic("Not implement")
-	return nil, nil
+	return &ExampleReadPayload{
+		Search: ctx.FormValue("search"),
+		Limit:  ctx.FormValue("limit"),
+		Offset: ctx.FormValue("offset"),
+	}, nil
 
 }
 

@@ -197,8 +197,43 @@ func (h *ExampleImpl) Delete() fiber.Handler {
 }
 
 func (h *ExampleImpl) FindAll() fiber.Handler {
-	// panic("Not implement")
-	return nil
+	return func(c *fiber.Ctx) error {
+
+		examples, err := h.Usecase.FindAll(c)
+		if err != nil {
+			fmt.Println("ERROR: handler (find all example): ", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    5001,
+				"result":  false,
+				"message": "Whops, something went wrong. Please try again in a moment",
+				"data":    []string{},
+			})
+		}
+
+		response, err := h.Response.FindAll(examples)
+		if err != nil {
+			fmt.Println("ERROR: handler (find all example): ", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    5001,
+				"result":  false,
+				"message": "Whops, something went wrong. Please try again in a moment",
+				"data":    []string{},
+			})
+		}
+
+		var data interface{}
+		data = response
+		if len(response) == 0 {
+			data = []string{}
+		}
+
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"code":    2001,
+			"result":  true,
+			"message": "Sucess",
+			"data":    data,
+		})
+	}
 }
 
 func (h *ExampleImpl) FindById() fiber.Handler {

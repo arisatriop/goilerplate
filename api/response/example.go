@@ -12,7 +12,7 @@ type IExample interface {
 	Create(example *entity.Example) *Example
 	Update(example *entity.Example) *Example
 	Delete(example *entity.Example) *Example
-	FindAll(example []entity.Example) ([]*Example, error)
+	FindAll(example []*entity.Example) ([]*Example, error)
 	FindById(example *entity.Example) (*Example, error)
 }
 
@@ -34,8 +34,16 @@ func (r *NewExampleImpl) Delete(example *entity.Example) *Example {
 	panic("Not implement")
 }
 
-func (r *NewExampleImpl) FindAll(example []entity.Example) ([]*Example, error) {
-	panic("Not implement")
+func (r *NewExampleImpl) FindAll(example []*entity.Example) ([]*Example, error) {
+	var exps []*Example
+	for _, e := range example {
+		exps = append(exps, &Example{
+			Uuid:    e.Uuid,
+			Code:    e.Code,
+			Example: e.Example,
+		})
+	}
+	return exps, nil
 }
 
 func (r *NewExampleImpl) FindById(example *entity.Example) (*Example, error) {

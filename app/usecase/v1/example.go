@@ -3,6 +3,7 @@ package v1
 import (
 	"database/sql"
 	"fmt"
+	"goilerplate/api/request"
 	"goilerplate/app/entity"
 	repository "goilerplate/app/repository/v1"
 	"strconv"
@@ -96,7 +97,19 @@ func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 }
 
 func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*entity.Example, error) {
-	panic("Not implement")
+
+	payload := request.ExampleReadPayload{
+		Search: ctx.FormValue("search"),
+		Limit:  ctx.FormValue("limit"),
+		Offset: ctx.FormValue("offset"),
+	}
+
+	examples, err := u.Repository.FindAll(&payload)
+	if err != nil {
+		return nil, fmt.Errorf("usecase (find all example): %s", err)
+	}
+
+	return examples, nil
 }
 
 func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*entity.Example, error) {
