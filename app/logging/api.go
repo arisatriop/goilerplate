@@ -36,10 +36,12 @@ func (log *ApiLog) Store(c *fiber.Ctx) error {
 	document := log.GetDocument(c)
 
 	es := config.GetElasticConnection()
-	_, err := es.Index("api-log", esutil.NewJSONReader(&document))
+	res, err := es.Index("api-log", esutil.NewJSONReader(&document))
 	if err != nil {
 		return fmt.Errorf("error %v", err)
 	}
+	defer res.Body.Close()
+
 	return nil
 
 }

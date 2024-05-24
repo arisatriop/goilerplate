@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"goilerplate/api/request"
 	"goilerplate/api/response"
+	"goilerplate/app/logging"
 	usecase "goilerplate/app/usecase/v1"
 
 	"github.com/go-playground/validator/v10"
@@ -43,8 +44,11 @@ func NewExampleHandler(validator *validator.Validate, request request.IExample, 
 func (h *ExampleImpl) Create() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 
+		errLog := logging.ErrorLog{}
+
 		payload, err := h.Request.GetCreatePayload(c)
 		if err != nil {
+			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
@@ -55,6 +59,7 @@ func (h *ExampleImpl) Create() fiber.Handler {
 
 		if err := h.Validator.Struct(payload); err != nil {
 			if _, ok := err.(*validator.InvalidValidationError); ok {
+				go errLog.Store(c, err.Error())
 				fmt.Println("validation configuration error: ", err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"code":    5001,
@@ -79,6 +84,7 @@ func (h *ExampleImpl) Create() fiber.Handler {
 
 		err = h.Usecase.Create(c)
 		if err != nil {
+			go errLog.Store(c, err.Error())
 			fmt.Println("ERROR: handler (create example): ", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
