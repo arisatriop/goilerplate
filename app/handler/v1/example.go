@@ -48,6 +48,7 @@ func (h *ExampleImpl) Create() fiber.Handler {
 
 		payload, err := h.Request.GetCreatePayload(c)
 		if err != nil {
+			// fmt.Println("handler (create example): ", err)
 			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
@@ -59,8 +60,8 @@ func (h *ExampleImpl) Create() fiber.Handler {
 
 		if err := h.Validator.Struct(payload); err != nil {
 			if _, ok := err.(*validator.InvalidValidationError); ok {
+				// fmt.Println("handler (create example): ", err)
 				go errLog.Store(c, err.Error())
-				fmt.Println("validation configuration error: ", err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"code":    5001,
 					"result":  false,
@@ -84,8 +85,8 @@ func (h *ExampleImpl) Create() fiber.Handler {
 
 		err = h.Usecase.Create(c)
 		if err != nil {
+			// fmt.Println("handler (create example): ", err)
 			go errLog.Store(c, err.Error())
-			fmt.Println("ERROR: handler (create example): ", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
@@ -106,8 +107,12 @@ func (h *ExampleImpl) Create() fiber.Handler {
 func (h *ExampleImpl) Update() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 
+		errLog := logging.ErrorLog{}
+
 		payload, err := h.Request.GetUpdatePayload(c)
 		if err != nil {
+			// fmt.Println("handler (update example): ", err)
+			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
@@ -118,7 +123,8 @@ func (h *ExampleImpl) Update() fiber.Handler {
 
 		if err := h.Validator.Struct(payload); err != nil {
 			if _, ok := err.(*validator.InvalidValidationError); ok {
-				fmt.Println("validation configuration error: ", err)
+				// fmt.Println("handler (update example): ", err)
+				go errLog.Store(c, err.Error())
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"code":    5001,
 					"result":  false,
@@ -151,7 +157,8 @@ func (h *ExampleImpl) Update() fiber.Handler {
 				})
 			}
 
-			fmt.Println("ERROR: handler (update example): ", err)
+			// fmt.Println("handler (update example): ", err)
+			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
@@ -173,6 +180,8 @@ func (h *ExampleImpl) Update() fiber.Handler {
 func (h *ExampleImpl) Delete() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 
+		errLog := logging.ErrorLog{}
+
 		err := h.Usecase.Delete(c)
 		if err != nil {
 			if err == pgx.ErrNoRows {
@@ -184,7 +193,8 @@ func (h *ExampleImpl) Delete() fiber.Handler {
 				})
 			}
 
-			fmt.Println("ERROR: handler (delete example): ", err)
+			// fmt.Println("handler (delete example): ", err)
+			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
@@ -205,9 +215,12 @@ func (h *ExampleImpl) Delete() fiber.Handler {
 func (h *ExampleImpl) FindAll() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 
+		errLog := logging.ErrorLog{}
+
 		examples, err := h.Usecase.FindAll(c)
 		if err != nil {
-			fmt.Println("ERROR: handler (find all example): ", err)
+			// fmt.Println("ERROR: handler (find all example): ", err)
+			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
@@ -218,7 +231,8 @@ func (h *ExampleImpl) FindAll() fiber.Handler {
 
 		response, err := h.Response.FindAll(examples)
 		if err != nil {
-			fmt.Println("ERROR: handler (find all example): ", err)
+			// fmt.Println("ERROR: handler (find all example): ", err)
+			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
@@ -245,6 +259,8 @@ func (h *ExampleImpl) FindAll() fiber.Handler {
 func (h *ExampleImpl) FindById() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 
+		errLog := logging.ErrorLog{}
+
 		example, err := h.Usecase.FindById(c)
 		if err != nil {
 			if err == pgx.ErrNoRows {
@@ -256,7 +272,8 @@ func (h *ExampleImpl) FindById() fiber.Handler {
 				})
 			}
 
-			fmt.Println("ERROR: handler (find by id example): ", err)
+			// fmt.Println("ERROR: handler (find by id example): ", err)
+			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
@@ -267,7 +284,8 @@ func (h *ExampleImpl) FindById() fiber.Handler {
 
 		response, err := h.Response.FindById(example)
 		if err != nil {
-			fmt.Println("ERROR: handler (find by id example): ", err)
+			// fmt.Println("ERROR: handler (find by id example): ", err)
+			go errLog.Store(c, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"code":    5001,
 				"result":  false,
