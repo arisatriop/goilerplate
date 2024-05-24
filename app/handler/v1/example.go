@@ -98,7 +98,7 @@ func (h *ExampleImpl) Create() fiber.Handler {
 		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 			"code":    2011,
 			"result":  true,
-			"message": "Sucess",
+			"message": "Success",
 			"data":    nil,
 		})
 	}
@@ -170,7 +170,7 @@ func (h *ExampleImpl) Update() fiber.Handler {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"code":    2001,
 			"result":  true,
-			"message": "Sucess",
+			"message": "Success",
 			"data":    nil,
 		})
 
@@ -206,7 +206,7 @@ func (h *ExampleImpl) Delete() fiber.Handler {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"code":    2001,
 			"result":  true,
-			"message": "Sucess",
+			"message": "Success",
 			"data":    nil,
 		})
 	}
@@ -250,7 +250,7 @@ func (h *ExampleImpl) FindAll() fiber.Handler {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"code":    2001,
 			"result":  true,
-			"message": "Sucess",
+			"message": "Success",
 			"data":    data,
 		})
 	}
@@ -297,7 +297,7 @@ func (h *ExampleImpl) FindById() fiber.Handler {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"code":    2001,
 			"result":  true,
-			"message": "Sucess",
+			"message": "Success",
 			"data":    response,
 		})
 	}
