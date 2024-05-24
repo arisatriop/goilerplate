@@ -13,8 +13,8 @@ import (
 
 type IExample interface {
 	Create(example *entity.Example) error
-	Update(id int64, example *entity.Example) error
-	Delete(id int64, example *entity.Example) error
+	Update(id string, example *entity.Example) error
+	Delete(id string, example *entity.Example) error
 	FindAll(payload *request.ExampleReadPayload) ([]*entity.Example, error)
 	FindById(id int64) (*entity.Example, error)
 }
@@ -36,10 +36,12 @@ func (r *ExampleImpl) Create(example *entity.Example) error {
 
 	if _, err := r.Con.Db.Exec(ctx, `
 		insert into example (
+			id,
 			code, 
 			example, 
 			created_by
-		) values ($1, $2, $3)`,
+		) values ($1, $2, $3, $4)`,
+		example.Id,
 		example.Code,
 		example.Example,
 		example.CreatedBy,
@@ -50,7 +52,7 @@ func (r *ExampleImpl) Create(example *entity.Example) error {
 	return nil
 }
 
-func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
+func (r *ExampleImpl) Update(id string, example *entity.Example) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -74,7 +76,7 @@ func (r *ExampleImpl) Update(id int64, example *entity.Example) error {
 	return nil
 }
 
-func (r *ExampleImpl) Delete(id int64, example *entity.Example) error {
+func (r *ExampleImpl) Delete(id string, example *entity.Example) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

@@ -6,6 +6,7 @@ import (
 	"goilerplate/api/request"
 	"goilerplate/app/entity"
 	repository "goilerplate/app/repository/v1"
+	"goilerplate/helper"
 	"strconv"
 	"time"
 
@@ -32,7 +33,9 @@ func NewExampleUsecase(repository repository.IExample) IExample {
 }
 
 func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
+
 	example := entity.Example{
+		Id:        helper.GenerateShortUUID(),
 		Code:      ctx.FormValue("code"),
 		Example:   ctx.FormValue("example"),
 		CreatedBy: ctx.Get("x-user"),

@@ -6,7 +6,7 @@ import (
 )
 
 type Example struct {
-	Id        int64
+	Id        string
 	Code      string
 	Example   string
 	CreatedAt time.Time
