@@ -26,22 +26,35 @@ func CreateElasticConnection() {
 		os.Exit(1)
 	}
 
-	res, err := createIndices(index)
+	err = apiLog()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error to create initial index: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", index, err)
 		os.Exit(1)
 	}
 
-	fmt.Print("Elasticsearch: ")
-	if res.Status() == "" {
-		fmt.Print("Initial indices was not create because already exists\n")
-	} else {
-		fmt.Printf("%s indices created\n", index)
+	err = errorLog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", index, err)
+		os.Exit(1)
 	}
+
+	err = curlLog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", index, err)
+		os.Exit(1)
+	}
+
+	err = appLog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", index, err)
+		os.Exit(1)
+	}
+
 	fmt.Println("Elasticsearch: connected")
 }
 
-func createIndices(index string) (*esapi.Response, error) {
+func apiLog() error {
+	index := "api-log"
 	mapping := `{
 		"mappings": {
 			"properties": {
@@ -64,15 +77,117 @@ func createIndices(index string) (*esapi.Response, error) {
 			}
 		}
 	}`
+
+	if _, err := createIndices(index, mapping); err != nil {
+		return fmt.Errorf("error create index %s: %v", index, err)
+	}
+
+	return nil
+}
+
+func errorLog() error {
+	index := "error-log"
+	mapping := `{
+		"mappings": {
+			"properties": {
+				"timestamp": {
+					"type": "date",
+					"fields": {
+						"keyword": {
+							"type": "keyword"
+						}
+					}
+				},
+				"request_id": {
+					"type": "text",
+					"fields": {
+						"keyword": {
+							"type": "keyword"
+						}
+					}
+				},
+				"activity": {
+					"type": "text",
+					"fields": {
+						"keyword": {
+							"type": "keyword"
+						}
+					}
+				}
+			}
+		}
+	}`
+
+	if _, err := createIndices(index, mapping); err != nil {
+		return fmt.Errorf("error create index %s: %v", index, err)
+	}
+
+	return nil
+}
+
+func curlLog() error {
+	index := "curl-log"
+	mapping := `{
+		"mappings": {
+			"properties": {
+				"timestamp": {
+					"type": "date",
+					"fields": {
+						"keyword": {
+							"type": "keyword"
+						}
+					}
+				}
+			}
+		}
+	}`
+
+	if _, err := createIndices(index, mapping); err != nil {
+		return fmt.Errorf("error create index %s: %v", index, err)
+	}
+
+	return nil
+}
+
+func appLog() error {
+	index := "app-log"
+	mapping := `{
+		"mappings": {
+			"properties": {
+				"timestamp": {
+					"type": "date",
+					"fields": {
+						"keyword": {
+							"type": "keyword"
+						}
+					}
+				}
+			}
+		}
+	}`
+
+	if _, err := createIndices(index, mapping); err != nil {
+		return fmt.Errorf("error create index %s: %v", index, err)
+	}
+
+	return nil
+}
+
+func createIndices(index string, mapping string) (*esapi.Response, error) {
+
 	res, err := es.Indices.Create(index, func(a *esapi.IndicesCreateRequest) {
 		a.Body = strings.NewReader(mapping)
 	})
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error %v", err)
 	}
 
-	if res.IsError() {
-		return nil, err
+	fmt.Print("Elasticsearch creating index: ")
+	if res.StatusCode == 400 {
+		fmt.Printf("%s not created because already exists\n", index)
+	} else {
+		fmt.Printf("%s created\n", index)
 	}
 
 	return res, nil
