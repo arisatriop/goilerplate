@@ -43,9 +43,10 @@ Alyaws remember the rules: **Avoid importing packages at the same or higher laye
 ------------------ | middleware\
 ------------------ | request\
 ------------------ | response\
---------------------- | config\
------------------------- | entity\
---------------------------- | helper
+--------------------- | logging\
+------------------------ | config\
+--------------------------- | entity\
+------------------------------ | helper
 
 ## 
 
