@@ -1,11 +1,13 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"goilerplate/api/request"
 	"goilerplate/app/entity"
 	repository "goilerplate/app/repository/v1"
+	"goilerplate/config"
 	"goilerplate/helper"
 	"strconv"
 	"time"
@@ -23,16 +25,26 @@ type IExample interface {
 }
 
 type ExampleImpl struct {
+	Conn       *config.Con
 	Repository repository.IExample
 }
 
-func NewExampleUsecase(repository repository.IExample) IExample {
+func NewExampleUsecase(conn *config.Con, repository repository.IExample) IExample {
 	return &ExampleImpl{
+		Conn:       conn,
 		Repository: repository,
 	}
 }
 
 func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
+
+	c := context.Background()
+
+	tx, err := u.Conn.Dtx.Begin(c)
+	if err != nil {
+		return fmt.Errorf("usecase (create example): %s", err)
+	}
+	defer tx.Rollback(c)
 
 	example := entity.Example{
 		Id:        helper.GenerateShortUUID(),
@@ -41,8 +53,12 @@ func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 		CreatedBy: ctx.Get("x-user"),
 	}
 
-	err := u.Repository.Create(&example)
+	err = u.Repository.Create(tx, &example)
 	if err != nil {
+		return fmt.Errorf("usecase (create example): %s", err)
+	}
+
+	if err = tx.Commit(c); err != nil {
 		return fmt.Errorf("usecase (create example): %s", err)
 	}
 
@@ -50,12 +66,21 @@ func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 }
 
 func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
+
+	c := context.Background()
+
+	tx, err := u.Conn.Dtx.Begin(c)
+	if err != nil {
+		return fmt.Errorf("usecase (update example): %s", err)
+	}
+	defer tx.Rollback(c)
+
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(int64(id))
+	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return err
@@ -67,8 +92,12 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 	example.Example = ctx.FormValue("example")
 	example.UpdatedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	example.UpdatedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
-	err = u.Repository.Update(example.Id, example)
+	err = u.Repository.Update(tx, example.Id, example)
 	if err != nil {
+		return fmt.Errorf("usecase (update example): %s", err)
+	}
+
+	if err := tx.Commit(c); err != nil {
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
@@ -76,12 +105,21 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 }
 
 func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
+
+	c := context.Background()
+
+	tx, err := u.Conn.Dtx.Begin(c)
+	if err != nil {
+		return fmt.Errorf("usecase (update example): %s", err)
+	}
+	defer tx.Rollback(c)
+
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
 		return fmt.Errorf("usecase (delete example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(int64(id))
+	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return err
@@ -91,9 +129,13 @@ func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 
 	example.DeletedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	example.DeletedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
-	err = u.Repository.Delete(example.Id, example)
+	err = u.Repository.Delete(tx, example.Id, example)
 	if err != nil {
 		return fmt.Errorf("usecase (delete example): %s", err)
+	}
+
+	if err := tx.Commit(c); err != nil {
+		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
 	return nil
@@ -107,7 +149,7 @@ func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*entity.Example, error) {
 		Offset: ctx.FormValue("offset"),
 	}
 
-	examples, err := u.Repository.FindAll(&payload)
+	examples, err := u.Repository.FindAll(u.Conn.Db, &payload)
 	if err != nil {
 		return nil, fmt.Errorf("usecase (find all example): %s", err)
 	}
@@ -121,7 +163,7 @@ func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*entity.Example, error) {
 		return nil, fmt.Errorf("usecase (find by id example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(int64(id))
+	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, err

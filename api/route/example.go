@@ -28,8 +28,8 @@ import (
 
 func Example(prefix string, r fiber.Router, con *config.Con, validator *validator.Validate) {
 
-	repository := repository.NewExampleRepository(con)
-	usecase := usecase.NewExampleUsecase(repository)
+	repository := repository.NewExampleRepository()
+	usecase := usecase.NewExampleUsecase(con, repository)
 	request := request.NewExampleRequest()
 	response := response.NewExampleResponse()
 	handler := handler.NewExampleHandler(validator, request, response, usecase)

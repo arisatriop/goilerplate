@@ -5,36 +5,32 @@ import (
 	"fmt"
 	"goilerplate/api/request"
 	"goilerplate/app/entity"
-	"goilerplate/config"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type IExample interface {
-	Create(example *entity.Example) error
-	Update(id string, example *entity.Example) error
-	Delete(id string, example *entity.Example) error
-	FindAll(payload *request.ExampleReadPayload) ([]*entity.Example, error)
-	FindById(id int64) (*entity.Example, error)
+	Create(tx pgx.Tx, example *entity.Example) error
+	Update(tx pgx.Tx, id string, example *entity.Example) error
+	Delete(tx pgx.Tx, id string, example *entity.Example) error
+	FindAll(db *pgxpool.Pool, payload *request.ExampleReadPayload) ([]*entity.Example, error)
+	FindById(db *pgxpool.Pool, id int64) (*entity.Example, error)
 }
 
-type ExampleImpl struct {
-	Con *config.Con
+type ExampleImpl struct{}
+
+func NewExampleRepository() IExample {
+	return &ExampleImpl{}
 }
 
-func NewExampleRepository(con *config.Con) IExample {
-	return &ExampleImpl{
-		Con: con,
-	}
-}
-
-func (r *ExampleImpl) Create(example *entity.Example) error {
+func (r *ExampleImpl) Create(tx pgx.Tx, example *entity.Example) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	if _, err := r.Con.Db.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		insert into example (
 			id,
 			code, 
@@ -52,12 +48,12 @@ func (r *ExampleImpl) Create(example *entity.Example) error {
 	return nil
 }
 
-func (r *ExampleImpl) Update(id string, example *entity.Example) error {
+func (r *ExampleImpl) Update(tx pgx.Tx, id string, example *entity.Example) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	if _, err := r.Con.Db.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		update example set 
 			code = $1,
 			example = $2,
@@ -76,19 +72,13 @@ func (r *ExampleImpl) Update(id string, example *entity.Example) error {
 	return nil
 }
 
-func (r *ExampleImpl) Delete(id string, example *entity.Example) error {
+func (r *ExampleImpl) Delete(tx pgx.Tx, id string, example *entity.Example) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	conn, err := r.Con.Db.Acquire(ctx)
-	if err != nil {
-		return fmt.Errorf("repository (delete example): %v", err)
-	}
-	defer conn.Release()
-
 	stmt := "deleteExampleById"
-	if _, err = conn.Conn().Prepare(context.Background(), stmt, `
+	if _, err := tx.Prepare(ctx, stmt, `
 		update example set
 			deleted_at = $1,
 			deleted_by = $2
@@ -97,8 +87,7 @@ func (r *ExampleImpl) Delete(id string, example *entity.Example) error {
 		return fmt.Errorf("repository (delete example): %v", err)
 	}
 
-	if _, err = conn.Conn().Exec(context.Background(),
-		stmt,
+	if _, err := tx.Exec(ctx, stmt,
 		example.DeletedAt,
 		example.DeletedBy,
 		example.Id,
@@ -109,14 +98,14 @@ func (r *ExampleImpl) Delete(id string, example *entity.Example) error {
 	return nil
 }
 
-func (r *ExampleImpl) FindAll(payload *request.ExampleReadPayload) ([]*entity.Example, error) {
+func (r *ExampleImpl) FindAll(db *pgxpool.Pool, payload *request.ExampleReadPayload) ([]*entity.Example, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	var exps []*entity.Example
 
-	rows, err := r.Con.Db.Query(ctx, getSqlFindAllExample(payload), getArgsFindAllExample(payload)...)
+	rows, err := db.Query(ctx, getSqlFindAllExample(payload), getArgsFindAllExample(payload)...)
 	if err != nil {
 		return nil, fmt.Errorf("repository (find all example): %v", err)
 	}
@@ -143,14 +132,14 @@ func (r *ExampleImpl) FindAll(payload *request.ExampleReadPayload) ([]*entity.Ex
 	return exps, nil
 }
 
-func (r *ExampleImpl) FindById(id int64) (*entity.Example, error) {
+func (r *ExampleImpl) FindById(db *pgxpool.Pool, id int64) (*entity.Example, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	var exp entity.Example
 
-	conn, err := r.Con.Db.Acquire(ctx)
+	conn, err := db.Acquire(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repository (find by id example): %v", err)
 	}
