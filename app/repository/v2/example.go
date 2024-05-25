@@ -14,10 +14,10 @@ import (
 
 type IExample interface {
 	Create(tx *gorm.DB, example *entity.Example) error
-	Update(tx pgx.Tx, id string, example *entity.Example) error
+	Update(tx *gorm.DB, id string, example *entity.Example) error
 	Delete(tx pgx.Tx, id string, example *entity.Example) error
 	FindAll(db *pgxpool.Pool, payload *request.ExampleReadPayload) ([]*entity.Example, error)
-	FindById(db *pgxpool.Pool, id int64) (*entity.Example, error)
+	FindById(db *gorm.DB, id int64) (*entity.Example, error)
 }
 
 type ExampleImpl struct{}
@@ -32,30 +32,21 @@ func (r *ExampleImpl) Create(tx *gorm.DB, example *entity.Example) error {
 	defer cancel()
 
 	if err := tx.WithContext(ctx).Table("example").Create(&example).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return err
+		}
 		return fmt.Errorf("repository (create example): %v", err)
 	}
 
 	return nil
 }
 
-func (r *ExampleImpl) Update(tx pgx.Tx, id string, example *entity.Example) error {
+func (r *ExampleImpl) Update(tx *gorm.DB, id string, example *entity.Example) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	if _, err := tx.Exec(ctx, `
-		update example set 
-			code = $1,
-			example = $2,
-			updated_at = $3,
-			updated_by = $4
-		where id = $5`,
-		example.Code,
-		example.Example,
-		example.UpdatedAt,
-		example.UpdatedBy,
-		id,
-	); err != nil {
+	if err := tx.WithContext(ctx).Table("example").Where("id = ?", id).Updates(&example).Error; err != nil {
 		return fmt.Errorf("repository (update example): %v", err)
 	}
 
@@ -122,55 +113,19 @@ func (r *ExampleImpl) FindAll(db *pgxpool.Pool, payload *request.ExampleReadPayl
 	return exps, nil
 }
 
-func (r *ExampleImpl) FindById(db *pgxpool.Pool, id int64) (*entity.Example, error) {
+func (r *ExampleImpl) FindById(db *gorm.DB, id int64) (*entity.Example, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	var exp entity.Example
 
-	conn, err := db.Acquire(ctx)
+	err := db.WithContext(ctx).Table("example").Where("id = ?", id).First(&exp).Error
 	if err != nil {
-		return nil, fmt.Errorf("repository (find by id example): %v", err)
-	}
-	defer conn.Release()
-
-	stmt := "findExampleById"
-	if _, err = conn.Conn().Prepare(context.Background(), stmt, `
-		select 
-		id,
-		code,
-		example,
-		created_at,
-		created_by,
-		updated_at,
-		updated_by,
-		deleted_at,
-		deleted_by,
-		uuid
-		from example 
-		where id = $1 
-		and deleted_at is null`,
-	); err != nil {
-		return nil, fmt.Errorf("repository (find by id example): %v", err)
-	}
-
-	if err = conn.QueryRow(context.Background(), stmt, id).Scan(
-		&exp.Id,
-		&exp.Code,
-		&exp.Example,
-		&exp.CreatedAt,
-		&exp.CreatedBy,
-		&exp.UpdatedAt,
-		&exp.UpdatedBy,
-		&exp.DeletedAt,
-		&exp.DeletedBy,
-		&exp.Uuid,
-	); err != nil {
-		if err == pgx.ErrNoRows {
+		if err == gorm.ErrRecordNotFound {
 			return nil, err
 		}
-		return nil, fmt.Errorf("repository (find by id example): %v", err)
+		return &exp, fmt.Errorf("repository (find by id example): %v", err)
 	}
 
 	return &exp, err
