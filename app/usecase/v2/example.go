@@ -9,6 +9,7 @@ import (
 	"goilerplate/config"
 	"goilerplate/helper"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -86,14 +87,14 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 	err = u.Repository.Update(tx, example.Id, example)
 	if err != nil {
 		if err := tx.Rollback().Error; err != nil {
-			return fmt.Errorf("usecase (create example): %s", err)
+			return fmt.Errorf("usecase (update example): %s", err)
 		}
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		if err := tx.Rollback().Error; err != nil {
-			return fmt.Errorf("usecase (create example): %s", err)
+			return fmt.Errorf("usecase (update example): %s", err)
 		}
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
@@ -103,39 +104,38 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 
 func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 
-	// c := context.Background()
+	id, err := strconv.Atoi(ctx.Params("id"))
+	if err != nil {
+		return fmt.Errorf("usecase (delete example): %s", err)
+	}
 
-	// tx, err := u.Conn.Db.Begin(c)
-	// if err != nil {
-	// 	return fmt.Errorf("usecase (update example): %s", err)
-	// }
-	// defer tx.Rollback(c)
+	example, err := u.Repository.FindById(u.Conn.Gdb, int64(id))
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return err
+		}
+		return fmt.Errorf("usecase (delete example): %s", err)
+	}
 
-	// id, err := strconv.Atoi(ctx.Params("id"))
-	// if err != nil {
-	// 	return fmt.Errorf("usecase (delete example): %s", err)
-	// }
+	example.DeletedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	example.DeletedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
 
-	// example, err := u.Repository.FindById(u.Conn.Db, int64(id))
-	// if err != nil {
-	// 	if err == pgx.ErrNoRows {
-	// 		return err
-	// 	}
-	// 	return fmt.Errorf("usecase (delete example): %s", err)
-	// }
+	tx := u.Conn.Gdb.Begin()
 
-	// example.DeletedAt = sql.NullTime{Time: time.Now(), Valid: true}
-	// example.DeletedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
-	// err = u.Repository.Delete(tx, example.Id, example)
-	// if err != nil {
-	// 	return fmt.Errorf("usecase (delete example): %s", err)
-	// }
+	err = u.Repository.Update(tx, example.Id, example)
+	if err != nil {
+		if err := tx.Rollback().Error; err != nil {
+			return fmt.Errorf("usecase (delete example): %s", err)
+		}
+		return fmt.Errorf("usecase (delete example): %s", err)
+	}
 
-	// if err := tx.Commit(c); err != nil {
-	// 	return fmt.Errorf("usecase (update example): %s", err)
-	// }
-
-	// return nil
+	if err := tx.Commit().Error; err != nil {
+		if err := tx.Rollback().Error; err != nil {
+			return fmt.Errorf("usecase (delete example): %s", err)
+		}
+		return fmt.Errorf("usecase (delete example): %s", err)
+	}
 
 	return nil
 }
