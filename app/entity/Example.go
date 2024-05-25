@@ -11,9 +11,9 @@ type Example struct {
 	Example   string
 	CreatedAt time.Time
 	CreatedBy string
-	UpdatedAt sql.NullTime
+	UpdatedAt sql.NullTime `gorm:"<-:update"`
 	UpdatedBy sql.NullString
 	DeletedAt sql.NullTime
 	DeletedBy sql.NullString
-	Uuid      string
+	Uuid      string `gorm:"->"`
 }

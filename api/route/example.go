@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	handler "goilerplate/app/handler/v1"
+	handlerV2 "goilerplate/app/handler/v2"
 	repository "goilerplate/app/repository/v1"
 	repositoryV2 "goilerplate/app/repository/v2"
 	usecase "goilerplate/app/usecase/v1"
@@ -37,7 +38,7 @@ func ExampleV2(prefix string, r fiber.Router, con *config.Con, validator *valida
 	response := response.NewExampleResponse()
 	repository := repositoryV2.NewExampleRepository()
 	usecase := usecaseV2.NewExampleUsecase(con, repository)
-	handler := handler.NewExampleHandler(validator, request, response, usecase)
+	handler := handlerV2.NewExampleHandler(validator, request, response, usecase)
 
 	example := r.Group(prefix)
 	example.Post("/", handler.Create())

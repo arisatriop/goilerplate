@@ -89,7 +89,9 @@ func GormConnection() *gorm.DB {
 		Conn: sqlDB,
 		// DSN: dsn,
 		// PreferSimpleProtocol: true, // disables implicit prepared statement usage
-	}), &gorm.Config{})
+	}), &gorm.Config{
+		SkipDefaultTransaction: true,
+	})
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to gorm: %v\n", err)

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"goilerplate/api/request"
 	"goilerplate/app/entity"
-	repository "goilerplate/app/repository/v1"
+	repository "goilerplate/app/repository/v2"
 	"goilerplate/config"
 	"goilerplate/helper"
 	"strconv"
@@ -38,13 +38,7 @@ func NewExampleUsecase(conn *config.Con, repository repository.IExample) IExampl
 
 func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 
-	c := context.Background()
-
-	tx, err := u.Conn.Dtx.Begin(c)
-	if err != nil {
-		return fmt.Errorf("usecase (create example): %s", err)
-	}
-	defer tx.Rollback(c)
+	tx := u.Conn.Gdb.Begin()
 
 	example := entity.Example{
 		Id:        helper.GenerateShortUUID(),
@@ -53,16 +47,14 @@ func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 		CreatedBy: ctx.Get("x-user"),
 	}
 
-	err = u.Repository.Create(tx, &example)
-	if err != nil {
+	if err := u.Repository.Create(tx, &example); err != nil {
+		tx.Rollback()
 		return fmt.Errorf("usecase (create example): %s", err)
 	}
 
-	if err = tx.Commit(c); err != nil {
-		return fmt.Errorf("usecase (create example): %s", err)
-	}
+	tx.Commit()
 
-	return err
+	return nil
 }
 
 func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {

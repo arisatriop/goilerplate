@@ -5,7 +5,7 @@ import (
 	"goilerplate/api/request"
 	"goilerplate/api/response"
 	"goilerplate/app/logging"
-	usecase "goilerplate/app/usecase/v1"
+	usecase "goilerplate/app/usecase/v2"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"

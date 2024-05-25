@@ -9,10 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 )
 
 type IExample interface {
-	Create(tx pgx.Tx, example *entity.Example) error
+	Create(tx *gorm.DB, example *entity.Example) error
 	Update(tx pgx.Tx, id string, example *entity.Example) error
 	Delete(tx pgx.Tx, id string, example *entity.Example) error
 	FindAll(db *pgxpool.Pool, payload *request.ExampleReadPayload) ([]*entity.Example, error)
@@ -25,23 +26,12 @@ func NewExampleRepository() IExample {
 	return &ExampleImpl{}
 }
 
-func (r *ExampleImpl) Create(tx pgx.Tx, example *entity.Example) error {
+func (r *ExampleImpl) Create(tx *gorm.DB, example *entity.Example) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	if _, err := tx.Exec(ctx, `
-		insert into example (
-			id,
-			code, 
-			example, 
-			created_by
-		) values ($1, $2, $3, $4)`,
-		example.Id,
-		example.Code,
-		example.Example,
-		example.CreatedBy,
-	); err != nil {
+	if err := tx.WithContext(ctx).Table("example").Create(&example).Error; err != nil {
 		return fmt.Errorf("repository (create example): %v", err)
 	}
 
