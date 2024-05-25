@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -17,8 +18,6 @@ var gdb *gorm.DB
 type Con struct {
 	Db  *pgxpool.Pool
 	Gdb *gorm.DB
-	Dtx *pgxpool.Tx
-	Gtx *gorm.Tx
 }
 
 func CreateDBConnection() {
@@ -69,23 +68,26 @@ func setPgxConfig(config *pgxpool.Config) *pgxpool.Config {
 func GormConnection() *gorm.DB {
 	// exampleDSN := "host=localhost dbname=goilerplate password=postgres user=postgres port=5432 sslmode=disable TimeZone=Asia/Jakarta"
 
-	dsn := fmt.Sprintf(`
-		host=%s
-		dbname=%s
-		password=%s
-		user=%s
-		port=%s
-		sslmode=disable
-		TimeZone=Asia/Jakarta`,
-		App.DbHost,
-		App.DbName,
-		App.DbPassword,
-		App.DbUser,
-		App.DbPort,
-	)
+	// dsn := fmt.Sprintf(`
+	// 	host=%s
+	// 	dbname=%s
+	// 	password=%s
+	// 	user=%s
+	// 	port=%s
+	// 	sslmode=disable
+	// 	TimeZone=Asia/Jakarta`,
+	// 	App.DbHost,
+	// 	App.DbName,
+	// 	App.DbPassword,
+	// 	App.DbUser,
+	// 	App.DbPort,
+	// )
+
+	sqlDB := stdlib.OpenDB(*db.Config().ConnConfig)
 
 	gdb, err := gorm.Open(postgres.New(postgres.Config{
-		DSN: dsn,
+		Conn: sqlDB,
+		// DSN: dsn,
 		// PreferSimpleProtocol: true, // disables implicit prepared statement usage
 	}), &gorm.Config{})
 
@@ -102,7 +104,5 @@ func GetDBConnection() *Con {
 	return &Con{
 		Db:  db,
 		Gdb: gdb,
-		Dtx: nil,
-		Gtx: nil,
 	}
 }
