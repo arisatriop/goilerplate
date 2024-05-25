@@ -40,6 +40,7 @@ Alyaws remember the rules: **Avoid importing packages at the same or higher laye
 --------- | handler\
 ------------ | usecase\
 --------------- | repository\
+--------------- | client\
 ------------------ | middleware\
 ------------------ | request\
 ------------------ | response\
