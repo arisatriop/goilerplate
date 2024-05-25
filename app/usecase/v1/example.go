@@ -40,7 +40,7 @@ func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 
 	c := context.Background()
 
-	tx, err := u.Conn.Dtx.Begin(c)
+	tx, err := u.Conn.Db.Begin(c)
 	if err != nil {
 		return fmt.Errorf("usecase (create example): %s", err)
 	}
