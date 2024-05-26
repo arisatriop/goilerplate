@@ -42,7 +42,8 @@ func NewHttp() IHttp {
 	}
 }
 
-func (h *HttpImpl) Perform(method string, baseURL string, endpoint string, header map[string]interface{}, payload map[string]interface{}) (*entity.HttpClient, error) {
+func (h *HttpImpl) Perform(method string, baseURL string, endpoint string,
+	header map[string]interface{}, payload map[string]interface{}) (*entity.HttpClient, error) {
 
 	h.SetMethod(method)
 	h.SetBaseURL(baseURL)
