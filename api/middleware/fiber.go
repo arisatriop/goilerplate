@@ -37,7 +37,7 @@ func Fiber(app *fiber.App) {
 		DisableColors: false,
 	}))
 
-	file, _ := os.OpenFile("./logs/stdout.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file, _ := os.OpenFile("./logs/app.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	app.Use(logger.New(logger.Config{
 		Format:     "${time} | ${locals:requestid} | ${status} | ${latency} | ${ip} | ${method} | ${path} | ${error}\n",
 		TimeFormat: "2006-01-02 15:04:05.000",
