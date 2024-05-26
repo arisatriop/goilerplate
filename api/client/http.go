@@ -4,34 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"goilerplate/app/entity"
 	"net/http"
 )
 
-type HttpImpl struct{ Http *Http }
-
-type Http struct {
-	Request  *Request
-	Response *Response
-}
-
-type Request struct {
-	Method      string
-	BaseURL     string
-	Endpoint    string
-	OriginalURL string
-	Header      map[string]interface{}
-	Payload     *bytes.Buffer
-	RawPayload  interface{}
-}
-
-type Response struct {
-	StatusCode int
-	Header     map[string]interface{}
-	Body       map[string]interface{}
-}
+type HttpImpl struct{ Http *entity.HttpClient }
 
 type IHttp interface {
-	Perform(method string, baseURL string, endpoint string, header map[string]interface{}, payload interface{}) error
+	Perform(method string, baseURL string, endpoint string, header map[string]interface{}, payload map[string]interface{}) (*entity.HttpClient, error)
 	Post() error
 	Put() error
 	Patch() error
@@ -39,52 +19,56 @@ type IHttp interface {
 	Delete() error
 	Do(request *http.Request) error
 
+	SetMethod(method string)
 	SetBaseURL(baseURL string)
 	SetEndpoint(endpoint string)
 	SetOriginalURL()
 	SetRequestHeader(data map[string]interface{})
-	SetRequestPayload(data interface{}) error
+	SetRequestPayload(data map[string]interface{}) error
+	SetRequestPayloads(data map[string]interface{})
 	SetResponseHeader(response *http.Response)
 	SetResponseBody(response *http.Response) error
 
 	Successful() bool
-	Result() *Http
+	Result() *entity.HttpClient
 }
 
 func NewHttp() IHttp {
 	return &HttpImpl{
-		Http: &Http{
-			Request:  &Request{},
-			Response: &Response{},
+		Http: &entity.HttpClient{
+			Request:  &entity.Request{},
+			Response: &entity.Response{},
 		},
 	}
 }
 
-func (h *HttpImpl) Perform(method string, baseURL string, endpoint string, header map[string]interface{}, payload interface{}) error {
+func (h *HttpImpl) Perform(method string, baseURL string, endpoint string, header map[string]interface{}, payload map[string]interface{}) (*entity.HttpClient, error) {
 
+	h.SetMethod(method)
 	h.SetBaseURL(baseURL)
 	h.SetEndpoint(endpoint)
 	h.SetOriginalURL()
 	h.SetRequestHeader(header)
+	h.SetRequestPayload(payload)
 
-	if err := h.SetRequestPayload(payload); err != nil {
-		return fmt.Errorf("perform: %v", err)
-	}
+	var err error
 
 	switch method {
 	case "POST":
-		return h.Post()
+		err = h.Post()
 	case "PUT":
-		return h.Put()
+		err = h.Put()
 	case "PATCH":
-		return h.Patch()
+		err = h.Patch()
 	case "GET":
-		return h.Get()
+		err = h.Get()
 	case "DELETE":
-		return h.Delete()
+		err = h.Delete()
+	default:
+		return nil, fmt.Errorf("method %s not supported", method)
 	}
 
-	return fmt.Errorf("method %s not supported", method)
+	return h.Http, err
 }
 
 func (h *HttpImpl) Post() error {
@@ -178,8 +162,7 @@ func (h *HttpImpl) SetRequestHeader(data map[string]interface{}) {
 	h.Http.Request.Header = data
 }
 
-func (h *HttpImpl) SetRequestPayload(data interface{}) error {
-
+func (h *HttpImpl) SetRequestPayload(data map[string]interface{}) error {
 	var payload bytes.Buffer
 
 	if data != nil {
@@ -189,9 +172,13 @@ func (h *HttpImpl) SetRequestPayload(data interface{}) error {
 		}
 	}
 
-	h.Http.Request.RawPayload = data
 	h.Http.Request.Payload = &payload
+	h.Http.Request.Payloads = data
 	return nil
+}
+
+func (h *HttpImpl) SetRequestPayloads(data map[string]interface{}) {
+	h.Http.Request.Payloads = data
 }
 
 func (h *HttpImpl) SetStatusCode(response *http.Response) {
@@ -221,6 +208,10 @@ func (h *HttpImpl) SetResponseBody(response *http.Response) error {
 	return nil
 }
 
+func (h *HttpImpl) SetMethod(method string) {
+	h.Http.Request.Method = method
+}
+
 func (h *HttpImpl) SetBaseURL(baseURL string) {
 	h.Http.Request.BaseURL = baseURL
 }
@@ -237,6 +228,6 @@ func (h *HttpImpl) Successful() bool {
 	return h.Http.Response.StatusCode >= 200 && h.Http.Response.StatusCode < 300
 }
 
-func (h *HttpImpl) Result() *Http {
+func (h *HttpImpl) Result() *entity.HttpClient {
 	return h.Http
 }

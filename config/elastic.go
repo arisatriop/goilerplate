@@ -14,7 +14,6 @@ var es *elastic.Client
 func CreateElasticConnection() {
 
 	var err error
-	var index string = "api-log"
 
 	cfg := elastic.Config{
 		Addresses: []string{os.Getenv("ELASTIC_HOST") + ":" + os.Getenv("ELASTIC_PORT")},
@@ -28,25 +27,25 @@ func CreateElasticConnection() {
 
 	err = apiLog()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", index, err)
+		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", "api-log", err)
 		os.Exit(1)
 	}
 
 	err = errorLog()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", index, err)
+		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", "error-log", err)
 		os.Exit(1)
 	}
 
 	err = curlLog()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", index, err)
+		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", "curl-log", err)
 		os.Exit(1)
 	}
 
 	err = appLog()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", index, err)
+		fmt.Fprintf(os.Stderr, "Unable to create index %s: %v\n", "app-log", err)
 		os.Exit(1)
 	}
 
