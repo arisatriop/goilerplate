@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goilerplate/config"
 	"mime/multipart"
+	"os"
 	"strings"
 	"time"
 
@@ -31,6 +32,7 @@ type ApiDocument struct {
 
 type ApiLog interface {
 	Store(c *fiber.Ctx) error
+	StoreFile(document *ApiDocument) error
 	GetDocument(c *fiber.Ctx) *ApiDocument
 	GetRequestBody(request *fiber.Request) map[string]interface{}
 	GetResponseBody(body []byte) map[string]interface{}
@@ -50,15 +52,33 @@ func (log *ApiLogImpl) Store(c *fiber.Ctx) error {
 
 	document := log.GetDocument(c)
 
+	go log.StoreFile(document)
+
 	es := config.GetElasticConnection()
 	res, err := es.Index("api-log", esutil.NewJSONReader(&document))
 	if err != nil {
-		return fmt.Errorf("error %v", err)
+		// return fmt.Errorf("error %v", err)
+		return nil // always return nil
 	}
 	defer res.Body.Close()
 
 	return nil
 
+}
+
+func (log *ApiLogImpl) StoreFile(document *ApiDocument) error {
+	file, _ := os.OpenFile("./logs/api.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file.WriteString(fmt.Sprintf("\n%s | %s | %s | %s | %s | %d | %s\n",
+		document.Timestamp.Format("2006-01-02 15:04:05.000"),
+		document.RequestId,
+		document.RequestHeaders["X-User"][0],
+		document.Method,
+		document.Endpoint,
+		document.Status,
+		document.Latency,
+	))
+
+	return nil //  return alway nil
 }
 
 func (log *ApiLogImpl) GetDocument(c *fiber.Ctx) *ApiDocument {

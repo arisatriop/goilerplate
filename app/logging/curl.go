@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goilerplate/app/entity"
 	"goilerplate/config"
+	"os"
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v8/esutil"
@@ -31,6 +32,7 @@ type CurlDocument struct {
 
 type CurlLog interface {
 	Store(result *entity.HttpClient) error
+	StoreToFile(document *CurlDocument) error
 	GetDocument(result *entity.HttpClient) *CurlDocument
 }
 
@@ -43,14 +45,17 @@ func NewCurlLog() CurlLog {
 func (log *CurlLogImpl) Store(result *entity.HttpClient) error {
 	document := log.GetDocument(result)
 
+	go log.StoreToFile(document)
+
 	es := config.GetElasticConnection()
 	res, err := es.Index("curl-log", esutil.NewJSONReader(&document))
 	if err != nil {
-		return fmt.Errorf("error %v", err)
+		// return fmt.Errorf("error %v", err)
+		return nil // always return nil
 	}
 	defer res.Body.Close()
 
-	return nil
+	return nil // always return nil
 }
 
 func (log *CurlLogImpl) GetDocument(result *entity.HttpClient) *CurlDocument {
@@ -71,6 +76,13 @@ func (log *CurlLogImpl) GetDocument(result *entity.HttpClient) *CurlDocument {
 		ResponseBodyString:   toString(result.Response.Body),
 		Latency:              result.Latency,
 	}
+}
+
+func (log *CurlLogImpl) StoreToFile(document *CurlDocument) error {
+	file, _ := os.OpenFile("./logs/curl.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file.WriteString(fmt.Sprintf("%s | %s | %s | %d\n", document.Timestamp.Format("2006-01-02 15:04:05.000"), document.Method, document.Endpoint, document.Status))
+
+	return nil // always return nil
 }
 
 func toString(m map[string]interface{}) string {

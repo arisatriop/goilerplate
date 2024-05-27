@@ -154,6 +154,7 @@ func curlLog(result *entity.HttpClient) error {
 }
 
 func store(client *elasticsearch.Client, doc *logging.CurlDocument) error {
+
 	res, err := client.Index("curl-log", esutil.NewJSONReader(doc))
 	if err != nil {
 		return fmt.Errorf("error %v", err)
