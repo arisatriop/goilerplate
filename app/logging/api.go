@@ -29,9 +29,24 @@ type ApiDocument struct {
 	Latency            string                 `json:"latency"`
 }
 
-type ApiLog struct{}
+type ApiLog interface {
+	Store(c *fiber.Ctx) error
+	GetDocument(c *fiber.Ctx) *ApiDocument
+	GetRequestBody(request *fiber.Request) map[string]interface{}
+	GetResponseBody(body []byte) map[string]interface{}
+	SetFields(payload *strings.Builder, form *multipart.Form)
+	SetFiles(payload *strings.Builder, form *multipart.Form)
+	AppendFields(payload *strings.Builder, key string, value string)
+	AppendFiles(payload *strings.Builder, key string, file *multipart.FileHeader)
+}
 
-func (log *ApiLog) Store(c *fiber.Ctx) error {
+type ApiLogImpl struct{}
+
+func NewApiLog() ApiLog {
+	return &ApiLogImpl{}
+}
+
+func (log *ApiLogImpl) Store(c *fiber.Ctx) error {
 
 	document := log.GetDocument(c)
 
@@ -46,7 +61,7 @@ func (log *ApiLog) Store(c *fiber.Ctx) error {
 
 }
 
-func (log *ApiLog) GetDocument(c *fiber.Ctx) *ApiDocument {
+func (log *ApiLogImpl) GetDocument(c *fiber.Ctx) *ApiDocument {
 	return &ApiDocument{
 		Timestamp:          c.Context().Time(),
 		RequestId:          c.Locals("requestid"),
@@ -65,7 +80,7 @@ func (log *ApiLog) GetDocument(c *fiber.Ctx) *ApiDocument {
 	}
 }
 
-func (log *ApiLog) GetRequestBody(request *fiber.Request) map[string]interface{} {
+func (log *ApiLogImpl) GetRequestBody(request *fiber.Request) map[string]interface{} {
 
 	contentType := string(request.Header.ContentType())
 
@@ -94,7 +109,7 @@ func (log *ApiLog) GetRequestBody(request *fiber.Request) map[string]interface{}
 	}
 }
 
-func (log *ApiLog) GetResponseBody(body []byte) map[string]interface{} {
+func (log *ApiLogImpl) GetResponseBody(body []byte) map[string]interface{} {
 	// Define a map to store the unmarshaled data
 	var response map[string]interface{}
 
@@ -108,7 +123,7 @@ func (log *ApiLog) GetResponseBody(body []byte) map[string]interface{} {
 	return response
 }
 
-func (log *ApiLog) SetFields(payload *strings.Builder, form *multipart.Form) {
+func (log *ApiLogImpl) SetFields(payload *strings.Builder, form *multipart.Form) {
 	for key, values := range form.Value {
 		for _, value := range values {
 			log.AppendFields(payload, key, value)
@@ -116,7 +131,7 @@ func (log *ApiLog) SetFields(payload *strings.Builder, form *multipart.Form) {
 	}
 }
 
-func (log *ApiLog) SetFiles(payload *strings.Builder, form *multipart.Form) {
+func (log *ApiLogImpl) SetFiles(payload *strings.Builder, form *multipart.Form) {
 	for key, files := range form.File {
 		for _, file := range files {
 			log.AppendFiles(payload, key, file)
@@ -125,11 +140,11 @@ func (log *ApiLog) SetFiles(payload *strings.Builder, form *multipart.Form) {
 
 }
 
-func (log *ApiLog) AppendFields(payload *strings.Builder, key string, value string) {
+func (log *ApiLogImpl) AppendFields(payload *strings.Builder, key string, value string) {
 	fmt.Fprintf(payload, "%s = %s\n", key, value)
 }
 
-func (log *ApiLog) AppendFiles(payload *strings.Builder, key string, file *multipart.FileHeader) {
+func (log *ApiLogImpl) AppendFiles(payload *strings.Builder, key string, file *multipart.FileHeader) {
 	fmt.Fprintf(payload, "%s = [filename=%s size=%dbytes mimeType=%s]\n",
 		key, file.Filename, file.Size, file.Header.Get("Content-Type"))
 }

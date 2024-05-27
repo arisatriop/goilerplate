@@ -3,6 +3,7 @@ package logging
 import (
 	"fmt"
 	"goilerplate/config"
+	"os"
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v8/esutil"
@@ -20,12 +21,26 @@ type ErrorDocument struct {
 	RequestBody    interface{}         `json:"request_body"`
 }
 
-type ErrorLog struct{}
+type ErrorLog interface {
+	Store(c *fiber.Ctx, message string)
+	StoreToFiles(doc *ErrorDocument)
+	GetDocument(c *fiber.Ctx) *ErrorDocument
+}
 
-func (log *ErrorLog) Store(c *fiber.Ctx, message string) {
+type ErrorLogImpl struct{}
+
+func NewErrorLog() ErrorLog {
+	return &ErrorLogImpl{}
+}
+
+func (log *ErrorLogImpl) Store(c *fiber.Ctx, message string) {
 
 	document := log.GetDocument(c)
 	document.Message = message
+
+	fmt.Println("header: ", document.RequestHeaders)
+
+	log.StoreToFiles(document)
 
 	es := config.GetElasticConnection()
 	res, err := es.Index("error-log", esutil.NewJSONReader(&document))
@@ -36,9 +51,9 @@ func (log *ErrorLog) Store(c *fiber.Ctx, message string) {
 
 }
 
-func (log *ErrorLog) GetDocument(c *fiber.Ctx) *ErrorDocument {
+func (log *ErrorLogImpl) GetDocument(c *fiber.Ctx) *ErrorDocument {
 
-	api := &ApiLog{}
+	api := NewApiLog()
 
 	return &ErrorDocument{
 		Timestamp:      c.Context().Time(),
@@ -49,4 +64,12 @@ func (log *ErrorLog) GetDocument(c *fiber.Ctx) *ErrorDocument {
 		RequestHeaders: c.GetReqHeaders(),
 		RequestBody:    api.GetRequestBody(c.Request()),
 	}
+}
+
+func (log *ErrorLogImpl) StoreToFiles(document *ErrorDocument) {
+	file, _ := os.OpenFile("./logs/error.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	data := fmt.Sprintf("%s | %s | %s | %s | %s\n%s\n",
+		document.Timestamp.Format("2006-01-02 15:04:05.000"), document.RequestId, document.RequestHeaders["X-User"][0], document.Method, document.Endpoint, document.Message)
+
+	file.WriteString(data + "\n")
 }

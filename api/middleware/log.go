@@ -12,11 +12,11 @@ func Log(app *fiber.App) {
 	app.Use(func(c *fiber.Ctx) error {
 		err := c.Next()
 
-		log := logging.ApiLog{}
+		log := logging.NewApiLog()
 		errr := log.Store(c)
 		if errr != nil {
 			fmt.Println("error store API Log to elastic", err)
-			errorLog := logging.ErrorLog{}
+			errorLog := logging.NewErrorLog()
 			errorLog.Store(c, errr.Error())
 		}
 
