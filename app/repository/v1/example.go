@@ -70,7 +70,7 @@ func (r *ExampleImpl) FindAll(db *gorm.DB, payload *request.ExampleReadPayload) 
 	where := "deleted_at is null"
 
 	if payload.Search != "" {
-		where += " and (code ILIKE '%' || " + payload.Search + " || '%' or example ILIKE '%' || " + payload.Search + " || '%')"
+		where += " and (code ILIKE '%" + payload.Search + "%' or example ILIKE '%" + payload.Search + "%')"
 	}
 	if payload.Limit != "" {
 		where += " limit " + payload.Limit
