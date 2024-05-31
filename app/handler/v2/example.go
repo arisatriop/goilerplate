@@ -1,4 +1,4 @@
-package v1
+package v2
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5"
 )
 
 type Res struct {
@@ -143,7 +143,7 @@ func (h *ExampleImpl) Update() fiber.Handler {
 
 		err = h.Usecase.Update(c)
 		if err != nil {
-			if err == gorm.ErrRecordNotFound {
+			if err == pgx.ErrNoRows {
 				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 					"code":    4041,
 					"result":  false,
@@ -178,7 +178,7 @@ func (h *ExampleImpl) Delete() fiber.Handler {
 
 		err := h.Usecase.Delete(c)
 		if err != nil {
-			if err == gorm.ErrRecordNotFound {
+			if err == pgx.ErrNoRows {
 				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 					"code":    4041,
 					"result":  false,
@@ -254,7 +254,7 @@ func (h *ExampleImpl) FindById() fiber.Handler {
 
 		example, err := h.Usecase.FindById(c)
 		if err != nil {
-			if err == gorm.ErrRecordNotFound {
+			if err == pgx.ErrNoRows {
 				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 					"code":    4041,
 					"result":  false,

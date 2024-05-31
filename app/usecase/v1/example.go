@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"goilerplate/api/request"
@@ -13,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
+	"gorm.io/gorm"
 )
 
 type IExample interface {
@@ -38,13 +37,7 @@ func NewExampleUsecase(conn *config.Con, repository repository.IExample) IExampl
 
 func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 
-	c := context.Background()
-
-	tx, err := u.Conn.Db.Begin(c)
-	if err != nil {
-		return fmt.Errorf("usecase (create example): %s", err)
-	}
-	defer tx.Rollback(c)
+	tx := u.Conn.Gdb.Begin()
 
 	example := entity.Example{
 		Id:        helper.GenerateShortUUID(),
@@ -53,36 +46,33 @@ func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 		CreatedBy: ctx.Get("x-user"),
 	}
 
-	err = u.Repository.Create(tx, &example)
-	if err != nil {
+	if err := u.Repository.Create(tx, &example); err != nil {
+		if err := tx.Rollback().Error; err != nil {
+			return fmt.Errorf("usecase (create example): %s", err)
+		}
 		return fmt.Errorf("usecase (create example): %s", err)
 	}
 
-	if err = tx.Commit(c); err != nil {
+	if err := tx.Commit().Error; err != nil {
+		if err := tx.Rollback().Error; err != nil {
+			return fmt.Errorf("usecase (create example): %s", err)
+		}
 		return fmt.Errorf("usecase (create example): %s", err)
 	}
 
-	return err
+	return nil
 }
 
 func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
-
-	c := context.Background()
-
-	tx, err := u.Conn.Db.Begin(c)
-	if err != nil {
-		return fmt.Errorf("usecase (update example): %s", err)
-	}
-	defer tx.Rollback(c)
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
+	example, err := u.Repository.FindById(u.Conn.Gdb, int64(id))
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if err == gorm.ErrRecordNotFound {
 			return err
 		}
 		return fmt.Errorf("usecase (update example): %s", err)
@@ -90,14 +80,22 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 
 	example.Code = ctx.FormValue("code")
 	example.Example = ctx.FormValue("example")
-	example.UpdatedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	example.UpdatedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
+
+	tx := u.Conn.Gdb.Begin()
+
 	err = u.Repository.Update(tx, example.Id, example)
 	if err != nil {
+		if err := tx.Rollback().Error; err != nil {
+			return fmt.Errorf("usecase (update example): %s", err)
+		}
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
-	if err := tx.Commit(c); err != nil {
+	if err := tx.Commit().Error; err != nil {
+		if err := tx.Rollback().Error; err != nil {
+			return fmt.Errorf("usecase (update example): %s", err)
+		}
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
@@ -106,22 +104,14 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 
 func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 
-	c := context.Background()
-
-	tx, err := u.Conn.Db.Begin(c)
-	if err != nil {
-		return fmt.Errorf("usecase (update example): %s", err)
-	}
-	defer tx.Rollback(c)
-
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
 		return fmt.Errorf("usecase (delete example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
+	example, err := u.Repository.FindById(u.Conn.Gdb, int64(id))
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if err == gorm.ErrRecordNotFound {
 			return err
 		}
 		return fmt.Errorf("usecase (delete example): %s", err)
@@ -129,13 +119,22 @@ func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 
 	example.DeletedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	example.DeletedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
-	err = u.Repository.Delete(tx, example.Id, example)
+
+	tx := u.Conn.Gdb.Begin()
+
+	err = u.Repository.Update(tx, example.Id, example)
 	if err != nil {
+		if err := tx.Rollback().Error; err != nil {
+			return fmt.Errorf("usecase (delete example): %s", err)
+		}
 		return fmt.Errorf("usecase (delete example): %s", err)
 	}
 
-	if err := tx.Commit(c); err != nil {
-		return fmt.Errorf("usecase (update example): %s", err)
+	if err := tx.Commit().Error; err != nil {
+		if err := tx.Rollback().Error; err != nil {
+			return fmt.Errorf("usecase (delete example): %s", err)
+		}
+		return fmt.Errorf("usecase (delete example): %s", err)
 	}
 
 	return nil
@@ -149,7 +148,7 @@ func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*entity.Example, error) {
 		Offset: ctx.FormValue("offset"),
 	}
 
-	examples, err := u.Repository.FindAll(u.Conn.Db, &payload)
+	examples, err := u.Repository.FindAll(u.Conn.Gdb, &payload)
 	if err != nil {
 		return nil, fmt.Errorf("usecase (find all example): %s", err)
 	}
@@ -163,9 +162,9 @@ func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*entity.Example, error) {
 		return nil, fmt.Errorf("usecase (find by id example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
+	example, err := u.Repository.FindById(u.Conn.Gdb, int64(id))
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if err == gorm.ErrRecordNotFound {
 			return nil, err
 		}
 		return nil, fmt.Errorf("usecase (find by id example): %s", err)
