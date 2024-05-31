@@ -115,7 +115,7 @@ func (log *ApiLogImpl) GetRequestBody(request *fiber.Request) map[string]interfa
 	if err != nil {
 		return map[string]interface{}{
 			"Content-Type": contentType,
-			"Payload":      "failed to parse multipart form",
+			"Payload":      []string{},
 		}
 	}
 
