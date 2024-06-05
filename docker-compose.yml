@@ -18,7 +18,7 @@ services:
       DB_PORT: 5432
       DB_NAME: goilerplate
       PORT: 
-      ELASTICSEARCH_URL: localhost
-      ELASTICSEARCH_PORT: 9200
+      ELASTIC_HOST: http://host.docker.internal
+      ELASTIC_PORT: 9200
     volumes:
       - .:/app

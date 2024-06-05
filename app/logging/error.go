@@ -67,14 +67,21 @@ func (log *ErrorLogImpl) GetDocument(c *fiber.Ctx) *ErrorDocument {
 }
 
 func (log *ErrorLogImpl) StoreToFile(document *ErrorDocument) error {
-	file, _ := os.OpenFile("./logs/error.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file, err := os.OpenFile("./logs/error.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Println("error open file: ", err.Error())
+		return nil
+	}
 
 	data := fmt.Sprintf("%s | %s | %s | %s | %s\n%s\n",
 		document.Timestamp.Format("2006-01-02 15:04:05.000"),
 		document.RequestId, document.RequestHeaders["X-User"][0],
 		document.Method, document.Endpoint, document.Message)
 
-	file.WriteString(data + "\n")
+	if _, err := file.WriteString(data + "\n"); err != nil {
+		fmt.Println("error store log to file: ", err.Error())
+		return nil
+	}
 
 	return nil // always return nil
 }

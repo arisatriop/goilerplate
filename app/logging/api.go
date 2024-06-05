@@ -67,8 +67,13 @@ func (log *ApiLogImpl) Store(c *fiber.Ctx) error {
 }
 
 func (log *ApiLogImpl) StoreFile(document *ApiDocument) error {
-	file, _ := os.OpenFile("./logs/api.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	file.WriteString(fmt.Sprintf("\n%s | %s | %s | %s | %s | %d | %s\n",
+	file, err := os.OpenFile("./logs/api.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Println("error open file: ", err.Error())
+		return nil
+	}
+
+	if _, err := file.WriteString(fmt.Sprintf("\n%s | %s | %s | %s | %s | %d | %s\n--Header:\n%v\n--Payload:\n%v\n--Response:\n%v\n",
 		document.Timestamp.Format("2006-01-02 15:04:05.000"),
 		document.RequestId,
 		document.RequestHeaders["X-User"][0],
@@ -76,7 +81,13 @@ func (log *ApiLogImpl) StoreFile(document *ApiDocument) error {
 		document.Endpoint,
 		document.Status,
 		document.Latency,
-	))
+		document.RequestHeaders,
+		document.RequestBody,
+		document.ResponseBody,
+	)); err != nil {
+		fmt.Println("error store log to file: ", err.Error())
+		return nil
+	}
 
 	return nil //  return alway nil
 }

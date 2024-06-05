@@ -79,8 +79,20 @@ func (log *CurlLogImpl) GetDocument(result *entity.HttpClient) *CurlDocument {
 }
 
 func (log *CurlLogImpl) StoreToFile(document *CurlDocument) error {
-	file, _ := os.OpenFile("./logs/curl.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	file.WriteString(fmt.Sprintf("%s | %s | %s | %d\n", document.Timestamp.Format("2006-01-02 15:04:05.000"), document.Method, document.Endpoint, document.Status))
+	file, err := os.OpenFile("./logs/curl.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Println("error open file: ", err.Error())
+		return nil
+	}
+
+	if _, err := file.WriteString(fmt.Sprintf("%s | %s | %s | %d\n", document.Timestamp.Format("2006-01-02 15:04:05.000"),
+		document.Method,
+		document.Endpoint,
+		document.Status,
+	)); err != nil {
+		fmt.Println("error store log to file: ", err.Error())
+		return nil
+	}
 
 	return nil // always return nil
 }
