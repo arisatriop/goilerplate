@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/gofiber/fiber/v2"
 )
@@ -38,14 +39,20 @@ func (log *ErrorLogImpl) Store(c *fiber.Ctx, message string) error {
 	document := log.GetDocument(c)
 	document.Message = message
 
-	go log.StoreToFile(document)
+	log.StoreToFile(document)
 
-	es := config.GetElasticConnection()
-	res, err := es.Index("error-log", esutil.NewJSONReader(&document))
-	if err != nil {
-		// return fmt.Errorf("error %v", err)
-		return nil // always return nil
+	var err error
+	var res *esapi.Response
+
+	if config.GetAppVariable().LogChannel != "elasticsearch" {
+		es := config.GetElasticConnection()
+		res, err = es.Index("error-log", esutil.NewJSONReader(&document))
+		if err != nil {
+			// return fmt.Errorf("error %v", err)
+			return nil // always return nil
+		}
 	}
+
 	defer res.Body.Close()
 
 	return nil // always return nil

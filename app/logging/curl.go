@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 )
 
@@ -45,14 +46,20 @@ func NewCurlLog() CurlLog {
 func (log *CurlLogImpl) Store(result *entity.HttpClient) error {
 	document := log.GetDocument(result)
 
-	go log.StoreToFile(document)
+	log.StoreToFile(document)
 
-	es := config.GetElasticConnection()
-	res, err := es.Index("curl-log", esutil.NewJSONReader(&document))
-	if err != nil {
-		// return fmt.Errorf("error %v", err)
-		return nil // always return nil
+	var err error
+	var res *esapi.Response
+
+	if config.GetAppVariable().LogChannel != "elasticsearch" {
+		es := config.GetElasticConnection()
+		res, err = es.Index("curl-log", esutil.NewJSONReader(&document))
+		if err != nil {
+			// return fmt.Errorf("error %v", err)
+			return nil // always return nil
+		}
 	}
+
 	defer res.Body.Close()
 
 	return nil // always return nil

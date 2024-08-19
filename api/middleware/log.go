@@ -15,7 +15,7 @@ func Log(app *fiber.App) {
 		log := logging.NewApiLog()
 		errr := log.Store(c)
 		if errr != nil {
-			fmt.Println("error store API Log to elastic", err)
+			fmt.Println("error store API Log: ", err)
 			errorLog := logging.NewErrorLog()
 			errorLog.Store(c, errr.Error())
 		}

@@ -15,8 +15,14 @@ func main() {
 	// Set up Application Variable
 	appVariable := config.SetAppVariable()
 	appVariable.DB = config.CreateDBConnection()
-	appVariable.RedisClient = config.CreateRedisConnection()
-	appVariable.ElasticClient = config.CreateElasticConnection()
+
+	if appVariable.CacheDriver == "redis" {
+		appVariable.RedisClient = config.CreateRedisConnection()
+	}
+
+	if appVariable.LogChannel == "elasticsearch" {
+		appVariable.ElasticClient = config.CreateElasticConnection()
+	}
 
 	// Init fiber app
 	app := fiber.New(config.Fiber())
