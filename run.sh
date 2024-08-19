@@ -12,6 +12,8 @@ ELASTIC_PORT=9200 \
 REDIS_HOST=localhost \
 REDIS_PORT=6379 \
 REDIS_PASSWORD=secret \
+CACHE_DRIVER=redis \
+LOG_CHANNEL=elasticsearch \
 PORT= \
 nodemon --exec go run main.go --signal SIGTERM
 

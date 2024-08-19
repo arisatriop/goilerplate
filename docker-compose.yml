@@ -23,6 +23,8 @@ services:
       REDIS_HOST: host.docker.internal
       REDIS_PORT: 6379
       REDIS_PASSWORD:
+      CACHE_DRIVER: redis
+      LOG_CHANNEL: elasticsearch
       PORT: 80
     volumes:
       - .:/app

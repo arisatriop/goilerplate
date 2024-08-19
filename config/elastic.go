@@ -18,7 +18,7 @@ func CreateElasticConnection() *elastic.Client {
 	app := GetAppVariable()
 
 	cfg := elastic.Config{
-		Addresses: []string{app.ElasticHost.(string) + ":" + app.ElasticPort.(string)},
+		Addresses: []string{app.ElasticHost + ":" + app.ElasticPort},
 	}
 
 	es, err = elastic.NewClient(cfg)

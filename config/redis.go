@@ -15,8 +15,8 @@ func CreateRedisConnection() *redis.Client {
 	app := GetAppVariable()
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     app.RedisHost.(string) + ":" + app.RedisPort.(string),
-		Password: app.RedisPassword.(string),
+		Addr:     app.RedisHost + ":" + app.RedisPort,
+		Password: app.RedisPassword,
 		DB:       0,
 	})
 
