@@ -15,8 +15,10 @@ func CreateElasticConnection() {
 
 	var err error
 
+	app := GetAppVariable()
+
 	cfg := elastic.Config{
-		Addresses: []string{os.Getenv("ELASTIC_HOST") + ":" + os.Getenv("ELASTIC_PORT")},
+		Addresses: []string{app.ElasticHost.(string) + ":" + app.ElasticPort.(string)},
 	}
 
 	es, err = elastic.NewClient(cfg)
@@ -50,6 +52,7 @@ func CreateElasticConnection() {
 	}
 
 	fmt.Println("Elasticsearch: connected")
+	fmt.Println()
 }
 
 func apiLog() error {

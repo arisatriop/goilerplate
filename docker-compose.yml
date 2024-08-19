@@ -11,14 +11,18 @@ services:
     environment:
       APP_ENV: local
       APP_DEBUG: true
+      APP_TIMEZONE: Asia/Jakarta
       DBMS: psql
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_HOST: host.docker.internal
       DB_PORT: 5432
       DB_NAME: goilerplate
-      PORT: 
       ELASTIC_HOST: http://host.docker.internal
       ELASTIC_PORT: 9200
+      REDIS_HOST: http://host.docker.internal
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: 
+      PORT: 
     volumes:
       - .:/app

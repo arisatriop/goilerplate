@@ -24,18 +24,21 @@ func CreateDBConnection() {
 	db = SqlConnection()
 	gdb = GormConnection()
 	fmt.Println("Database: connected")
+	fmt.Println()
 }
 
 func SqlConnection() *pgxpool.Pool {
 	// exampleConnString := "postgres://username:password@host:post/dbname"
 
+	app := GetAppVariable()
+
 	connString := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s",
-		App.DbUser,
-		App.DbPassword,
-		App.DbHost,
-		App.DbPort,
-		App.DbName,
+		app.DbUser,
+		app.DbPassword,
+		app.DbHost,
+		app.DbPort,
+		app.DbName,
 	)
 
 	config, err := pgxpool.ParseConfig(connString)

@@ -17,7 +17,7 @@ func main() {
 
 	// Capture database connection
 	config.CreateDBConnection()
-
+	config.CreateRedisConnection()
 	config.CreateElasticConnection()
 
 	// Init fiber app
