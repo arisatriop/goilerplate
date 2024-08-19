@@ -13,12 +13,10 @@ import (
 func main() {
 
 	// Set up Application Variable
-	config.SetAppVariable()
-
-	// Capture database connection
-	config.CreateDBConnection()
-	config.CreateRedisConnection()
-	config.CreateElasticConnection()
+	appVariable := config.SetAppVariable()
+	appVariable.DB = config.CreateDBConnection()
+	appVariable.RedisClient = config.CreateRedisConnection()
+	appVariable.ElasticClient = config.CreateElasticConnection()
 
 	// Init fiber app
 	app := fiber.New(config.Fiber())

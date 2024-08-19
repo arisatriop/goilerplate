@@ -11,7 +11,7 @@ import (
 
 var es *elastic.Client
 
-func CreateElasticConnection() {
+func CreateElasticConnection() *elastic.Client {
 
 	var err error
 
@@ -53,6 +53,8 @@ func CreateElasticConnection() {
 
 	fmt.Println("Elasticsearch: connected")
 	fmt.Println()
+
+	return GetElasticConnection()
 }
 
 func apiLog() error {
@@ -185,10 +187,10 @@ func createIndices(index string, mapping string) (*esapi.Response, error) {
 		return nil, fmt.Errorf("error %v", err)
 	}
 
-	fmt.Print("Elasticsearch creating index: ")
 	if res.StatusCode == 400 {
-		fmt.Printf("%s not created because already exists\n", index)
+		// fmt.Printf("%s not created because already exists\n", index)
 	} else {
+		fmt.Print("Elasticsearch creating index: ")
 		fmt.Printf("%s created\n", index)
 	}
 

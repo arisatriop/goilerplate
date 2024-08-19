@@ -8,11 +8,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func CreateRedisConnection() {
+var redisClient *redis.Client
+
+func CreateRedisConnection() *redis.Client {
 
 	app := GetAppVariable()
 
-	rdb := redis.NewClient(&redis.Options{
+	redisClient := redis.NewClient(&redis.Options{
 		Addr:     app.RedisHost.(string) + ":" + app.RedisPort.(string),
 		Password: app.RedisPassword.(string),
 		DB:       0,
@@ -20,7 +22,7 @@ func CreateRedisConnection() {
 
 	ctx := context.Background()
 
-	_, err := rdb.Ping(ctx).Result()
+	_, err := redisClient.Ping(ctx).Result()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to redis: %v\n", err)
 		os.Exit(1)
@@ -28,4 +30,10 @@ func CreateRedisConnection() {
 
 	fmt.Println("Redis: connected")
 	fmt.Println()
+
+	return GetRedisConnection()
+}
+
+func GetRedisConnection() *redis.Client {
+	return redisClient
 }

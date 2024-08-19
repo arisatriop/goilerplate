@@ -1,8 +1,10 @@
 package config
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 type AppVariable struct {
@@ -23,9 +25,12 @@ type AppVariable struct {
 	RedisHost     interface{}
 	RedisPort     interface{}
 	RedisPassword interface{}
+	DB            *Con
+	RedisClient   *redis.Client
+	ElasticClient *elasticsearch.Client
 }
 
-func SetAppVariable() {
+func SetAppVariable() *AppVariable {
 	app = &AppVariable{
 		Name:          env("APP_NAME", "Goilerplate"),
 		Env:           env("APP_ENV", "production"),
@@ -45,23 +50,7 @@ func SetAppVariable() {
 		RedisPassword: env("REDIS_PASSWORD", "secret"),
 	}
 
-	fmt.Println("App Name: ", app.Name)
-	fmt.Println("App Env: ", app.Env)
-	fmt.Println("App Url: ", app.Url)
-	fmt.Println("App Timezone: ", app.Timezone)
-	fmt.Println("Db Connection: ", app.DbConnection)
-	fmt.Println("Db Url: ", app.DbUrl)
-	fmt.Println("Db Host: ", app.DbHost)
-	fmt.Println("Db Port: ", app.DbPort)
-	fmt.Println("Db User: ", app.DbUser)
-	fmt.Println("Db Password: ", app.DbPassword)
-	fmt.Println("Db Name: ", app.DbName)
-	fmt.Println("Elastic Host: ", app.ElasticHost)
-	fmt.Println("Elastic Port: ", app.ElasticPort)
-	fmt.Println("Redis Host: ", app.RedisHost)
-	fmt.Println("Redis Port: ", app.RedisPort)
-	fmt.Println("Redis Password: ", app.RedisPassword)
-	fmt.Println()
+	return app
 }
 
 func GetAppVariable() *AppVariable {

@@ -20,11 +20,14 @@ type Con struct {
 	Gdb *gorm.DB
 }
 
-func CreateDBConnection() {
+func CreateDBConnection() *Con {
 	db = SqlConnection()
 	gdb = GormConnection()
+
 	fmt.Println("Database: connected")
 	fmt.Println()
+
+	return GetDBConnection()
 }
 
 func SqlConnection() *pgxpool.Pool {
@@ -106,6 +109,7 @@ func GormConnection() *gorm.DB {
 }
 
 func GetDBConnection() *Con {
+
 	return &Con{
 		Db:  db,
 		Gdb: gdb,
