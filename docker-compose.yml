@@ -18,7 +18,7 @@ services:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
       DB_NAME: goilerplate
-      ELASTIC_HOST: host.docker.internal
+      ELASTIC_HOST: http://host.docker.internal
       ELASTIC_PORT: 9200
       REDIS_HOST: host.docker.internal
       REDIS_PORT: 6379
