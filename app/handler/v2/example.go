@@ -6,6 +6,7 @@ import (
 	"goilerplate/api/response"
 	"goilerplate/app/logging"
 	usecase "goilerplate/app/usecase/v2"
+	"goilerplate/config"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -26,18 +27,18 @@ type IExample interface {
 }
 
 type ExampleImpl struct {
-	Validator *validator.Validate
-	Request   request.IExample
-	Response  response.IExample
-	Usecase   usecase.IExample
+	App      *config.App
+	Request  request.IExample
+	Response response.IExample
+	Usecase  usecase.IExample
 }
 
-func NewExampleHandler(validator *validator.Validate, request request.IExample, response response.IExample, usecase usecase.IExample) IExample {
+func NewExampleHandler(app *config.App, request request.IExample, response response.IExample, usecase usecase.IExample) IExample {
 	return &ExampleImpl{
-		Validator: validator,
-		Request:   request,
-		Response:  response,
-		Usecase:   usecase,
+		App:      app,
+		Request:  request,
+		Response: response,
+		Usecase:  usecase,
 	}
 }
 
@@ -57,7 +58,7 @@ func (h *ExampleImpl) Create() fiber.Handler {
 			})
 		}
 
-		if err := h.Validator.Struct(payload); err != nil {
+		if err := h.App.Validator.Struct(payload); err != nil {
 			if _, ok := err.(*validator.InvalidValidationError); ok {
 				go errLog.Store(c, fmt.Sprintf("handler (create example): %s", err.Error()))
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -117,7 +118,7 @@ func (h *ExampleImpl) Update() fiber.Handler {
 			})
 		}
 
-		if err := h.Validator.Struct(payload); err != nil {
+		if err := h.App.Validator.Struct(payload); err != nil {
 			if _, ok := err.(*validator.InvalidValidationError); ok {
 				go errLog.Store(c, fmt.Sprintf("handler (update example): %s", err.Error()))
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

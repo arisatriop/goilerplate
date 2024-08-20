@@ -4,10 +4,11 @@ import (
 	"os"
 
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/go-playground/validator/v10"
 	"github.com/redis/go-redis/v9"
 )
 
-type AppVariable struct {
+type App struct {
 	Name          string
 	Env           string
 	Url           string
@@ -27,13 +28,14 @@ type AppVariable struct {
 	RedisPassword string
 	CacheDriver   string
 	LogChannel    string
+	Validator     *validator.Validate
 	DB            *Con
 	RedisClient   *redis.Client
 	ElasticClient *elasticsearch.Client
 }
 
-func SetAppVariable() *AppVariable {
-	app = &AppVariable{
+func SetAppVariable() *App {
+	app = &App{
 		Name:          env("APP_NAME", "Goilerplate"),
 		Env:           env("APP_ENV", "local"),
 		Url:           env("URL", "http://localhost:80"),
@@ -52,16 +54,17 @@ func SetAppVariable() *AppVariable {
 		RedisHost:     env("REDIS_HOST", "localhost"),
 		RedisPort:     env("REDIS_PORT", "6379"),
 		RedisPassword: env("REDIS_PASSWORD", "secret"),
+		Validator:     validator.New(),
 	}
 
 	return app
 }
 
-func GetAppVariable() *AppVariable {
+func GetAppVariable() *App {
 	return app
 }
 
-var app *AppVariable
+var app *App
 
 func env(key string, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {

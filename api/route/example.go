@@ -5,7 +5,6 @@ import (
 	"goilerplate/api/response"
 	"goilerplate/config"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 
 	handler "goilerplate/app/handler/v1"
@@ -16,13 +15,13 @@ import (
 	usecaseV2 "goilerplate/app/usecase/v2"
 )
 
-func Example(prefix string, r fiber.Router, con *config.Con, validator *validator.Validate) {
+func Example(prefix string, r fiber.Router, app *config.App) {
 
 	request := request.NewExampleRequest()
 	response := response.NewExampleResponse()
 	repository := repository.NewExampleRepository()
-	usecase := usecase.NewExampleUsecase(con, repository)
-	handler := handler.NewExampleHandler(validator, request, response, usecase)
+	usecase := usecase.NewExampleUsecase(app, repository)
+	handler := handler.NewExampleHandler(app, request, response, usecase)
 
 	example := r.Group(prefix)
 	example.Post("/", handler.Create())
@@ -32,13 +31,13 @@ func Example(prefix string, r fiber.Router, con *config.Con, validator *validato
 	example.Get("/:id", handler.FindById())
 }
 
-func ExampleV2(prefix string, r fiber.Router, con *config.Con, validator *validator.Validate) {
+func ExampleV2(prefix string, r fiber.Router, app *config.App) {
 
 	request := request.NewExampleRequest()
 	response := response.NewExampleResponse()
 	repository := repositoryV2.NewExampleRepository()
-	usecase := usecaseV2.NewExampleUsecase(con, repository)
-	handler := handlerV2.NewExampleHandler(validator, request, response, usecase)
+	usecase := usecaseV2.NewExampleUsecase(app, repository)
+	handler := handlerV2.NewExampleHandler(app, request, response, usecase)
 
 	example := r.Group(prefix)
 	example.Post("/", handler.Create())

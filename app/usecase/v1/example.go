@@ -24,20 +24,20 @@ type IExample interface {
 }
 
 type ExampleImpl struct {
-	Conn       *config.Con
+	App        *config.App
 	Repository repository.IExample
 }
 
-func NewExampleUsecase(conn *config.Con, repository repository.IExample) IExample {
+func NewExampleUsecase(app *config.App, repository repository.IExample) IExample {
 	return &ExampleImpl{
-		Conn:       conn,
+		App:        app,
 		Repository: repository,
 	}
 }
 
 func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 
-	tx := u.Conn.Gdb.Begin()
+	tx := u.App.DB.Gdb.Begin()
 
 	example := entity.Example{
 		Id:        helper.GenerateShortUUID(),
@@ -70,7 +70,7 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Gdb, int64(id))
+	example, err := u.Repository.FindById(u.App.DB.Gdb, int64(id))
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return err
@@ -82,7 +82,7 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 	example.Example = ctx.FormValue("example")
 	example.UpdatedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
 
-	tx := u.Conn.Gdb.Begin()
+	tx := u.App.DB.Gdb.Begin()
 
 	err = u.Repository.Update(tx, example.Id, example)
 	if err != nil {
@@ -109,7 +109,7 @@ func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 		return fmt.Errorf("usecase (delete example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Gdb, int64(id))
+	example, err := u.Repository.FindById(u.App.DB.Gdb, int64(id))
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return err
@@ -120,7 +120,7 @@ func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 	example.DeletedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	example.DeletedBy = sql.NullString{String: ctx.Get("x-user"), Valid: true}
 
-	tx := u.Conn.Gdb.Begin()
+	tx := u.App.DB.Gdb.Begin()
 
 	err = u.Repository.Update(tx, example.Id, example)
 	if err != nil {
@@ -148,7 +148,7 @@ func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*entity.Example, error) {
 		Offset: ctx.FormValue("offset"),
 	}
 
-	examples, err := u.Repository.FindAll(u.Conn.Gdb, &payload)
+	examples, err := u.Repository.FindAll(u.App.DB.Gdb, &payload)
 	if err != nil {
 		return nil, fmt.Errorf("usecase (find all example): %s", err)
 	}
@@ -162,7 +162,7 @@ func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*entity.Example, error) {
 		return nil, fmt.Errorf("usecase (find by id example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Gdb, int64(id))
+	example, err := u.Repository.FindById(u.App.DB.Gdb, int64(id))
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, err

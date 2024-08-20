@@ -25,13 +25,13 @@ type IExample interface {
 }
 
 type ExampleImpl struct {
-	Conn       *config.Con
+	App        *config.App
 	Repository repository.IExample
 }
 
-func NewExampleUsecase(conn *config.Con, repository repository.IExample) IExample {
+func NewExampleUsecase(app *config.App, repository repository.IExample) IExample {
 	return &ExampleImpl{
-		Conn:       conn,
+		App:        app,
 		Repository: repository,
 	}
 }
@@ -40,7 +40,7 @@ func (u *ExampleImpl) Create(ctx *fiber.Ctx) error {
 
 	c := context.Background()
 
-	tx, err := u.Conn.Db.Begin(c)
+	tx, err := u.App.DB.Db.Begin(c)
 	if err != nil {
 		return fmt.Errorf("usecase (create example): %s", err)
 	}
@@ -69,7 +69,7 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 
 	c := context.Background()
 
-	tx, err := u.Conn.Db.Begin(c)
+	tx, err := u.App.DB.Db.Begin(c)
 	if err != nil {
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
@@ -80,7 +80,7 @@ func (u *ExampleImpl) Update(ctx *fiber.Ctx) error {
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
+	example, err := u.Repository.FindById(u.App.DB.Db, int64(id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return err
@@ -108,7 +108,7 @@ func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 
 	c := context.Background()
 
-	tx, err := u.Conn.Db.Begin(c)
+	tx, err := u.App.DB.Db.Begin(c)
 	if err != nil {
 		return fmt.Errorf("usecase (update example): %s", err)
 	}
@@ -119,7 +119,7 @@ func (u *ExampleImpl) Delete(ctx *fiber.Ctx) error {
 		return fmt.Errorf("usecase (delete example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
+	example, err := u.Repository.FindById(u.App.DB.Db, int64(id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return err
@@ -149,7 +149,7 @@ func (u *ExampleImpl) FindAll(ctx *fiber.Ctx) ([]*entity.Example, error) {
 		Offset: ctx.FormValue("offset"),
 	}
 
-	examples, err := u.Repository.FindAll(u.Conn.Db, &payload)
+	examples, err := u.Repository.FindAll(u.App.DB.Db, &payload)
 	if err != nil {
 		return nil, fmt.Errorf("usecase (find all example): %s", err)
 	}
@@ -163,7 +163,7 @@ func (u *ExampleImpl) FindById(ctx *fiber.Ctx) (*entity.Example, error) {
 		return nil, fmt.Errorf("usecase (find by id example): %s", err)
 	}
 
-	example, err := u.Repository.FindById(u.Conn.Db, int64(id))
+	example, err := u.Repository.FindById(u.App.DB.Db, int64(id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, err

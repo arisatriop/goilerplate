@@ -3,19 +3,17 @@ package route
 import (
 	"goilerplate/config"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
-func Init(app *fiber.App) {
-	con := config.GetDBConnection()
-	validator := validator.New()
+func Init(fiberApp *fiber.App) {
+	app := config.GetAppVariable()
 
-	api := app.Group("/api")
+	api := fiberApp.Group("/api")
 
 	v1 := api.Group("/v1")
-	Example("/example", v1, con, validator)
+	Example("/example", v1, app)
 
 	v2 := api.Group("/v2")
-	ExampleV2("/example", v2, con, validator)
+	ExampleV2("/example", v2, app)
 }
