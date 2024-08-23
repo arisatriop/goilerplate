@@ -59,8 +59,6 @@ func (log *ApiLogImpl) Store(c *fiber.Ctx) error {
 	var res *esapi.Response
 
 	app := config.GetAppVariable()
-	fmt.Println("log channel: ", app.LogChannel)
-	fmt.Println("elastic client: ", app.ElasticClient)
 	if app.LogChannel == "elasticsearch" {
 		res, err = app.ElasticClient.Index("api-log", esutil.NewJSONReader(&document))
 		if err != nil {
