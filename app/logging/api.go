@@ -58,18 +58,18 @@ func (log *ApiLogImpl) Store(c *fiber.Ctx) error {
 	var err error
 	var res *esapi.Response
 
-	if config.GetAppVariable().LogChannel != "elasticsearch" {
-		es := config.GetElasticConnection()
-		res, err = es.Index("api-log", esutil.NewJSONReader(&document))
+	app := config.GetAppVariable()
+	fmt.Println("log channel: ", app.LogChannel)
+	fmt.Println("elastic client: ", app.ElasticClient)
+	if app.LogChannel == "elasticsearch" {
+		res, err = app.ElasticClient.Index("api-log", esutil.NewJSONReader(&document))
 		if err != nil {
-			// return fmt.Errorf("error %v", err)
-			return nil // always return nil
+			return fmt.Errorf("error %v", err)
 		}
+		defer res.Body.Close()
 	}
-	defer res.Body.Close()
 
 	return nil
-
 }
 
 func (log *ApiLogImpl) StoreFile(document *ApiDocument) error {
