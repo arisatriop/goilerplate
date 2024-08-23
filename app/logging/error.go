@@ -44,18 +44,16 @@ func (log *ErrorLogImpl) Store(c *fiber.Ctx, message string) error {
 	var err error
 	var res *esapi.Response
 
-	if config.GetAppVariable().LogChannel != "elasticsearch" {
-		es := config.GetElasticConnection()
-		res, err = es.Index("error-log", esutil.NewJSONReader(&document))
+	app := config.GetAppVariable()
+	if app.LogChannel != "elasticsearch" {
+		res, err = app.ElasticClient.Index("error-log", esutil.NewJSONReader(&document))
 		if err != nil {
-			// return fmt.Errorf("error %v", err)
-			return nil // always return nil
+			return fmt.Errorf("error %v", err)
 		}
+		defer res.Body.Close()
 	}
 
-	defer res.Body.Close()
-
-	return nil // always return nil
+	return nil
 }
 
 func (log *ErrorLogImpl) GetDocument(c *fiber.Ctx) *ErrorDocument {
