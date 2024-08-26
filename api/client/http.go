@@ -5,10 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"goilerplate/app/entity"
+	"goilerplate/app/logging"
+	"goilerplate/config"
 	"net/http"
 )
 
-type HttpImpl struct{ Http *entity.HttpClient }
+type HttpImpl struct {
+	Http    *entity.HttpClient
+	Graphql *entity.GraphqlClient
+	Grpc    *entity.GrpcClient
+}
 
 type IHttp interface {
 	Perform(method string, baseURL string, endpoint string, header map[string]interface{}, payload map[string]interface{}) (*entity.HttpClient, error)
@@ -45,14 +51,17 @@ func NewHttp() IHttp {
 func (h *HttpImpl) Perform(method string, baseURL string, endpoint string,
 	header map[string]interface{}, payload map[string]interface{}) (*entity.HttpClient, error) {
 
+	var err error
+
 	h.SetMethod(method)
 	h.SetBaseURL(baseURL)
 	h.SetEndpoint(endpoint)
 	h.SetOriginalURL()
 	h.SetRequestHeader(header)
-	h.SetRequestPayload(payload)
-
-	var err error
+	err = h.SetRequestPayload(payload)
+	if err != nil {
+		return nil, fmt.Errorf("perform: %v", err)
+	}
 
 	switch method {
 	case "POST":
@@ -67,6 +76,15 @@ func (h *HttpImpl) Perform(method string, baseURL string, endpoint string,
 		err = h.Delete()
 	default:
 		return nil, fmt.Errorf("method %s not supported", method)
+	}
+
+	app := config.GetAppVariable()
+	if app.LogChannel == "elasticsearch" {
+		curl := logging.NewCurlLog()
+		err = curl.Store(h.Http)
+		if err != nil {
+			return nil, fmt.Errorf("perform: %v", err)
+		}
 	}
 
 	return h.Http, err
