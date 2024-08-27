@@ -45,7 +45,7 @@ func (log *ErrorLogImpl) Store(c *fiber.Ctx, message string) error {
 	var res *esapi.Response
 
 	app := config.GetAppVariable()
-	if app.LogChannel != "elasticsearch" {
+	if app.LogChannel == "elasticsearch" {
 		res, err = app.ElasticClient.Index("error-log", esutil.NewJSONReader(&document))
 		if err != nil {
 			return fmt.Errorf("error %v", err)

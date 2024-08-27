@@ -24,7 +24,7 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD:
       CACHE_DRIVER: redis
-      LOG_CHANNEL: elasticsearch
+      LOG_CHANNEL: file
       PORT: 80
     volumes:
       - .:/app
