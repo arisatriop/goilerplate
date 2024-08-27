@@ -31,7 +31,6 @@ func main() {
 	middleware.Fiber(app)
 	middleware.Log(app)
 	middleware.Recover(app)
-	middleware.Auth(app)
 
 	// Init route
 	route.Init(app)

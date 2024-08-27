@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func Auth(app *fiber.App) {
+func Auth(app fiber.Router) {
 	app.Use(func(c *fiber.Ctx) error {
 
 		authorization := strings.Replace(c.Get("Authorization"), "Bearer ", "", -1)
