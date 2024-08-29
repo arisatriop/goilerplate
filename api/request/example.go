@@ -4,7 +4,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+func NewExampleRequest() IExample {
+	return &ExampleImpl{}
+}
+
 type ExampleImpl struct{}
+
+type IExample interface {
+	GetReadPayload(ctx *fiber.Ctx) (*ExampleReadPayload, error)
+	GetCreatePayload(ctx *fiber.Ctx) (*ExampleCreatePayload, error)
+	GetUpdatePayload(ctx *fiber.Ctx) (*ExampleUpdatePayload, error)
+}
 
 type ExampleReadPayload struct {
 	Limit  string `json:"limit" form:"limit"`
@@ -20,16 +30,6 @@ type ExampleCreatePayload struct {
 type ExampleUpdatePayload struct {
 	Code    string `json:"code" form:"code"`
 	Example string `validate:"required" json:"example" form:"example"`
-}
-
-type IExample interface {
-	GetReadPayload(ctx *fiber.Ctx) (*ExampleReadPayload, error)
-	GetCreatePayload(ctx *fiber.Ctx) (*ExampleCreatePayload, error)
-	GetUpdatePayload(ctx *fiber.Ctx) (*ExampleUpdatePayload, error)
-}
-
-func NewExampleRequest() IExample {
-	return &ExampleImpl{}
 }
 
 func (p *ExampleImpl) GetReadPayload(ctx *fiber.Ctx) (*ExampleReadPayload, error) {

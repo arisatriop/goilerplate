@@ -2,11 +2,11 @@ package response
 
 import "goilerplate/app/entity"
 
-type Example struct {
-	Uuid    string `json:"uuid"`
-	Code    string `json:"code"`
-	Example string `json:"example"`
+func NewExampleResponse() IExample {
+	return &NewExampleImpl{}
 }
+
+type NewExampleImpl struct{}
 
 type IExample interface {
 	Create(example *entity.Example) *Example
@@ -16,10 +16,10 @@ type IExample interface {
 	FindById(example *entity.Example) (*Example, error)
 }
 
-type NewExampleImpl struct{}
-
-func NewExampleResponse() IExample {
-	return &NewExampleImpl{}
+type Example struct {
+	Uuid    string `json:"uuid"`
+	Code    string `json:"code"`
+	Example string `json:"example"`
 }
 
 func (r *NewExampleImpl) Create(example *entity.Example) *Example {

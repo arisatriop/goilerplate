@@ -9,19 +9,11 @@ import (
 
 func Init(fiberApp *fiber.App) {
 
-	auth := fiberApp.Group("/auth")
-	auth.Post("/token", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"message": "Token generated",
-		})
-	})
-	auth.Post("/token/remove", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"message": "Session removed",
-		})
-	})
-
 	app := config.GetAppVariable()
+
+	auth := fiberApp.Group("/auth")
+	Auth("/token", auth, app)
+
 	api := fiberApp.Group("/api")
 	middleware.Auth(api)
 
