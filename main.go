@@ -13,27 +13,18 @@ import (
 func main() {
 
 	// Set up Application Variable
-	appVariable := config.SetAppVariable()
-	appVariable.DB = config.CreateDBConnection()
-
-	if appVariable.CacheDriver == "redis" {
-		appVariable.RedisClient = config.CreateRedisConnection()
-	}
-
-	if appVariable.LogChannel == "elasticsearch" {
-		appVariable.ElasticClient = config.CreateElasticConnection()
-	}
+	config.SetAppVariable()
 
 	// Init fiber app
-	app := fiber.New(config.Fiber())
+	fiber := fiber.New(config.Fiber())
 
 	// Init middleware
-	middleware.Fiber(app)
-	middleware.Log(app)
-	middleware.Recover(app)
+	middleware.Fiber(fiber)
+	middleware.Log(fiber)
+	middleware.Recover(fiber)
 
 	// Init route
-	route.Init(app)
+	route.Init(fiber)
 
 	fmt.Println("")
 	fmt.Println("")
@@ -48,6 +39,6 @@ func main() {
 		port = "80"
 	}
 
-	app.Listen(":" + port)
+	fiber.Listen(":" + port)
 
 }
