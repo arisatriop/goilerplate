@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"golang-clean-architecture/internal/config"
-	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
@@ -17,7 +18,6 @@ func main() {
 	app := config.NewFiber(viperConfig)
 	db := config.NewDatabase(viperConfig, log)
 	validate := config.NewValidator(viperConfig)
-	// producer := config.NewKafkaProducer(viperConfig, log)
 
 	config.Bootstrap(&config.BootstrapConfig{
 		DB:       db,
@@ -25,57 +25,64 @@ func main() {
 		Log:      log,
 		Validate: validate,
 		Config:   viperConfig,
-		// Producer: producer,
 	})
 
-	done := make(chan string)
-	go waitForShutdown(app, db, log, done)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	webPort := viperConfig.GetInt("server.port")
-	if err := app.Listen(fmt.Sprintf(":%d", webPort)); err != nil {
-		select {
-		case <-done:
-		default:
-			done <- "App failed to start"
+	go func() {
+		webPort := viperConfig.GetInt("server.port")
+		if err := app.Listen(fmt.Sprintf(":%d", webPort)); err != nil {
+			log.Error("Failed to start the server: ", err)
+			stop()
 		}
-	}
+	}()
 
-	log.Info(<-done)
-}
-
-func waitForShutdown(app *fiber.App, db *config.DB, log *logrus.Logger, done chan string) {
-	quitSignal := make(chan os.Signal, 1)
-	signal.Notify(quitSignal, syscall.SIGINT, syscall.SIGTERM)
-	signame := <-quitSignal
+	<-ctx.Done()
 
 	fmt.Println()
-	log.Infof("Shutdown signal received: %s", signame.String())
+	log.Info("Shutting down server...")
+
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	gracefulShutdown(timeoutCtx, app, db, log)
+}
+
+func gracefulShutdown(ctx context.Context, app *fiber.App, db *config.DB, log *logrus.Logger) {
+	message := "Server shutting down gracefully..."
+
 	log.Info("Cleaning up resources...")
 
-	msg := "App shutdown gracefully..."
+	done := make(chan error, 1)
+	go func() {
+		done <- app.Shutdown()
+	}()
 
-	if err := app.Shutdown(); err != nil {
-		msg = "App force to shutdown due to fiber app stop failed"
+	select {
+	case err := <-done:
+		if err != nil {
+			message = fmt.Sprintf("Server forced to shutdown: %v", err)
+		}
+	case <-ctx.Done():
+		message = "Server forced to shutdown: timeout expired during fiber shutdown"
 	}
+
 	if db.SqlDB != nil {
 		if err := db.SqlDB.Close(); err != nil {
-			msg = "App force to shutdown due to database connection close failed"
+			message = fmt.Sprintf("Server forced to shutdown: %v", err)
 		}
 	}
 	if db.PgxPool != nil {
 		db.PgxPool.Close()
 	}
 	if db.GDB != nil {
-		sqlDB, err := db.GDB.DB()
-		if err != nil {
-			msg = "App force to shutdown due to gorm database connection close failed"
+		if sqlDB, err := db.GDB.DB(); err != nil {
+			message = fmt.Sprintf("Server forced to shutdown: %v", err)
 		} else {
 			sqlDB.Close()
 		}
 	}
 
-	select {
-	case done <- msg:
-	default:
-	}
+	log.Info(message)
 }

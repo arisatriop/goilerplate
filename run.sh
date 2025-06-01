@@ -1,1 +1,1 @@
-nodemon -e go --signal SIGTERM --exec "go run cmd/web/main.go"
+nodemon -e go --signal SIGINT --exec "go run cmd/web/main.go"
