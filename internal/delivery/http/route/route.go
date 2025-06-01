@@ -1,29 +1,27 @@
 package route
 
 import (
-	"golang-clean-architecture/internal/delivery/http"
+	"golang-clean-architecture/internal/delivery/http/middleware"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type RouteConfig struct {
-	App               *fiber.App
-	UserController    *http.UserController
-	ContactController *http.ContactController
-	AddressController *http.AddressController
-	AuthMiddleware    fiber.Handler
+	App  *fiber.App
+	Auth *middleware.Auth
 }
 
 func (c *RouteConfig) Setup() {
-	c.SetupGuestRoute()
-	c.SetupAuthRoute()
-}
 
-func (c *RouteConfig) SetupGuestRoute() {
-	c.App.Post("/api/users", c.UserController.Register)
-	c.App.Post("/api/users/_login", c.UserController.Login)
-}
+	c.App.Get("/", func(ctx *fiber.Ctx) error {
+		return ctx.SendString("Welcome to Goilerplate!")
+	})
 
-func (c *RouteConfig) SetupAuthRoute() {
-	c.App.Use(c.AuthMiddleware)
+	api := c.App.Group("/api")
+	api.Use(c.Auth.Authenticated())
+
+	v1 := api.Group("/v1")
+	v1.Get("/example", c.Auth.Authorized("example"), func(ctx *fiber.Ctx) error {
+		return ctx.SendString("Example!")
+	})
 }

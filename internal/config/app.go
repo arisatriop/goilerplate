@@ -1,6 +1,7 @@
 package config
 
 import (
+	"golang-clean-architecture/internal/delivery/http/middleware"
 	"golang-clean-architecture/internal/delivery/http/route"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -27,14 +28,15 @@ func Bootstrap(config *BootstrapConfig) {
 	// setup controller
 
 	// setup middleware
-	// authMiddleware := middleware.NewAuth(userUseCase)
+	auth := middleware.NewAuth()
 
 	routeConfig := route.RouteConfig{
-		App: config.App,
+		App:  config.App,
+		Auth: auth,
+
 		// UserController:    userController,
 		// ContactController: contactController,
 		// AddressController: addressController,
-		// AuthMiddleware:    authMiddleware,
 	}
 	routeConfig.Setup()
 }
