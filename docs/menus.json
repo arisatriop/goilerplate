@@ -1,0 +1,76 @@
+{
+    "message": "Success",
+    "data": [
+        {
+            "role": "Super Admin",
+            "menu": [
+                {
+                    "name": "Manage",
+                    "children": [
+                        {
+                            "name": "Users",
+                            "children": []
+                        },
+                        {
+                            "name": "Roles",
+                            "children": []
+                        },
+                        {
+                            "name": "Master Data",
+                            "children": [
+                                {
+                                    "name": "Branch",
+                                    "children": []
+                                },
+                                {
+                                    "name": "Region",
+                                    "children": []
+                                },
+                                {
+                                    "name": "Area",
+                                    "children": []
+                                },
+                                {
+                                    "name": "Coverage",
+                                    "children": []
+                                },
+                                {
+                                    "name": "Mapping",
+                                    "children": [
+                                        {
+                                            "name": "Branch Region",
+                                            "children": []
+                                        },
+                                        {
+                                            "name": "Area Coverage",
+                                            "children": []
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "role": "Admin",
+            "menu": [
+                {
+                    "name": "Master Data",
+                    "children": [
+                        {
+                            "name": "Branch",
+                            "children": []
+                        },
+                        {
+                            "name": "Region",
+                            "children": []
+                        }
+                    ]
+                }
+            ]
+        }
+        
+    ]
+}

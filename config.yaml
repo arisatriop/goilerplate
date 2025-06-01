@@ -1,0 +1,34 @@
+app:
+  name: Goilerplate
+  version: 1.0.0
+  description: This is a sample application configuration file.
+
+server:
+  host:
+  port: 3000
+  prefork: false
+  read_timeout: 5s
+  write_timeout: 5s
+  idle_timeout: 120s
+  enable_cors: true
+  cors:
+    allow_origin: "*"
+    allow_methods: "GET, POST, PUT, DELETE, OPTIONS"
+    allow_headers: "Content-Type, Authorization"
+
+db:
+  host: localhost
+  port: 5432
+  name: goilerplate
+  sslmode: disable  
+  username: postgres
+  password: postgres
+  min_open_connections: 10
+  max_open_connections: 100
+  connection_max_lifetime: 300
+  connection_max_idle_time: 60
+  health_check_period: 30
+
+log:
+  level: 6
+  output: stdout

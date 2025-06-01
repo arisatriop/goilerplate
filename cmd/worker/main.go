@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"golang-clean-architecture/internal/config"
 	"golang-clean-architecture/internal/delivery/messaging"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 func main() {

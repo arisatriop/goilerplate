@@ -1,17 +1,17 @@
 package test
 
 import (
+	"golang-clean-architecture/internal/config"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"golang-clean-architecture/internal/config"
-	"gorm.io/gorm"
 )
 
 var app *fiber.App
 
-var db *gorm.DB
+var db *config.DB
 
 var viperConfig *viper.Viper
 
