@@ -5,6 +5,7 @@ import (
 	"golang-clean-architecture/internal/delivery/http/middleware"
 	"golang-clean-architecture/internal/helper"
 	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/usecase"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -21,34 +22,38 @@ type IExampleController interface {
 }
 
 type ExampleController struct {
-	Log       *logrus.Logger
-	Validator *validator.Validate
+	Log            *logrus.Logger
+	Validator      *validator.Validate
+	ExampleUsecase usecase.IExampleUsecase
 }
 
-func NewExampleController(log *logrus.Logger, validator *validator.Validate) IExampleController {
+func NewExampleController(log *logrus.Logger, validator *validator.Validate, exampleUsecase usecase.IExampleUsecase) IExampleController {
 	return &ExampleController{
-		Log:       log,
-		Validator: validator,
+		Log:            log,
+		Validator:      validator,
+		ExampleUsecase: exampleUsecase,
 	}
 }
 
 func (c *ExampleController) Create(ctx *fiber.Ctx) error {
 
-	auth := middleware.GetUser(ctx)
-
 	var request model.ExampleCreateRequest
 	if err := ctx.BodyParser(&request); err != nil {
-		// return helper.BadRequest(ctx, "Invalid request payload")
+		return helper.ResBadRequest(ctx, "Invalid request payload")
 	}
 
 	if err := c.Validator.Struct(request); err != nil {
 		errs := err.(validator.ValidationErrors)[0]
-		return helper.BadRequest(ctx, strings.ToLower(fmt.Sprintf("field '%s' is %s", errs.Field(), errs.Tag())))
+		return helper.ResBadRequest(ctx, strings.ToLower(fmt.Sprintf("field '%s' is %s", errs.Field(), errs.Tag())))
 	}
 
-	request.CreatedBy = auth.ID.String()
+	request.CreatedBy = middleware.GetUser(ctx).ID.String()
 
-	return helper.Created(ctx, "Example created successfully")
+	if err := c.ExampleUsecase.Create(ctx.UserContext(), &request); err != nil {
+		return helper.ResInternalServerError(ctx, "Failed to create example")
+	}
+
+	return helper.ResCreated(ctx, "Example created successfully")
 }
 
 func (c *ExampleController) List(ctx *fiber.Ctx) error {

@@ -4,7 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func Success(ctx *fiber.Ctx, args ...any) error {
+func ResOK(ctx *fiber.Ctx, args ...any) error {
 	type SuccessResponse struct {
 		Message string         `json:"message"`
 		Data    map[string]any `json:"data"`
@@ -29,7 +29,7 @@ func Success(ctx *fiber.Ctx, args ...any) error {
 	})
 }
 
-func Created(ctx *fiber.Ctx, args ...string) error {
+func ResCreated(ctx *fiber.Ctx, args ...string) error {
 	type CreatedResponse struct {
 		Message string `json:"message"`
 	}
@@ -43,7 +43,7 @@ func Created(ctx *fiber.Ctx, args ...string) error {
 	})
 }
 
-func BadRequest(ctx *fiber.Ctx, args ...string) error {
+func ResBadRequest(ctx *fiber.Ctx, args ...string) error {
 	type BadRequestResponse struct {
 		Message string `json:"message"`
 	}
@@ -57,7 +57,7 @@ func BadRequest(ctx *fiber.Ctx, args ...string) error {
 	})
 }
 
-func Forbidden(ctx *fiber.Ctx, args ...string) error {
+func ResForbidden(ctx *fiber.Ctx, args ...string) error {
 	type Forbidden struct {
 		Message string `json:"message"`
 	}
@@ -71,7 +71,7 @@ func Forbidden(ctx *fiber.Ctx, args ...string) error {
 	})
 }
 
-func NotFound(ctx *fiber.Ctx, args ...string) error {
+func RespNotFound(ctx *fiber.Ctx, args ...string) error {
 	type NotFoundResponse struct {
 		Message string `json:"message"`
 	}
@@ -85,7 +85,7 @@ func NotFound(ctx *fiber.Ctx, args ...string) error {
 	})
 }
 
-func InternalServerError(ctx *fiber.Ctx, args ...string) error {
+func ResInternalServerError(ctx *fiber.Ctx, args ...string) error {
 	type InternalServerErrorResponse struct {
 		Message string `json:"message"`
 	}

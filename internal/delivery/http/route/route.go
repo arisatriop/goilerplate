@@ -8,8 +8,9 @@ import (
 )
 
 type RouteConfig struct {
-	App               *fiber.App
-	Auth              *middleware.Auth
+	App  *fiber.App
+	Auth *middleware.Auth
+
 	ExampleController http.IExampleController
 }
 

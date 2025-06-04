@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"golang-clean-architecture/internal"
 	"golang-clean-architecture/internal/config"
 	"os/signal"
 	"syscall"
@@ -19,7 +20,7 @@ func main() {
 	db := config.NewDatabase(viperConfig, log)
 	validate := config.NewValidator(viperConfig)
 
-	config.Bootstrap(&config.BootstrapConfig{
+	internal.Bootstrap(&internal.BootstrapConfig{
 		DB:       db,
 		App:      app,
 		Log:      log,
