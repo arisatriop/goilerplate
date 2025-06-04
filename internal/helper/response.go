@@ -4,6 +4,25 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+func Res(ctx *fiber.Ctx, status int, message string, data ...any) error {
+	type Response struct {
+		Message string         `json:"message"`
+		Data    map[string]any `json:"data,omitempty"`
+	}
+
+	var respData map[string]any
+	if len(data) > 0 {
+		if d, ok := data[0].(map[string]any); ok {
+			respData = d
+		}
+	}
+
+	return ctx.Status(status).JSON(&Response{
+		Message: message,
+		Data:    respData,
+	})
+}
+
 func ResOK(ctx *fiber.Ctx, args ...any) error {
 	type SuccessResponse struct {
 		Message string         `json:"message"`

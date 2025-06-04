@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 	"golang-clean-architecture/internal/config"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/model/zexample"
 	"golang-clean-architecture/internal/repository"
 
 	"github.com/sirupsen/logrus"
 )
 
 type IExampleUsecase interface {
-	Create(ctx context.Context, req *model.ExampleCreateRequest) error
+	Create(ctx context.Context, req *zexample.CreateRequest) error
 	// FindAll(ctx context.Context, req *model.ExampleGetRequest) ([]model.ExampleListReponse, error)
 }
 
@@ -29,9 +29,14 @@ func NewExampleUsecase(log *logrus.Logger, db *config.DB, exampleRepo repository
 	}
 }
 
-func (u *ExampleUsecase) Create(ctx context.Context, req *model.ExampleCreateRequest) error {
+func (u *ExampleUsecase) Create(ctx context.Context, req *zexample.CreateRequest) error {
 
-	err := u.ExampleRepository.Create(u.DB.GDB, nil)
+	entity, err := req.ToEntity()
+	if err != nil {
+		return err
+	}
+
+	err = u.ExampleRepository.Create(u.DB.GDB, entity)
 	if err != nil {
 		return fmt.Errorf("failed to create example: %w", err)
 	}

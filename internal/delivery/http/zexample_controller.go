@@ -1,10 +1,11 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"golang-clean-architecture/internal/delivery/http/middleware"
 	"golang-clean-architecture/internal/helper"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/model/zexample"
 	"golang-clean-architecture/internal/usecase"
 	"strings"
 
@@ -37,7 +38,7 @@ func NewExampleController(log *logrus.Logger, validator *validator.Validate, exa
 
 func (c *ExampleController) Create(ctx *fiber.Ctx) error {
 
-	var request model.ExampleCreateRequest
+	var request zexample.CreateRequest
 	if err := ctx.BodyParser(&request); err != nil {
 		return helper.ResBadRequest(ctx, "Invalid request payload")
 	}
@@ -47,9 +48,13 @@ func (c *ExampleController) Create(ctx *fiber.Ctx) error {
 		return helper.ResBadRequest(ctx, strings.ToLower(fmt.Sprintf("field '%s' is %s", errs.Field(), errs.Tag())))
 	}
 
-	request.CreatedBy = middleware.GetUser(ctx).ID.String()
+	request.CreatedBy = middleware.GetUser(ctx).ID
 
 	if err := c.ExampleUsecase.Create(ctx.UserContext(), &request); err != nil {
+		var cerr *helper.ClientError
+		if errors.As(err, &cerr) {
+			return helper.Res(ctx, cerr.Code, cerr.Message)
+		}
 		return helper.ResInternalServerError(ctx, "Failed to create example")
 	}
 

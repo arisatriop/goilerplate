@@ -26,7 +26,10 @@ func NewExampleRepository(log *logrus.Logger) IExampleRepository {
 }
 
 func (r *ExampleRepository) Create(tx *gorm.DB, example *entity.Example) error {
-	r.Log.Panic("test info")
+	if err := tx.Create(example).Error; err != nil {
+		r.Log.Errorf("failed to create example: %v", err)
+		return err
+	}
 	return nil
 }
 

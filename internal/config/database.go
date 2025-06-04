@@ -13,7 +13,6 @@ import (
 	gormMysql "gorm.io/driver/mysql"
 	gormPostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 type DB struct {
@@ -127,13 +126,13 @@ func gormDB(driver string, viper *viper.Viper, log *logrus.Logger) *gorm.DB {
 	gdb, err := gorm.Open(dialector, &gorm.Config{
 		SkipDefaultTransaction: true,
 		PrepareStmt:            true,
-		Logger: logger.New(&logrusWriter{Logger: log}, logger.Config{
-			SlowThreshold:             time.Second * 5,
-			Colorful:                  false,
-			IgnoreRecordNotFoundError: true,
-			ParameterizedQueries:      true,
-			LogLevel:                  logger.Info,
-		}),
+		// Logger: logger.New(&logrusWriter{Logger: log}, logger.Config{
+		// 	SlowThreshold:             time.Second * 5,
+		// 	Colorful:                  false,
+		// 	IgnoreRecordNotFoundError: true,
+		// 	ParameterizedQueries:      true,
+		// 	LogLevel:                  logger.Info,
+		// }),
 	})
 	if err != nil {
 		log.Fatalf("failed to connect to gorm: %v", err)

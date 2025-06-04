@@ -32,7 +32,7 @@ func (m *Auth) Authorized(permission string) fiber.Handler {
 		_ = GetUser(ctx)
 
 		perm := "example"
-		if permission != perm {
+		if permission[:7] != perm {
 			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"message": "Forbidden: '" + permission + "' permission is required",
 			})
