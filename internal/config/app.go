@@ -1,6 +1,7 @@
 package config
 
 import (
+	"golang-clean-architecture/internal/delivery/http"
 	"golang-clean-architecture/internal/delivery/http/middleware"
 	"golang-clean-architecture/internal/delivery/http/route"
 
@@ -26,7 +27,7 @@ func Bootstrap(config *BootstrapConfig) {
 	// setup use cases
 
 	// setup controller
-
+	exampleController := http.NewExampleController(config.Log, config.Validate)
 	// setup middleware
 	auth := middleware.NewAuth()
 
@@ -34,9 +35,7 @@ func Bootstrap(config *BootstrapConfig) {
 		App:  config.App,
 		Auth: auth,
 
-		// UserController:    userController,
-		// ContactController: contactController,
-		// AddressController: addressController,
+		ExampleController: exampleController,
 	}
 	routeConfig.Setup()
 }

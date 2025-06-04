@@ -4,6 +4,7 @@ import (
 	"golang-clean-architecture/internal/model"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type Auth struct{}
@@ -19,14 +20,16 @@ func (m *Auth) Authenticated() fiber.Handler {
 			return fiber.ErrUnauthorized
 		}
 
-		ctx.Locals("auth", &model.Auth{ID: "12345"})
+		ctx.Locals("auth", &model.Auth{
+			ID: uuid.New(),
+		})
 		return ctx.Next()
 	}
 }
 
 func (m *Auth) Authorized(permission string) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		_ = getUser(ctx)
+		_ = GetUser(ctx)
 
 		perm := "example"
 		if permission != perm {
@@ -38,6 +41,6 @@ func (m *Auth) Authorized(permission string) fiber.Handler {
 	}
 }
 
-func getUser(ctx *fiber.Ctx) *model.Auth {
+func GetUser(ctx *fiber.Ctx) *model.Auth {
 	return ctx.Locals("auth").(*model.Auth)
 }

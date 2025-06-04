@@ -1,6 +1,8 @@
 package config
 
 import (
+	"golang-clean-architecture/internal/delivery/http/middleware"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/spf13/viper"
 )
@@ -11,6 +13,8 @@ func NewFiber(config *viper.Viper) *fiber.App {
 		ErrorHandler: NewErrorHandler(),
 		Prefork:      config.GetBool("web.prefork"),
 	})
+
+	app.Use(middleware.Recover())
 
 	return app
 }

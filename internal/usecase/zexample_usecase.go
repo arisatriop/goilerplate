@@ -1,10 +1,7 @@
 package usecase
 
 import (
-	"context"
-	"fmt"
 	"golang-clean-architecture/internal/config"
-	"golang-clean-architecture/internal/model"
 	"golang-clean-architecture/internal/repository"
 )
 
@@ -14,7 +11,7 @@ type ExampleUsecase struct {
 }
 
 type IExampleUsecase interface {
-	FindAll(ctx context.Context, req *model.ExampleGetRequest) ([]model.ExampleListReponse, error)
+	// FindAll(ctx context.Context, req *model.ExampleGetRequest) ([]model.ExampleListReponse, error)
 }
 
 func NewExampleUsecase(db *config.DB, exampleRepo repository.IExampleRepository) IExampleUsecase {
@@ -24,16 +21,16 @@ func NewExampleUsecase(db *config.DB, exampleRepo repository.IExampleRepository)
 	}
 }
 
-func (u *ExampleUsecase) FindAll(ctx context.Context, req *model.ExampleGetRequest) ([]model.ExampleListReponse, error) {
-	examples, err := u.ExampleRepository.FindAll(ctx, u.DB.GDB, req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find examples: %w", err)
-	}
+// func (u *ExampleUsecase) FindAll(ctx context.Context, req *model.ExampleGetRequest) ([]model.ExampleListReponse, error) {
+// 	examples, err := u.ExampleRepository.FindAll(ctx, u.DB.GDB, req)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to find examples: %w", err)
+// 	}
 
-	result := []model.ExampleListReponse{}
-	for _, example := range examples {
-		result = append(result, model.ToExampleListResponse(&example))
-	}
+// 	result := []model.ExampleListReponse{}
+// 	for _, example := range examples {
+// 		result = append(result, model.ToExampleListResponse(&example))
+// 	}
 
-	return result, nil
-}
+// 	return result, nil
+// }
