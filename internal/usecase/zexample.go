@@ -14,7 +14,7 @@ import (
 )
 
 type IExampleUsecase interface {
-	FindByID(ctx context.Context, id uuid.UUID) (*zexample.GetResponse, error)
+	Get(ctx context.Context, id uuid.UUID) (*zexample.GetResponse, error)
 	Create(ctx context.Context, req *zexample.CreateRequest) error
 	Update(ctx context.Context, id uuid.UUID, req *zexample.UpdateRequest) error
 	Delete(ctx context.Context, id uuid.UUID, req *zexample.DeleteRequest) error
@@ -35,8 +35,8 @@ func NewExampleUsecase(log *logrus.Logger, db *config.DB, exampleRepo repository
 	}
 }
 
-func (u *ExampleUsecase) FindByID(ctx context.Context, id uuid.UUID) (*zexample.GetResponse, error) {
-	example, err := u.ExampleRepository.FindByID(u.DB.GDB, id)
+func (u *ExampleUsecase) Get(ctx context.Context, id uuid.UUID) (*zexample.GetResponse, error) {
+	example, err := u.ExampleRepository.GetByID(u.DB.GDB, id)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (u *ExampleUsecase) Create(ctx context.Context, req *zexample.CreateRequest
 
 func (u *ExampleUsecase) Update(ctx context.Context, id uuid.UUID, req *zexample.UpdateRequest) error {
 
-	example, err := u.ExampleRepository.FindByID(u.DB.GDB, id)
+	example, err := u.ExampleRepository.GetByID(u.DB.GDB, id)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (u *ExampleUsecase) Update(ctx context.Context, id uuid.UUID, req *zexample
 }
 
 func (u *ExampleUsecase) Delete(ctx context.Context, id uuid.UUID, req *zexample.DeleteRequest) error {
-	example, err := u.ExampleRepository.FindByID(u.DB.GDB, id)
+	example, err := u.ExampleRepository.GetByID(u.DB.GDB, id)
 	if err != nil {
 		return err
 	}

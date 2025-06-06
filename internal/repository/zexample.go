@@ -10,10 +10,11 @@ import (
 )
 
 type IExampleRepository interface {
-	FindByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error)
 	Create(db *gorm.DB, example *entity.Example) error
 	Update(db *gorm.DB, example *entity.Example) error
 	Delete(db *gorm.DB, example *entity.Example) error
+	GetAll(db *gorm.DB) ([]entity.Example, error)
+	GetByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error)
 	// FindAll(cdb context.Context, db *gorm.DB, req *model.ExampleGetRequest) ([]entity.Example, error)
 }
 
@@ -25,18 +26,6 @@ func NewExampleRepository(log *logrus.Logger) IExampleRepository {
 	return &ExampleRepository{
 		Log: log,
 	}
-}
-
-func (r *ExampleRepository) FindByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error) {
-	example := &entity.Example{}
-	if err := db.Where("id = ? and deleted_at is null", id).First(example).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		r.Log.Errorf("failed to find example by ID %s: %v", id, err)
-		return nil, err
-	}
-	return example, nil
 }
 
 func (r *ExampleRepository) Create(db *gorm.DB, example *entity.Example) error {
@@ -74,6 +63,10 @@ func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
 	return nil
 }
 
+func (r *ExampleRepository) GetAll(db *gorm.DB) ([]entity.Example, error) {
+	return nil, nil
+}
+
 // func (r *ExampleRepository) FindAll(cdb context.Context, db *gorm.DB, req *model.ExampleGetRequest) ([]entity.Example, error) {
 // 	var examples []entity.Example
 
@@ -97,3 +90,15 @@ func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
 
 // 	return examples, nil
 // }
+
+func (r *ExampleRepository) GetByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error) {
+	example := &entity.Example{}
+	if err := db.Where("id = ? and deleted_at is null", id).First(example).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		r.Log.Errorf("failed to find example by ID %s: %v", id, err)
+		return nil, err
+	}
+	return example, nil
+}

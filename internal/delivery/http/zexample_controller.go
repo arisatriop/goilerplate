@@ -17,8 +17,8 @@ import (
 
 type IExampleController interface {
 	Get(ctx *fiber.Ctx) error
+	GetAll(ctx *fiber.Ctx) error
 	Create(ctx *fiber.Ctx) error
-	List(ctx *fiber.Ctx) error
 	Update(ctx *fiber.Ctx) error
 	Delete(ctx *fiber.Ctx) error
 }
@@ -44,7 +44,7 @@ func (c *ExampleController) Get(ctx *fiber.Ctx) error {
 		return helper.ResBadRequest(ctx, "Invalid UUID format")
 	}
 
-	example, err := c.ExampleUsecase.FindByID(ctx.UserContext(), uuid)
+	example, err := c.ExampleUsecase.Get(ctx.UserContext(), uuid)
 	if err != nil {
 		var cerr *helper.ClientError
 		if errors.As(err, &cerr) {
@@ -54,6 +54,14 @@ func (c *ExampleController) Get(ctx *fiber.Ctx) error {
 	}
 
 	return helper.ResOK(ctx, example, "Example retrieved successfully")
+}
+
+func (c *ExampleController) GetAll(ctx *fiber.Ctx) error {
+	response := map[string]string{
+		"message": "List of examples",
+	}
+
+	return ctx.JSON(response)
 }
 
 func (c *ExampleController) Create(ctx *fiber.Ctx) error {
@@ -125,12 +133,4 @@ func (c *ExampleController) Delete(ctx *fiber.Ctx) error {
 	}
 
 	return helper.ResNoContent(ctx)
-}
-
-func (c *ExampleController) List(ctx *fiber.Ctx) error {
-	response := map[string]string{
-		"message": "List of examples",
-	}
-
-	return ctx.JSON(response)
 }
