@@ -26,7 +26,7 @@ func Res(ctx *fiber.Ctx, status int, message string, data ...any) error {
 func ResOK(ctx *fiber.Ctx, args ...any) error {
 	type SuccessResponse struct {
 		Message string `json:"message"`
-		Data    any    `json:"data"`
+		Data    any    `json:"data,omitempty"`
 	}
 
 	var message string = "Success"
