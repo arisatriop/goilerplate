@@ -62,7 +62,8 @@ func (c *ExampleController) GetAll(ctx *fiber.Ctx) error {
 		return helper.ResBadRequest(ctx, "Invalid query parameters")
 	}
 
-	if err := c.ExampleUsecase.GetAll(ctx.UserContext(), params); err != nil {
+	examples, err := c.ExampleUsecase.GetAll(ctx.UserContext(), params)
+	if err != nil {
 		var cerr *helper.ClientError
 		if errors.As(err, &cerr) {
 			return helper.Res(ctx, cerr.Code, cerr.Message)
@@ -70,7 +71,11 @@ func (c *ExampleController) GetAll(ctx *fiber.Ctx) error {
 		return helper.ResInternalServerError(ctx)
 	}
 
-	return helper.ResOK(ctx)
+	if len(examples) == 0 {
+		examples = []zexample.GetAllResponse{}
+	}
+
+	return helper.ResOK(ctx, examples)
 }
 
 func (c *ExampleController) Create(ctx *fiber.Ctx) error {

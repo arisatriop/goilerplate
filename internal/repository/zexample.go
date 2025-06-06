@@ -13,7 +13,7 @@ type IExampleRepository interface {
 	Create(db *gorm.DB, example *entity.Example) error
 	Update(db *gorm.DB, example *entity.Example) error
 	Delete(db *gorm.DB, example *entity.Example) error
-	GetAll(db *gorm.DB, req *zexample.GetRequest) error
+	GetAll(db *gorm.DB, req *zexample.GetRequest) ([]entity.Example, error)
 	GetByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error)
 }
 
@@ -54,7 +54,7 @@ func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
 	return nil
 }
 
-func (r *ExampleRepository) GetAll(db *gorm.DB, req *zexample.GetRequest) error {
+func (r *ExampleRepository) GetAll(db *gorm.DB, req *zexample.GetRequest) ([]entity.Example, error) {
 	query := db.Model(&entity.Example{}).Where("deleted_at IS NULL")
 
 	if req.FieldID != "" {
@@ -66,7 +66,7 @@ func (r *ExampleRepository) GetAll(db *gorm.DB, req *zexample.GetRequest) error 
 
 		// id, err := uuid.Parse(req.FieldID)
 		// if err != nil {
-		// 	return fmt.Errorf("invalid UUID format for field_id: %w", err)
+		// 	return nil, helper.Error(http.StatusBadRequest, "invalid field_id format", err)
 		// }
 		// query = query.Where("field_id = ?", id)
 	}
@@ -80,12 +80,12 @@ func (r *ExampleRepository) GetAll(db *gorm.DB, req *zexample.GetRequest) error 
 		query = query.Limit(req.Limit)
 	}
 
-	if err := query.Find(&[]entity.Example{}).Error; err != nil {
+	var examples []entity.Example
+	if err := query.Find(&examples).Error; err != nil {
 		r.Log.Errorf("failed to get examples: %v", err)
-		return err
+		return nil, err
 	}
-
-	return nil
+	return examples, nil
 }
 
 func (r *ExampleRepository) GetByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error) {
