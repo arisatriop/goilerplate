@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"golang-clean-architecture/internal/delivery/http/middleware"
 	"golang-clean-architecture/internal/helper"
+	"golang-clean-architecture/internal/model"
 	"golang-clean-architecture/internal/model/zexample"
 	"golang-clean-architecture/internal/usecase"
 	"strings"
@@ -38,56 +39,58 @@ func NewExampleController(log *logrus.Logger, validator *validator.Validate, exa
 }
 
 func (c *ExampleController) Get(ctx *fiber.Ctx) error {
+
 	id := ctx.Params("id")
 	uuid, err := uuid.Parse(id)
 	if err != nil {
-		return helper.ResBadRequest(ctx, "Invalid UUID format")
+		return model.BadRequest(ctx, "Invalid UUID format")
 	}
 
 	example, err := c.ExampleUsecase.Get(ctx.UserContext(), uuid)
 	if err != nil {
 		var cerr *helper.ClientError
 		if errors.As(err, &cerr) {
-			return helper.Res(ctx, cerr.Code, cerr.Message)
+			return model.JSON(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx)
+		return model.InternalServerError(ctx)
 	}
 
-	return helper.ResOK(ctx, example, "Example retrieved successfully")
+	return model.OK(ctx, nil, example)
 }
 
 func (c *ExampleController) GetAll(ctx *fiber.Ctx) error {
+
 	params := zexample.GetParams()
 	if err := ctx.QueryParser(params); err != nil {
-		return helper.ResBadRequest(ctx, "Invalid query parameters")
+		return model.BadRequest(ctx, "Invalid UUID format")
 	}
 
 	examples, err := c.ExampleUsecase.GetAll(ctx.UserContext(), params)
 	if err != nil {
 		var cerr *helper.ClientError
 		if errors.As(err, &cerr) {
-			return helper.Res(ctx, cerr.Code, cerr.Message)
+			return model.JSON(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx)
+		return model.InternalServerError(ctx)
 	}
 
 	if len(examples) == 0 {
 		examples = []zexample.GetAllResponse{}
 	}
 
-	return helper.ResOK(ctx, examples)
+	return model.OK(ctx, nil, examples)
 }
 
 func (c *ExampleController) Create(ctx *fiber.Ctx) error {
 
 	var request zexample.CreateRequest
 	if err := ctx.BodyParser(&request); err != nil {
-		return helper.ResBadRequest(ctx, "Invalid request payload")
+		return model.BadRequest(ctx, "Invalid UUID format")
 	}
 
 	if err := c.Validator.Struct(request); err != nil {
 		errs := err.(validator.ValidationErrors)[0]
-		return helper.ResBadRequest(ctx, strings.ToLower(fmt.Sprintf("field '%s' is %s", errs.Field(), errs.Tag())))
+		return model.BadRequest(ctx, strings.ToLower(fmt.Sprintf("field '%s' is %s", errs.Field(), errs.Tag())))
 	}
 
 	request.CreatedBy = middleware.GetUser(ctx).ID
@@ -95,23 +98,23 @@ func (c *ExampleController) Create(ctx *fiber.Ctx) error {
 	if err := c.ExampleUsecase.Create(ctx.UserContext(), &request); err != nil {
 		var cerr *helper.ClientError
 		if errors.As(err, &cerr) {
-			return helper.Res(ctx, cerr.Code, cerr.Message)
+			return model.JSON(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx)
+		return model.InternalServerError(ctx)
 	}
 
-	return helper.ResCreated(ctx, "Example created successfully")
+	return model.Created(ctx, "Example created successfully")
 }
 
 func (c *ExampleController) Update(ctx *fiber.Ctx) error {
 	uuid, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
-		return helper.ResBadRequest(ctx, "Invalid UUID format")
+		return model.BadRequest(ctx, "Invalid UUID format")
 	}
 
 	var request zexample.UpdateRequest
 	if err := ctx.BodyParser(&request); err != nil {
-		return helper.ResBadRequest(ctx, "Invalid request payload")
+		return model.BadRequest(ctx, "Invalid request payload")
 	}
 
 	request.UpdatedBy = middleware.GetUser(ctx).ID
@@ -119,19 +122,19 @@ func (c *ExampleController) Update(ctx *fiber.Ctx) error {
 	if err := c.ExampleUsecase.Update(ctx.UserContext(), uuid, &request); err != nil {
 		var cerr *helper.ClientError
 		if errors.As(err, &cerr) {
-			return helper.Res(ctx, cerr.Code, cerr.Message)
+			return model.JSON(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx)
+		return model.InternalServerError(ctx)
 	}
 
-	return helper.ResOK(ctx, nil, "Example updated successfully")
+	return model.Created(ctx, "Example updated successfully")
 }
 
 func (c *ExampleController) Delete(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	uuid, err := uuid.Parse(id)
 	if err != nil {
-		return helper.ResBadRequest(ctx, "Invalid UUID format")
+		return model.BadRequest(ctx, "Invalid UUID format")
 	}
 
 	request := zexample.DeleteRequest{
@@ -141,10 +144,10 @@ func (c *ExampleController) Delete(ctx *fiber.Ctx) error {
 	if err := c.ExampleUsecase.Delete(ctx.UserContext(), uuid, &request); err != nil {
 		var cerr *helper.ClientError
 		if errors.As(err, &cerr) {
-			return helper.Res(ctx, cerr.Code, cerr.Message)
+			return model.JSON(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx)
+		return model.InternalServerError(ctx)
 	}
 
-	return helper.ResNoContent(ctx)
+	return model.NoContent(ctx)
 }
