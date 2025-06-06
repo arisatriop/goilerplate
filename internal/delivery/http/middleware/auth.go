@@ -2,15 +2,20 @@ package middleware
 
 import (
 	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/usecase"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 )
 
-type Auth struct{}
+type Auth struct {
+	UserUsecase usecase.IUserUsecase
+}
 
-func NewAuth() *Auth {
-	return &Auth{}
+func NewAuth(userUsecase usecase.IUserUsecase) *Auth {
+	return &Auth{
+		UserUsecase: userUsecase,
+	}
 }
 
 func (m *Auth) Authenticated() fiber.Handler {
@@ -20,24 +25,37 @@ func (m *Auth) Authenticated() fiber.Handler {
 			return fiber.ErrUnauthorized
 		}
 
+		parts := strings.Split(authorization, " ")
+		authorization = parts[0]
+		if len(parts) == 2 {
+			authorization = parts[1]
+		}
+
+		user, err := m.UserUsecase.GetByToken(ctx.UserContext(), authorization)
+		if err != nil {
+			return fiber.ErrInternalServerError
+		}
+
+		if user == nil {
+			return fiber.ErrUnauthorized
+		}
+
 		ctx.Locals("auth", &model.Auth{
-			ID: uuid.New(),
+			ID: user.ID,
 		})
+
 		return ctx.Next()
 	}
 }
 
 func (m *Auth) Authorized(permission string) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		_ = GetUser(ctx)
+		// user := GetUser(ctx)
 
-		perm := "example"
-		if permission[:7] != perm {
-			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"message": "Forbidden: '" + permission + "' permission is required",
-			})
-		}
-		return ctx.Next()
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "Forbidden: '" + permission + "' permission is required",
+		})
+		// return ctx.Next()
 	}
 }
 

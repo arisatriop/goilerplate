@@ -62,7 +62,7 @@ func (c *ExampleController) GetAll(ctx *fiber.Ctx) error {
 
 	params := zexample.GetParams()
 	if err := ctx.QueryParser(params); err != nil {
-		return model.BadRequest(ctx, "Invalid UUID format")
+		return model.BadRequest(ctx, "Malformed JSON payload")
 	}
 
 	examples, err := c.ExampleUsecase.GetAll(ctx.UserContext(), params)
@@ -85,7 +85,7 @@ func (c *ExampleController) Create(ctx *fiber.Ctx) error {
 
 	var request zexample.CreateRequest
 	if err := ctx.BodyParser(&request); err != nil {
-		return model.BadRequest(ctx, "Invalid UUID format")
+		return model.BadRequest(ctx, "Malformed JSON payload")
 	}
 
 	if err := c.Validator.Struct(request); err != nil {
@@ -114,7 +114,7 @@ func (c *ExampleController) Update(ctx *fiber.Ctx) error {
 
 	var request zexample.UpdateRequest
 	if err := ctx.BodyParser(&request); err != nil {
-		return model.BadRequest(ctx, "Invalid request payload")
+		return model.BadRequest(ctx, "Malformed JSON payload")
 	}
 
 	request.UpdatedBy = middleware.GetUser(ctx).ID

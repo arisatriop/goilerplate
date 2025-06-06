@@ -1,8 +1,9 @@
 CREATE TABLE users (
 	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-	username VARCHAR(100) UNIQUE NOT NULL,
-	fullname VARCHAR(100) NOT NULL,
+	name VARCHAR(100) NOT NULL,
 	email VARCHAR(100) UNIQUE NOT NULL,
+	password VARCHAR(255) NOT NULL,
+	token VARCHAR(255) UNIQUE NOT NULL,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	created_by VARCHAR(100) NOT NULL,
 	updated_at TIMESTAMP NULL,
@@ -11,7 +12,9 @@ CREATE TABLE users (
 	deleted_by VARCHAR(100) null
 );
 
-CREATE INDEX idx_users_fullname ON users(fullname);
+CREATE INDEX idx_users_name ON users(name);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_token ON users(token);
 
 
 

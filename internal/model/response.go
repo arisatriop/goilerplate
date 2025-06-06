@@ -54,6 +54,22 @@ func newJsonResponse(args ...any) jsonResponse {
 	}
 }
 
+// JSON contain mandatory code parameter and can contain three optional parameters:
+// First: a message string,
+// Second: data to be returned,
+// Third: a Pagination object for paginated responses.
+// If no message is provided, the default depends on the status code:
+// - 200: "Success"
+// - 201: "Created"
+// - 204: "No Content"
+// - 400: "Bad Request"
+// - 401: "Unauthorized"
+// - 403: "Forbidden"
+// - 404: "Not Found"
+// - 500: "Internal Server Error"
+// If the message is not provided, it will be set based on the status code.
+// If the status code is not recognized, it defaults to "Unknown Status".
+// The function returns a JSON response with the specified status code.
 func JSON(ctx *fiber.Ctx, code int, args ...any) error {
 	response := newJsonResponse(args...)
 	if response.Message == "" {
@@ -81,6 +97,11 @@ func JSON(ctx *fiber.Ctx, code int, args ...any) error {
 	return ctx.Status(code).JSON(response)
 }
 
+// OK can contain three optional parameters:
+// First: a message string,
+// Second: data to be returned,
+// Third: a Pagination object for paginated responses.
+// If no message is provided, it defaults to "Success".
 func OK(ctx *fiber.Ctx, args ...any) error {
 	response := newJsonResponse(args...)
 	fmt.Printf("message: %v\n", response.Message)
@@ -90,6 +111,8 @@ func OK(ctx *fiber.Ctx, args ...any) error {
 	return ctx.Status(200).JSON(response)
 }
 
+// Created contain optional parameters message
+// If no message is provided, it defaults to "Created".
 func Created(ctx *fiber.Ctx, args ...any) error {
 	response := newJsonResponse(args...)
 	if response.Message == "" {
@@ -134,6 +157,8 @@ func NotFound(ctx *fiber.Ctx, args ...any) error {
 	return ctx.Status(404).JSON(response)
 }
 
+// InternalServerError can contain optional parameters message.
+// If no message is provided, it will returned default message.
 func InternalServerError(ctx *fiber.Ctx, args ...any) error {
 	response := newJsonResponse(args...)
 	if response.Message == "" {
