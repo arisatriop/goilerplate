@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"golang-clean-architecture/internal/entity"
+	"golang-clean-architecture/internal/model/zexample"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -13,7 +14,7 @@ type IExampleRepository interface {
 	Create(db *gorm.DB, example *entity.Example) error
 	Update(db *gorm.DB, example *entity.Example) error
 	Delete(db *gorm.DB, example *entity.Example) error
-	GetAll(db *gorm.DB) ([]entity.Example, error)
+	GetAll(db *gorm.DB, req *zexample.GetRequest) error
 	GetByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error)
 	// FindAll(cdb context.Context, db *gorm.DB, req *model.ExampleGetRequest) ([]entity.Example, error)
 }
@@ -57,14 +58,44 @@ func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
 		return err
 	}
 
-	fmt.Printf("Example with ID %s deleted successfully\n", example.DeletedAt)
-	fmt.Printf("Example with ID %s deleted successfully\n", example.DeletedBy)
-
 	return nil
 }
 
-func (r *ExampleRepository) GetAll(db *gorm.DB) ([]entity.Example, error) {
-	return nil, nil
+func (r *ExampleRepository) GetAll(db *gorm.DB, req *zexample.GetRequest) error {
+	query := db.Model(&entity.Example{}).Where("deleted_at IS NULL")
+
+	if req.FieldID != "" {
+		/**
+		 * ! Implement your own filter
+		 * ? Example: You want to filter by a specific field ID
+		 * *  you can uncomment the following lines
+		 */
+
+		// id, err := uuid.Parse(req.FieldID)
+		// if err != nil {
+		// 	return fmt.Errorf("invalid UUID format for field_id: %w", err)
+		// }
+		// query = query.Where("field_id = ?", id)
+	}
+
+	if req.Keyword != "" {
+		query = query.Where("varchar_not_null = ?", "%"+req.Keyword+"%")
+	}
+
+	if req.Offset > 0 {
+		query = query.Offset(req.Offset)
+	}
+
+	if req.Limit > 0 {
+		query = query.Limit(req.Limit)
+	}
+
+	if err := query.Find(&[]entity.Example{}).Error; err != nil {
+		r.Log.Errorf("failed to get examples: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // func (r *ExampleRepository) FindAll(cdb context.Context, db *gorm.DB, req *model.ExampleGetRequest) ([]entity.Example, error) {

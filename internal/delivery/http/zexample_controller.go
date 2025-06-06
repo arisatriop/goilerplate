@@ -50,18 +50,27 @@ func (c *ExampleController) Get(ctx *fiber.Ctx) error {
 		if errors.As(err, &cerr) {
 			return helper.Res(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx, "Failed to retrieve example")
+		return helper.ResInternalServerError(ctx)
 	}
 
 	return helper.ResOK(ctx, example, "Example retrieved successfully")
 }
 
 func (c *ExampleController) GetAll(ctx *fiber.Ctx) error {
-	response := map[string]string{
-		"message": "List of examples",
+	params := zexample.GetParams()
+	if err := ctx.QueryParser(params); err != nil {
+		return helper.ResBadRequest(ctx, "Invalid query parameters")
 	}
 
-	return ctx.JSON(response)
+	if err := c.ExampleUsecase.GetAll(ctx.UserContext(), params); err != nil {
+		var cerr *helper.ClientError
+		if errors.As(err, &cerr) {
+			return helper.Res(ctx, cerr.Code, cerr.Message)
+		}
+		return helper.ResInternalServerError(ctx)
+	}
+
+	return helper.ResOK(ctx)
 }
 
 func (c *ExampleController) Create(ctx *fiber.Ctx) error {
@@ -83,7 +92,7 @@ func (c *ExampleController) Create(ctx *fiber.Ctx) error {
 		if errors.As(err, &cerr) {
 			return helper.Res(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx, "Failed to create example")
+		return helper.ResInternalServerError(ctx)
 	}
 
 	return helper.ResCreated(ctx, "Example created successfully")
@@ -107,7 +116,7 @@ func (c *ExampleController) Update(ctx *fiber.Ctx) error {
 		if errors.As(err, &cerr) {
 			return helper.Res(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx, "Failed to update example")
+		return helper.ResInternalServerError(ctx)
 	}
 
 	return helper.ResOK(ctx, nil, "Example updated successfully")
@@ -129,7 +138,7 @@ func (c *ExampleController) Delete(ctx *fiber.Ctx) error {
 		if errors.As(err, &cerr) {
 			return helper.Res(ctx, cerr.Code, cerr.Message)
 		}
-		return helper.ResInternalServerError(ctx, "Failed to delete example")
+		return helper.ResInternalServerError(ctx)
 	}
 
 	return helper.ResNoContent(ctx)

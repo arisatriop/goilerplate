@@ -15,10 +15,10 @@ import (
 
 type IExampleUsecase interface {
 	Get(ctx context.Context, id uuid.UUID) (*zexample.GetResponse, error)
+	GetAll(ctx context.Context, req *zexample.GetRequest) error
 	Create(ctx context.Context, req *zexample.CreateRequest) error
 	Update(ctx context.Context, id uuid.UUID, req *zexample.UpdateRequest) error
 	Delete(ctx context.Context, id uuid.UUID, req *zexample.DeleteRequest) error
-	// FindAll(ctx context.Context, req *model.ExampleGetRequest) ([]model.ExampleListReponse, error)
 }
 
 type ExampleUsecase struct {
@@ -46,6 +46,16 @@ func (u *ExampleUsecase) Get(ctx context.Context, id uuid.UUID) (*zexample.GetRe
 	}
 
 	return zexample.ToGet(example), nil
+}
+
+func (u *ExampleUsecase) GetAll(ctx context.Context, req *zexample.GetRequest) error {
+
+	err := u.ExampleRepository.GetAll(u.DB.GDB, req)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (u *ExampleUsecase) Create(ctx context.Context, req *zexample.CreateRequest) error {
