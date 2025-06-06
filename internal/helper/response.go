@@ -25,18 +25,15 @@ func Res(ctx *fiber.Ctx, status int, message string, data ...any) error {
 
 func ResOK(ctx *fiber.Ctx, args ...any) error {
 	type SuccessResponse struct {
-		Message string         `json:"message"`
-		Data    map[string]any `json:"data"`
+		Message string `json:"message"`
+		Data    any    `json:"data"`
 	}
 
 	var message string = "Success"
-	var data map[string]interface{} = nil
+	var data any
 
 	if len(args) > 0 {
-		d, ok := args[0].(map[string]any)
-		if ok {
-			data = d
-		}
+		data = args[0]
 	}
 	if len(args) > 1 {
 		message = args[1].(string)
@@ -60,6 +57,10 @@ func ResCreated(ctx *fiber.Ctx, args ...string) error {
 	return ctx.Status(fiber.StatusCreated).JSON(&CreatedResponse{
 		Message: args[0],
 	})
+}
+
+func ResNoContent(ctx *fiber.Ctx) error {
+	return ctx.SendStatus(fiber.StatusNoContent)
 }
 
 func ResBadRequest(ctx *fiber.Ctx, args ...string) error {

@@ -42,7 +42,7 @@ type CreateRequest struct {
 	CreatedBy uuid.UUID
 }
 
-func (r *CreateRequest) ToEntity() (*entity.Example, error) {
+func (r *CreateRequest) ToCreate() (*entity.Example, error) {
 	now := helper.NowJakarta()
 
 	var numericNull *decimal.Decimal
@@ -99,57 +99,3 @@ func (r *CreateRequest) ToEntity() (*entity.Example, error) {
 		UpdatedBy:          &r.CreatedBy,
 	}, nil
 }
-
-// type ExampleUpdateRequest struct {
-// 	Name      string `json:"name" validate:"max=100"`
-// 	UpdatedBy string
-// }
-
-// type ExampleDeleteRequest struct {
-// 	DeletedBy string
-// }
-
-// type ExampleGetRequest struct {
-// 	OtherTableID string `json:"some_id"`
-// 	Param        *Params
-// }
-
-// type ExampleResponse struct {
-// 	ID        string `json:"id"`
-// 	Name      string `json:"name"`
-// 	CreatedBy string `json:"created_by"`
-// 	CreatedAt string `json:"created_at"`
-// 	UpdatedBy string `json:"updated_by"`
-// 	UpdatedAt string `json:"updated_at"`
-// 	DeletedBy string `json:"deleted_by,omitempty"`
-// 	DeletedAt string `json:"deleted_at,omitempty"`
-// }
-
-// type ExampleListReponse struct {
-// 	ID        string `json:"id"`
-// 	Name      string `json:"name"`
-// 	UpdatedBy string `json:"updated_by"`
-// 	UpdatedAt string `json:"updated_at"`
-// }
-
-// func ToExampleResponse(entity *entity.Example) *ExampleResponse {
-// 	return &ExampleResponse{
-// 		// ID:        entity.ID,
-// 		// Name:      entity.Name,
-// 		// CreatedAt: entity.CreatedAt,
-// 		// CreatedBy: entity.CreatedBy,
-// 		// UpdatedAt: *entity.UpdatedAt,
-// 		// UpdatedBy: entity.UpdatedBy,
-// 		// DeletedBy: entity.DeletedBy,
-// 		// DeletedAt: *entity.DeletedAt,
-// 	}
-// }
-
-// func ToExampleListResponse(entity *entity.Example) ExampleListReponse {
-// 	return ExampleListReponse{
-// 		// ID:        entity.ID,
-// 		// Name:      entity.Name,
-// 		// UpdatedBy: entity.UpdatedBy,
-// 		// UpdatedAt: *entity.UpdatedAt,
-// 	}
-// }
