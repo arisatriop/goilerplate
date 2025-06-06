@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"golang-clean-architecture/internal/entity"
 	"golang-clean-architecture/internal/model/zexample"
 
@@ -16,7 +15,6 @@ type IExampleRepository interface {
 	Delete(db *gorm.DB, example *entity.Example) error
 	GetAll(db *gorm.DB, req *zexample.GetRequest) error
 	GetByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error)
-	// FindAll(cdb context.Context, db *gorm.DB, req *model.ExampleGetRequest) ([]entity.Example, error)
 }
 
 type ExampleRepository struct {
@@ -46,10 +44,6 @@ func (r *ExampleRepository) Update(db *gorm.DB, example *entity.Example) error {
 }
 
 func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
-	fmt.Printf("Example with ID %s deleted successfully\n", example.DeletedAt)
-	fmt.Printf("Example with ID %s deleted successfully\n", example.DeletedBy)
-
-	fmt.Println()
 	if err := db.Model(example).UpdateColumns(map[string]any{
 		"deleted_at": example.DeletedAt,
 		"deleted_by": example.DeletedBy,
@@ -57,7 +51,6 @@ func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
 		r.Log.Errorf("failed to delete example: %v", err)
 		return err
 	}
-
 	return nil
 }
 
@@ -77,15 +70,12 @@ func (r *ExampleRepository) GetAll(db *gorm.DB, req *zexample.GetRequest) error 
 		// }
 		// query = query.Where("field_id = ?", id)
 	}
-
 	if req.Keyword != "" {
 		query = query.Where("varchar_not_null = ?", "%"+req.Keyword+"%")
 	}
-
 	if req.Offset > 0 {
 		query = query.Offset(req.Offset)
 	}
-
 	if req.Limit > 0 {
 		query = query.Limit(req.Limit)
 	}
@@ -97,30 +87,6 @@ func (r *ExampleRepository) GetAll(db *gorm.DB, req *zexample.GetRequest) error 
 
 	return nil
 }
-
-// func (r *ExampleRepository) FindAll(cdb context.Context, db *gorm.DB, req *model.ExampleGetRequest) ([]entity.Example, error) {
-// 	var examples []entity.Example
-
-// 	query := db.Where("deleted_at IS NULL")
-// 	if req.Param.Keyword != "" {
-// 		query = query.Where("name LIKE ?", "%"+req.Param.Keyword+"%")
-// 	}
-// 	if req.OtherTableID != "" {
-// 		query = query.Where("other_table_id = ?", req.OtherTableID)
-// 	}
-// 	if req.Param.Offset > 0 {
-// 		query = query.Offset(req.Param.Offset)
-// 	}
-// 	if req.Param.Limit > 0 {
-// 		query = query.Limit(req.Param.Limit)
-// 	}
-
-// 	if err := query.Find(&examples).Error; err != nil {
-// 		return nil, fmt.Errorf("failed to find examples: %w", err)
-// 	}
-
-// 	return examples, nil
-// }
 
 func (r *ExampleRepository) GetByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error) {
 	example := &entity.Example{}
