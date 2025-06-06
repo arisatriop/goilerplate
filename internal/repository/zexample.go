@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"golang-clean-architecture/internal/entity"
 
 	"github.com/google/uuid"
@@ -55,6 +56,10 @@ func (r *ExampleRepository) Update(db *gorm.DB, example *entity.Example) error {
 }
 
 func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
+	fmt.Printf("Example with ID %s deleted successfully\n", example.DeletedAt)
+	fmt.Printf("Example with ID %s deleted successfully\n", example.DeletedBy)
+
+	fmt.Println()
 	if err := db.Model(example).UpdateColumns(map[string]any{
 		"deleted_at": example.DeletedAt,
 		"deleted_by": example.DeletedBy,
@@ -62,6 +67,10 @@ func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
 		r.Log.Errorf("failed to delete example: %v", err)
 		return err
 	}
+
+	fmt.Printf("Example with ID %s deleted successfully\n", example.DeletedAt)
+	fmt.Printf("Example with ID %s deleted successfully\n", example.DeletedBy)
+
 	return nil
 }
 

@@ -87,6 +87,8 @@ func (u *ExampleUsecase) Delete(ctx context.Context, id uuid.UUID, req *zexample
 		return helper.Error(http.StatusNotFound, fmt.Sprintf("example with ID %s not found", id))
 	}
 
+	req.ToDelete(example)
+
 	return u.ExampleRepository.Delete(u.DB.GDB, example)
 }
 
