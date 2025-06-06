@@ -33,7 +33,7 @@ type GetResponse struct {
 	UpdatedBy          *uuid.UUID       `json:"updated_by"`
 }
 
-func ToGetResponse(example *entity.Example) *GetResponse {
+func ToGet(example *entity.Example) *GetResponse {
 
 	return &GetResponse{
 		ID:                 example.ID,

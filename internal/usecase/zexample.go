@@ -45,7 +45,7 @@ func (u *ExampleUsecase) FindByID(ctx context.Context, id uuid.UUID) (*zexample.
 		return nil, helper.Error(http.StatusNotFound, fmt.Sprintf("example with ID %s not found", id))
 	}
 
-	return zexample.ToGetResponse(example), nil
+	return zexample.ToGet(example), nil
 }
 
 func (u *ExampleUsecase) Create(ctx context.Context, req *zexample.CreateRequest) error {
@@ -55,11 +55,7 @@ func (u *ExampleUsecase) Create(ctx context.Context, req *zexample.CreateRequest
 		return err
 	}
 
-	err = u.ExampleRepository.Create(u.DB.GDB, example)
-	if err != nil {
-		return err
-	}
-	return nil
+	return u.ExampleRepository.Create(u.DB.GDB, example)
 }
 
 func (u *ExampleUsecase) Update(ctx context.Context, id uuid.UUID, req *zexample.UpdateRequest) error {
@@ -78,12 +74,7 @@ func (u *ExampleUsecase) Update(ctx context.Context, id uuid.UUID, req *zexample
 		return err
 	}
 
-	err = u.ExampleRepository.Update(u.DB.GDB, example)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return u.ExampleRepository.Update(u.DB.GDB, example)
 }
 
 func (u *ExampleUsecase) Delete(ctx context.Context, id uuid.UUID, req *zexample.DeleteRequest) error {
@@ -96,14 +87,7 @@ func (u *ExampleUsecase) Delete(ctx context.Context, id uuid.UUID, req *zexample
 		return helper.Error(http.StatusNotFound, fmt.Sprintf("example with ID %s not found", id))
 	}
 
-	req.ToDelete(example)
-
-	err = u.ExampleRepository.Update(u.DB.GDB, example)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return u.ExampleRepository.Delete(u.DB.GDB, example)
 }
 
 // func (u *ExampleUsecase) FindAll(ctx context.Context, req *model.ExampleGetRequest) ([]model.ExampleListReponse, error) {

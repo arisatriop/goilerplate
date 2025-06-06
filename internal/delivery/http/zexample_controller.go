@@ -124,7 +124,7 @@ func (c *ExampleController) Delete(ctx *fiber.Ctx) error {
 		return helper.ResInternalServerError(ctx, "Failed to delete example")
 	}
 
-	return helper.ResOK(ctx, nil, "Example deleted successfully")
+	return helper.ResNoContent(ctx)
 }
 
 func (c *ExampleController) List(ctx *fiber.Ctx) error {

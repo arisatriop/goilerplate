@@ -12,8 +12,8 @@ type IExampleRepository interface {
 	FindByID(db *gorm.DB, id uuid.UUID) (*entity.Example, error)
 	Create(db *gorm.DB, example *entity.Example) error
 	Update(db *gorm.DB, example *entity.Example) error
+	Delete(db *gorm.DB, example *entity.Example) error
 	// FindAll(cdb context.Context, db *gorm.DB, req *model.ExampleGetRequest) ([]entity.Example, error)
-	// Delete(db *gorm.db, id string) error
 }
 
 type ExampleRepository struct {
@@ -49,6 +49,17 @@ func (r *ExampleRepository) Create(db *gorm.DB, example *entity.Example) error {
 func (r *ExampleRepository) Update(db *gorm.DB, example *entity.Example) error {
 	if err := db.Save(example).Error; err != nil {
 		r.Log.Errorf("failed to update example: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (r *ExampleRepository) Delete(db *gorm.DB, example *entity.Example) error {
+	if err := db.Model(example).UpdateColumns(map[string]any{
+		"deleted_at": example.DeletedAt,
+		"deleted_by": example.DeletedBy,
+	}).Error; err != nil {
+		r.Log.Errorf("failed to delete example: %v", err)
 		return err
 	}
 	return nil

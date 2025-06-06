@@ -26,10 +26,10 @@ func (c *RouteConfig) Setup() {
 	api := c.App.Group("/api").Use(c.Auth.Authenticated())
 
 	v1 := api.Group("/v1")
-	v1.Post("/example", c.Auth.Authorized("example:create"), c.ExampleController.Create)
-	v1.Get("/example", c.Auth.Authorized("example:list"), c.ExampleController.List)
-	v1.Get("/example/:id", c.Auth.Authorized("example:view"), c.ExampleController.Get)
-	v1.Put("/example/:id", c.Auth.Authorized("example:update"), c.ExampleController.Update)
-	v1.Delete("/example/:id", c.Auth.Authorized("example:delete"), c.ExampleController.Delete)
+	v1.Post("/examples", c.Auth.Authorized("example:create"), c.ExampleController.Create)
+	v1.Get("/examples", c.Auth.Authorized("example:list"), c.ExampleController.List)
+	v1.Get("/examples/:id", c.Auth.Authorized("example:view"), c.ExampleController.Get)
+	v1.Put("/examples/:id", c.Auth.Authorized("example:update"), c.ExampleController.Update)
+	v1.Delete("/examples/:id", c.Auth.Authorized("example:delete"), c.ExampleController.Delete)
 
 }
