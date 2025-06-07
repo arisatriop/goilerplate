@@ -31,6 +31,7 @@ func (c *RouteConfig) Setup() {
 	v1 := api.Group("/v1")
 
 	auth := v1.Group("/auth")
+	auth.Post("/token", c.AuthController.Token)
 	auth.Post("/login", c.AuthController.Login)
 	auth.Post("/logout", c.Auth.Authenticated(), c.AuthController.Logout)
 

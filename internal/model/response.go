@@ -1,8 +1,6 @@
 package model
 
 import (
-	"fmt"
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -104,7 +102,6 @@ func JSON(ctx *fiber.Ctx, code int, args ...any) error {
 // If no message is provided, it defaults to "Success".
 func OK(ctx *fiber.Ctx, args ...any) error {
 	response := newJsonResponse(args...)
-	fmt.Printf("message: %v\n", response.Message)
 	if response.Message == "" {
 		response.Message = "Success"
 	}

@@ -23,13 +23,16 @@ type BootstrapConfig struct {
 }
 
 func Bootstrap(cfg *BootstrapConfig) {
+	redisRepository := repository.NewRedisRepository(cfg.DB.Redis)
+
 	// setup repositories
 	exampleRepository := repository.NewExampleRepository(cfg.Log)
 	userRepository := repository.NewUserRepository(cfg.Log)
+	permissionRepository := repository.NewPermissionRepository(cfg.Log)
 
 	// setup use cases
 	exampleUsecase := usecase.NewExampleUsecase(cfg.Log, cfg.DB, exampleRepository)
-	authUsecase := usecase.NewAuthUsecase(cfg.Log, cfg.DB, userRepository)
+	authUsecase := usecase.NewAuthUsecase(cfg.Config, cfg.Log, cfg.DB, userRepository, permissionRepository, redisRepository)
 	userUsecase := usecase.NewUserUsecase(cfg.Log, cfg.DB, userRepository)
 
 	// setup controller
@@ -37,7 +40,7 @@ func Bootstrap(cfg *BootstrapConfig) {
 	authController := http.NewAuthController(cfg.Log, cfg.Validate, authUsecase)
 	userController := http.NewUserController(cfg.Log, cfg.Validate, userUsecase)
 	// setup middleware
-	auth := middleware.NewAuth(userUsecase)
+	auth := middleware.NewAuth(cfg.Config, authUsecase, userUsecase)
 
 	routeConfig := route.RouteConfig{
 		App:  cfg.App,

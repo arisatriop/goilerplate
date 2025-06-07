@@ -84,6 +84,11 @@ func gracefulShutdown(ctx context.Context, app *fiber.App, db *config.DB, log *l
 			sqlDB.Close()
 		}
 	}
+	if db.Redis != nil {
+		if err := db.Redis.Close(); err != nil {
+			message = fmt.Sprintf("Server forced to shutdown: %v", err)
+		}
+	}
 
 	log.Info(message)
 }

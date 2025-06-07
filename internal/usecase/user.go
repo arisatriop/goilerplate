@@ -13,7 +13,7 @@ import (
 
 type IUserUsecase interface {
 	Create(ctx context.Context, req *user.CreateRequest) error
-	GetByToken(ctx context.Context, token string) (*entity.User, error)
+	GetByAccessToken(ctx context.Context, token string) (*entity.User, error)
 }
 
 type UserUsecase struct {
@@ -49,8 +49,8 @@ func (u *UserUsecase) Create(ctx context.Context, req *user.CreateRequest) error
 	return nil
 }
 
-func (u *UserUsecase) GetByToken(ctx context.Context, token string) (*entity.User, error) {
-	user, err := u.UserRepository.GetByToken(ctx, u.DB.GDB, token)
+func (u *UserUsecase) GetByAccessToken(ctx context.Context, token string) (*entity.User, error) {
+	user, err := u.UserRepository.GetByAccessToken(ctx, u.DB.GDB, token)
 	if err != nil {
 		return nil, err
 	}

@@ -8,24 +8,32 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	gormMysql "gorm.io/driver/mysql"
 	gormPostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type DB struct {
 	SqlDB   *sql.DB
 	PgxPool *pgxpool.Pool
 	GDB     *gorm.DB
+	Redis   *redis.Client
 }
 
 func NewDatabase(viper *viper.Viper, log *logrus.Logger) *DB {
-	return postgresDB(viper, log)
+	return &DB{
+		// SqlDB:   mysqlDB(viper, log),
+		PgxPool: postgresDB(viper, log),
+		GDB:     gormDB("postgres", viper, log),
+		Redis:   redisDB(viper, log),
+	}
 }
 
-func postgresDB(viper *viper.Viper, log *logrus.Logger) *DB {
+func postgresDB(viper *viper.Viper, log *logrus.Logger) *pgxpool.Pool {
 
 	var pgx *pgxpool.Pool
 
@@ -55,13 +63,10 @@ func postgresDB(viper *viper.Viper, log *logrus.Logger) *DB {
 		log.Fatalf("Failed to ping postgres: %v", err)
 	}
 
-	return &DB{
-		PgxPool: pgx,
-		GDB:     gormDB("postgres", viper, log),
-	}
+	return pgx
 }
 
-func mysqlDB(viper *viper.Viper, log *logrus.Logger) *DB {
+func mysqlDB(viper *viper.Viper, log *logrus.Logger) *sql.DB {
 
 	var db *sql.DB
 	var err error
@@ -86,10 +91,7 @@ func mysqlDB(viper *viper.Viper, log *logrus.Logger) *DB {
 	db.SetConnMaxLifetime(time.Second * time.Duration(viper.GetInt("db.connection_max_lifetime")))
 	db.SetConnMaxIdleTime(time.Second * time.Duration(viper.GetInt("db.connection_max_idle_time")))
 
-	return &DB{
-		SqlDB: db,
-		GDB:   gormDB("mysql", viper, log),
-	}
+	return db
 }
 
 func gormDB(driver string, viper *viper.Viper, log *logrus.Logger) *gorm.DB {
@@ -126,13 +128,13 @@ func gormDB(driver string, viper *viper.Viper, log *logrus.Logger) *gorm.DB {
 	gdb, err := gorm.Open(dialector, &gorm.Config{
 		SkipDefaultTransaction: true,
 		PrepareStmt:            true,
-		// Logger: logger.New(&logrusWriter{Logger: log}, logger.Config{
-		// 	SlowThreshold:             time.Second * 5,
-		// 	Colorful:                  false,
-		// 	IgnoreRecordNotFoundError: true,
-		// 	ParameterizedQueries:      true,
-		// 	LogLevel:                  logger.Info,
-		// }),
+		Logger: logger.New(&logrusWriter{Logger: log}, logger.Config{
+			SlowThreshold:             time.Second * 5,
+			Colorful:                  false,
+			IgnoreRecordNotFoundError: true,
+			ParameterizedQueries:      true,
+			LogLevel:                  logger.Warn,
+		}),
 	})
 	if err != nil {
 		log.Fatalf("failed to connect to gorm: %v", err)
@@ -148,6 +150,25 @@ func gormDB(driver string, viper *viper.Viper, log *logrus.Logger) *gorm.DB {
 	connection.SetConnMaxIdleTime(time.Second * time.Duration(viper.GetInt("db.connection_max_idle_time")))
 
 	return gdb
+}
+
+func redisDB(viper *viper.Viper, log *logrus.Logger) *redis.Client {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:         fmt.Sprintf("%s:%d", viper.GetString("redis.host"), viper.GetInt("redis.port")),
+		Password:     viper.GetString("redis.password"),
+		DB:           viper.GetInt("redis.db"),
+		DialTimeout:  time.Second * time.Duration(viper.GetInt("redis.dial_timeout")),
+		ReadTimeout:  time.Second * time.Duration(viper.GetInt("redis.read_timeout")),
+		WriteTimeout: time.Second * time.Duration(viper.GetInt("redis.write_timeout")),
+		PoolSize:     viper.GetInt("redis.pool_size"),
+		PoolTimeout:  time.Second * time.Duration(viper.GetInt("redis.pool_timeout")),
+	})
+
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("failed to connect to redis: %v", err)
+	}
+
+	return rdb
 }
 
 type logrusWriter struct {

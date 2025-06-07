@@ -14,7 +14,8 @@ type IUserRepository interface {
 	Create(ctx context.Context, db *gorm.DB, user *entity.User) error
 	Update(ctx context.Context, db *gorm.DB, user *entity.User) error
 	GetByID(ctx context.Context, db *gorm.DB, id uuid.UUID) (*entity.User, error)
-	GetByToken(ctx context.Context, db *gorm.DB, token string) (*entity.User, error)
+	GetByAccessToken(ctx context.Context, db *gorm.DB, token string) (*entity.User, error)
+	GetByRefrehToken(ctx context.Context, db *gorm.DB, token string) (*entity.User, error)
 	GetByEmail(ctx context.Context, db *gorm.DB, req *auth.LoginRequest) (*entity.User, error)
 	GetByEmailAndPassword(ctx context.Context, db *gorm.DB, req *auth.LoginRequest) (*entity.User, error)
 }
@@ -57,13 +58,25 @@ func (r *UserRepository) GetByID(ctx context.Context, db *gorm.DB, id uuid.UUID)
 	return &user, nil
 }
 
-func (r *UserRepository) GetByToken(ctx context.Context, db *gorm.DB, token string) (*entity.User, error) {
+func (r *UserRepository) GetByAccessToken(ctx context.Context, db *gorm.DB, token string) (*entity.User, error) {
 	var user entity.User
-	if err := db.Where("token = ? AND deleted_at is null", token).First(&user).Error; err != nil {
+	if err := db.Where("access_token = ? AND deleted_at is null", token).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		r.Log.Errorf("failed to get user by token: %v", err)
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *UserRepository) GetByRefrehToken(ctx context.Context, db *gorm.DB, token string) (*entity.User, error) {
+	var user entity.User
+	if err := db.Where("refresh_token = ? AND deleted_at is null", token).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		r.Log.Errorf("failed to get user by refresh token: %v", err)
 		return nil, err
 	}
 	return &user, nil
