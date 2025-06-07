@@ -78,7 +78,7 @@ func (c *ExampleController) GetAll(ctx *fiber.Ctx) error {
 		examples = []zexample.GetAllResponse{}
 	}
 
-	return model.OK(ctx, nil, examples)
+	return model.OK(ctx, nil, examples, model.NewPagination(params.Limit, params.Offset, len(examples)))
 }
 
 func (c *ExampleController) Create(ctx *fiber.Ctx) error {
