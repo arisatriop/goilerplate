@@ -1,8 +1,6 @@
 package model
 
 import (
-	"fmt"
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -24,8 +22,6 @@ func NewPagination(limit, offset, total int) *Pagination {
 		limit = 10
 	}
 
-	fmt.Printf("limit: %v\n", limit)
-	fmt.Printf("offset: %v\n", offset)
 	return &Pagination{
 		Page:      offset/limit + 1,
 		Size:      limit,
