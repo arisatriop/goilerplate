@@ -24,7 +24,7 @@ import (
 )
 
 type AuthUsecase interface {
-	Me(ctx context.Context, user *model.Auth) (*model.MeResponse, error)
+	Me(ctx context.Context, user *auth.User) (*auth.GetResponse, error)
 	Token(ctx context.Context, req *auth.TokenRequest) (*auth.TokenResponse, error)
 	Login(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error)
 	Logout(ctx context.Context, req *auth.LogoutRequest) error
@@ -68,7 +68,7 @@ func NewAuthUsecase(
 	}
 }
 
-func (u *authUsecase) Me(ctx context.Context, user *model.Auth) (*model.MeResponse, error) {
+func (u *authUsecase) Me(ctx context.Context, user *auth.User) (*auth.GetResponse, error) {
 	db := u.DB.GDB.WithContext(ctx)
 
 	role, err := u.RoleRepo.GetByUserID(ctx, db, user.ID)
@@ -81,7 +81,7 @@ func (u *authUsecase) Me(ctx context.Context, user *model.Auth) (*model.MeRespon
 		return nil, fmt.Errorf("failed to get all menus: %w", err)
 	}
 
-	var myRoles []model.MyRole
+	var myRoles []auth.Role
 	for _, v := range role {
 		menu, err := u.MenuRepo.GetByRoleID(ctx, db, v.ID)
 		if err != nil {
@@ -89,21 +89,21 @@ func (u *authUsecase) Me(ctx context.Context, user *model.Auth) (*model.MeRespon
 		}
 
 		menuTree := BuildMenuTree(allMenu, menu)
-		myRoles = append(myRoles, model.MyRole{
+		myRoles = append(myRoles, auth.Role{
 			ID:   v.ID,
 			Name: v.Name,
 			Menu: menuTree,
 		})
 	}
 
-	meResponse := &model.MeResponse{
+	meResponse := &auth.GetResponse{
 		ID:       user.ID,
 		Name:     user.Name,
 		Username: "",
 		Email:    user.Email,
 		Phone:    "",
 		Avatar:   "https://example.com/avatar.png",
-		MyRole:   myRoles,
+		Role:     myRoles,
 	}
 
 	return meResponse, nil
@@ -263,7 +263,7 @@ func (u *authUsecase) GetPermissionFromRedis(ctx context.Context, key string) (m
 	return permissions, nil
 }
 
-func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []model.MyMenu {
+func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []auth.Menu {
 	// Index all menus by ID
 	allMap := make(map[uuid.UUID]entity.Menu)
 	for _, mnu := range allMenu {
@@ -290,7 +290,7 @@ func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []model.MyMenu {
 	}
 
 	// Build GetAllResponse nodes
-	nodeMap := make(map[uuid.UUID]*model.MyMenu)
+	nodeMap := make(map[uuid.UUID]*auth.Menu)
 	for _, mnu := range includeMap {
 		icon := ""
 		if mnu.Icon != nil {
@@ -300,14 +300,14 @@ func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []model.MyMenu {
 		if mnu.Order != nil {
 			order = *mnu.Order
 		}
-		nodeMap[mnu.ID] = &model.MyMenu{
+		nodeMap[mnu.ID] = &auth.Menu{
 			ID:       mnu.ID,
 			Name:     mnu.Name,
 			Path:     mnu.Path,
 			Icon:     icon,
 			Order:    order,
 			IsActive: mnu.IsActive,
-			Child:    []model.MyMenu{},
+			Child:    []auth.Menu{},
 		}
 	}
 
@@ -322,8 +322,8 @@ func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []model.MyMenu {
 	}
 
 	// Recursively sort children by Order
-	var sortChildren func(nodes []model.MyMenu)
-	sortChildren = func(nodes []model.MyMenu) {
+	var sortChildren func(nodes []auth.Menu)
+	sortChildren = func(nodes []auth.Menu) {
 		sort.Slice(nodes, func(i, j int) bool {
 			return nodes[i].Order < nodes[j].Order
 		})
@@ -333,7 +333,7 @@ func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []model.MyMenu {
 	}
 
 	// Collect root nodes
-	var roots []model.MyMenu
+	var roots []auth.Menu
 	for _, node := range nodeMap {
 		if original, ok := allMap[node.ID]; ok && original.ParentID == nil {
 			roots = append(roots, *node)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goilerplate/internal/helper"
 	"goilerplate/internal/model"
+	"goilerplate/internal/model/auth"
 	"goilerplate/internal/usecase"
 	"strings"
 
@@ -63,7 +64,7 @@ func (m *Auth) Authenticated() fiber.Handler {
 		if user == nil {
 			return model.Unauthorized(ctx)
 		}
-		ctx.Locals("auth", &model.Auth{
+		ctx.Locals("auth", &auth.User{
 			ID:    user.ID,
 			Name:  user.Name,
 			Email: user.Email,
@@ -95,6 +96,6 @@ func (m *Auth) Authorized(permission string) fiber.Handler {
 	}
 }
 
-func GetUser(ctx *fiber.Ctx) *model.Auth {
-	return ctx.Locals("auth").(*model.Auth)
+func GetUser(ctx *fiber.Ctx) *auth.User {
+	return ctx.Locals("auth").(*auth.User)
 }
