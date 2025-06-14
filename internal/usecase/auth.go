@@ -10,6 +10,7 @@ import (
 	"goilerplate/internal/model/auth"
 	"goilerplate/internal/model/menu"
 	"goilerplate/internal/repository"
+	"goilerplate/pkg"
 	"goilerplate/pkg/helper"
 	"net/http"
 	"sort"
@@ -19,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -34,9 +34,9 @@ type AuthUsecase interface {
 }
 
 type authUsecase struct {
-	Config               *viper.Viper
+	Config               *config.Config
 	Log                  *logrus.Logger
-	DB                   *config.DB
+	DB                   *pkg.DB
 	MenuUsecase          MenuUsecase
 	UserRepository       repository.UserRepository
 	RoleRepo             repository.RoleRepository
@@ -46,9 +46,9 @@ type authUsecase struct {
 }
 
 func NewAuthUsecase(
-	viper *viper.Viper,
+	config *config.Config,
 	log *logrus.Logger,
-	db *config.DB,
+	db *pkg.DB,
 	menuUsecase MenuUsecase,
 	userRepo repository.UserRepository,
 	roleRepo repository.RoleRepository,
@@ -57,7 +57,7 @@ func NewAuthUsecase(
 	redisRepo *repository.RedisRepository) AuthUsecase {
 	return &authUsecase{
 		Log:                  log,
-		Config:               viper,
+		Config:               config,
 		DB:                   db,
 		MenuUsecase:          menuUsecase,
 		UserRepository:       userRepo,
@@ -122,7 +122,7 @@ func (u *authUsecase) Token(ctx context.Context, req *auth.TokenRequest) (*auth.
 	}
 
 	token, err := jwt.Parse(req.RefreshToken, func(t *jwt.Token) (any, error) {
-		return []byte(u.Config.GetString("jwt.refresh_secret")), nil
+		return []byte(u.Config.JWT.RefreshSecret), nil
 	})
 	if err != nil || !token.Valid {
 		u.Log.Error("failed to parse refresh token: ", err)
@@ -135,7 +135,7 @@ func (u *authUsecase) Token(ctx context.Context, req *auth.TokenRequest) (*auth.
 	}
 
 	userID := uuid.MustParse(claims["user_id"].(string))
-	accessToken, err := GenerateAccessToken(userID, u.Config.GetString("jwt.secret"), time.Duration(u.Config.GetInt("jwt.access_token_expiry"))*time.Second)
+	accessToken, err := GenerateAccessToken(userID, u.Config.JWT.Secret, time.Duration(u.Config.JWT.AccessTokenExpiry)*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -149,7 +149,7 @@ func (u *authUsecase) Token(ctx context.Context, req *auth.TokenRequest) (*auth.
 		return nil, err
 	}
 
-	return auth.ToTokenResponse(accessToken, u.Config.GetInt("jwt.access_token_expiry")), nil
+	return auth.ToTokenResponse(accessToken, u.Config.JWT.AccessTokenExpiry), nil
 }
 
 func (u *authUsecase) Login(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error) {
@@ -170,16 +170,16 @@ func (u *authUsecase) Login(ctx context.Context, req *auth.LoginRequest) (*auth.
 
 	accessToken, err := GenerateAccessToken(
 		user.ID,
-		u.Config.GetString("jwt.secret"),
-		time.Duration(u.Config.GetInt("jwt.access_token_expiry"))*time.Second)
+		u.Config.JWT.Secret,
+		time.Duration(u.Config.JWT.AccessTokenExpiry)*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	refreshToken, _, err := GenerateRefreshToken(
 		user.ID,
-		u.Config.GetString("jwt.refresh_secret"),
-		time.Duration(u.Config.GetInt("jwt.refresh_token_expiry"))*time.Second)
+		u.Config.JWT.RefreshSecret,
+		time.Duration(u.Config.JWT.RefreshTokenExpiry)*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -202,8 +202,8 @@ func (u *authUsecase) Login(ctx context.Context, req *auth.LoginRequest) (*auth.
 
 	return auth.ToLoginResponse(
 		user,
-		u.Config.GetInt("jwt.access_token_expiry"),
-		u.Config.GetInt("jwt.refresh_token_expiry"),
+		u.Config.JWT.AccessTokenExpiry,
+		u.Config.JWT.RefreshTokenExpiry,
 	), nil
 }
 
@@ -232,7 +232,7 @@ func (u *authUsecase) SetPermission(ctx context.Context, id uuid.UUID) error {
 
 	key := fmt.Sprintf("permissions:%s", id.String())
 	value, _ := json.Marshal(permissions)
-	if err := u.RedisRepository.Set(ctx, key, value, time.Duration(u.Config.GetInt("jwt.access_token_expiry"))*time.Second); err != nil {
+	if err := u.RedisRepository.Set(ctx, key, value, time.Duration(u.Config.JWT.AccessTokenExpiry)*time.Second); err != nil {
 		u.Log.Error("failed to set permissions in Redis: ", err)
 		return fmt.Errorf("failed to set permissions in Redis: %w", err)
 	}

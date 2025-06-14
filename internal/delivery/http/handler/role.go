@@ -1,13 +1,13 @@
-package http
+package handler
 
 import (
 	"errors"
 	"fmt"
-	"goilerplate/internal/delivery/http/middleware"
 	"goilerplate/internal/model"
 	"goilerplate/internal/model/role"
 	"goilerplate/internal/usecase"
 	"goilerplate/pkg/helper"
+	"goilerplate/pkg/middleware"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -16,7 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type RoleController interface {
+type RoleHandler interface {
 	Get(ctx *fiber.Ctx) error
 	GetAll(ctx *fiber.Ctx) error
 	Create(ctx *fiber.Ctx) error
@@ -24,21 +24,21 @@ type RoleController interface {
 	Delete(ctx *fiber.Ctx) error
 }
 
-type roleController struct {
+type roleHandler struct {
 	Log       *logrus.Logger
 	Validator *validator.Validate
 	RoleUc    usecase.RoleUseCase
 }
 
-func NewRoleController(log *logrus.Logger, validator *validator.Validate, roleUc usecase.RoleUseCase) RoleController {
-	return &roleController{
+func NewRoleHandler(log *logrus.Logger, validator *validator.Validate, roleUc usecase.RoleUseCase) RoleHandler {
+	return &roleHandler{
 		Log:       log,
 		Validator: validator,
 		RoleUc:    roleUc,
 	}
 }
 
-func (c *roleController) Create(ctx *fiber.Ctx) error {
+func (c *roleHandler) Create(ctx *fiber.Ctx) error {
 	var req role.CreateRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return model.BadRequest(ctx, "Invalid request body")
@@ -65,7 +65,7 @@ func (c *roleController) Create(ctx *fiber.Ctx) error {
 	return model.Created(ctx, "Role created successfully")
 }
 
-func (c *roleController) Update(ctx *fiber.Ctx) error {
+func (c *roleHandler) Update(ctx *fiber.Ctx) error {
 
 	var req role.UpdateRequest
 	if err := ctx.BodyParser(&req); err != nil {
@@ -101,7 +101,7 @@ func (c *roleController) Update(ctx *fiber.Ctx) error {
 	return model.OK(ctx, "Role updated successfully")
 }
 
-func (c *roleController) GetAll(ctx *fiber.Ctx) error {
+func (c *roleHandler) GetAll(ctx *fiber.Ctx) error {
 
 	params := role.GetParams()
 	if err := ctx.QueryParser(params); err != nil {
@@ -124,7 +124,7 @@ func (c *roleController) GetAll(ctx *fiber.Ctx) error {
 	return model.OK(ctx, nil, roles, model.NewPagination(params.Limit, params.Offset, int(total)))
 }
 
-func (c *roleController) Delete(ctx *fiber.Ctx) error {
+func (c *roleHandler) Delete(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	uuid, err := uuid.Parse(id)
 	if err != nil {
@@ -148,7 +148,7 @@ func (c *roleController) Delete(ctx *fiber.Ctx) error {
 	return model.NoContent(ctx)
 }
 
-func (c *roleController) Get(ctx *fiber.Ctx) error {
+func (c *roleHandler) Get(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	uuid, err := uuid.Parse(id)
 	if err != nil {

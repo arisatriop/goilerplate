@@ -3,9 +3,9 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"goilerplate/config"
 	"goilerplate/internal/model/zexample"
 	"goilerplate/internal/repository"
+	"goilerplate/pkg"
 	"goilerplate/pkg/helper"
 	"net/http"
 
@@ -23,11 +23,11 @@ type ExampleUsecase interface {
 
 type exampleUsecase struct {
 	Log               *logrus.Logger
-	DB                *config.DB
+	DB                *pkg.DB
 	ExampleRepository repository.ExampleRepository
 }
 
-func NewExampleUsecase(log *logrus.Logger, db *config.DB, exampleRepo repository.ExampleRepository) ExampleUsecase {
+func NewExampleUsecase(log *logrus.Logger, db *pkg.DB, exampleRepo repository.ExampleRepository) ExampleUsecase {
 	return &exampleUsecase{
 		Log:               log,
 		DB:                db,

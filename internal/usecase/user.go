@@ -3,10 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"goilerplate/config"
 	"goilerplate/internal/entity"
 	"goilerplate/internal/model/user"
 	"goilerplate/internal/repository"
+	"goilerplate/pkg"
 	"goilerplate/pkg/helper"
 	"net/http"
 
@@ -26,11 +26,11 @@ type UserUsecase interface {
 
 type userUsecase struct {
 	Log            *logrus.Logger
-	DB             *config.DB
+	DB             *pkg.DB
 	UserRepository repository.UserRepository
 }
 
-func NewUserUsecase(log *logrus.Logger, db *config.DB, userRepo repository.UserRepository) UserUsecase {
+func NewUserUsecase(log *logrus.Logger, db *pkg.DB, userRepo repository.UserRepository) UserUsecase {
 	return &userUsecase{
 		Log:            log,
 		DB:             db,

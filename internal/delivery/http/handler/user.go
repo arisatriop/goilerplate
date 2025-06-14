@@ -1,13 +1,13 @@
-package http
+package handler
 
 import (
 	"errors"
 	"fmt"
-	"goilerplate/internal/delivery/http/middleware"
 	"goilerplate/internal/model"
 	"goilerplate/internal/model/user"
 	"goilerplate/internal/usecase"
 	"goilerplate/pkg/helper"
+	"goilerplate/pkg/middleware"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -16,7 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type UserController interface {
+type UserHandler interface {
 	Get(ctx *fiber.Ctx) error
 	GetAll(ctx *fiber.Ctx) error
 	Create(ctx *fiber.Ctx) error
@@ -24,21 +24,21 @@ type UserController interface {
 	Delete(ctx *fiber.Ctx) error
 }
 
-type userController struct {
+type userHandler struct {
 	Log         *logrus.Logger
 	Validator   *validator.Validate
 	UserUsecase usecase.UserUsecase
 }
 
-func NewUserController(log *logrus.Logger, validator *validator.Validate, userUsecase usecase.UserUsecase) UserController {
-	return &userController{
+func NewUserHandler(log *logrus.Logger, validator *validator.Validate, userUsecase usecase.UserUsecase) UserHandler {
+	return &userHandler{
 		Log:         log,
 		Validator:   validator,
 		UserUsecase: userUsecase,
 	}
 }
 
-func (c *userController) Get(ctx *fiber.Ctx) error {
+func (c *userHandler) Get(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	uuid, err := uuid.Parse(id)
 	if err != nil {
@@ -57,7 +57,7 @@ func (c *userController) Get(ctx *fiber.Ctx) error {
 	return model.OK(ctx, nil, user)
 }
 
-func (c *userController) GetAll(ctx *fiber.Ctx) error {
+func (c *userHandler) GetAll(ctx *fiber.Ctx) error {
 
 	params := user.GetParams()
 	if err := ctx.QueryParser(params); err != nil {
@@ -80,7 +80,7 @@ func (c *userController) GetAll(ctx *fiber.Ctx) error {
 	return model.OK(ctx, nil, users, model.NewPagination(params.Limit, params.Offset, int(total)))
 }
 
-func (c *userController) Create(ctx *fiber.Ctx) error {
+func (c *userHandler) Create(ctx *fiber.Ctx) error {
 	var req user.CreateRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return model.BadRequest(ctx, "Malformed JSON payload")
@@ -102,7 +102,7 @@ func (c *userController) Create(ctx *fiber.Ctx) error {
 	return model.Created(ctx, "User created successfully")
 }
 
-func (c *userController) Update(ctx *fiber.Ctx) error {
+func (c *userHandler) Update(ctx *fiber.Ctx) error {
 	var req user.UpdateRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return model.BadRequest(ctx, "Malformed JSON payload")
@@ -132,7 +132,7 @@ func (c *userController) Update(ctx *fiber.Ctx) error {
 	return model.OK(ctx, "User updated successfully")
 }
 
-func (c *userController) Delete(ctx *fiber.Ctx) error {
+func (c *userHandler) Delete(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	uuid, err := uuid.Parse(id)
 	if err != nil {

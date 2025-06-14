@@ -1,13 +1,13 @@
-package http
+package handler
 
 import (
 	"errors"
 	"fmt"
-	"goilerplate/internal/delivery/http/middleware"
 	"goilerplate/internal/model"
 	"goilerplate/internal/model/zexample"
 	"goilerplate/internal/usecase"
 	"goilerplate/pkg/helper"
+	"goilerplate/pkg/middleware"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -16,7 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ExampleController interface {
+type ExampleHandler interface {
 	Get(ctx *fiber.Ctx) error
 	GetAll(ctx *fiber.Ctx) error
 	Create(ctx *fiber.Ctx) error
@@ -24,21 +24,21 @@ type ExampleController interface {
 	Delete(ctx *fiber.Ctx) error
 }
 
-type exampleController struct {
+type exampleHandler struct {
 	Log            *logrus.Logger
 	Validator      *validator.Validate
 	ExampleUsecase usecase.ExampleUsecase
 }
 
-func NewExampleController(log *logrus.Logger, validator *validator.Validate, exampleUsecase usecase.ExampleUsecase) ExampleController {
-	return &exampleController{
+func NewExampleHandler(log *logrus.Logger, validator *validator.Validate, exampleUsecase usecase.ExampleUsecase) ExampleHandler {
+	return &exampleHandler{
 		Log:            log,
 		Validator:      validator,
 		ExampleUsecase: exampleUsecase,
 	}
 }
 
-func (c *exampleController) Get(ctx *fiber.Ctx) error {
+func (c *exampleHandler) Get(ctx *fiber.Ctx) error {
 
 	id := ctx.Params("id")
 	uuid, err := uuid.Parse(id)
@@ -58,7 +58,7 @@ func (c *exampleController) Get(ctx *fiber.Ctx) error {
 	return model.OK(ctx, nil, example)
 }
 
-func (c *exampleController) GetAll(ctx *fiber.Ctx) error {
+func (c *exampleHandler) GetAll(ctx *fiber.Ctx) error {
 
 	params := zexample.GetParams()
 	if err := ctx.QueryParser(params); err != nil {
@@ -81,7 +81,7 @@ func (c *exampleController) GetAll(ctx *fiber.Ctx) error {
 	return model.OK(ctx, nil, examples, model.NewPagination(params.Limit, params.Offset, int(total)))
 }
 
-func (c *exampleController) Create(ctx *fiber.Ctx) error {
+func (c *exampleHandler) Create(ctx *fiber.Ctx) error {
 
 	var request zexample.CreateRequest
 	if err := ctx.BodyParser(&request); err != nil {
@@ -106,7 +106,7 @@ func (c *exampleController) Create(ctx *fiber.Ctx) error {
 	return model.Created(ctx, "Example created successfully")
 }
 
-func (c *exampleController) Update(ctx *fiber.Ctx) error {
+func (c *exampleHandler) Update(ctx *fiber.Ctx) error {
 	uuid, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
 		return model.BadRequest(ctx, "Invalid UUID format")
@@ -130,7 +130,7 @@ func (c *exampleController) Update(ctx *fiber.Ctx) error {
 	return model.Created(ctx, "Example updated successfully")
 }
 
-func (c *exampleController) Delete(ctx *fiber.Ctx) error {
+func (c *exampleHandler) Delete(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	uuid, err := uuid.Parse(id)
 	if err != nil {

@@ -3,6 +3,7 @@ package middleware
 import (
 	"errors"
 	"fmt"
+	"goilerplate/config"
 	"goilerplate/internal/model"
 	"goilerplate/internal/model/auth"
 	"goilerplate/internal/usecase"
@@ -11,16 +12,15 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/spf13/viper"
 )
 
 type Auth struct {
-	Config      *viper.Viper
+	Config      *config.Config
 	AuthUsecse  usecase.AuthUsecase
 	UserUsecase usecase.UserUsecase
 }
 
-func NewAuth(config *viper.Viper, authUsecase usecase.AuthUsecase, userUsecase usecase.UserUsecase) *Auth {
+func NewAuth(config *config.Config, authUsecase usecase.AuthUsecase, userUsecase usecase.UserUsecase) *Auth {
 	return &Auth{
 		Config:      config,
 		AuthUsecse:  authUsecase,
@@ -45,7 +45,7 @@ func (m *Auth) Authenticated() fiber.Handler {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
-			return []byte(m.Config.GetString("jwt.secret")), nil
+			return []byte(m.Config.JWT.Secret), nil
 		})
 		if err != nil || !jwtToken.Valid {
 			return model.Unauthorized(ctx, "Unauthorized")

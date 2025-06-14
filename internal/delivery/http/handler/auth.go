@@ -1,13 +1,13 @@
-package http
+package handler
 
 import (
 	"errors"
 	"fmt"
-	"goilerplate/internal/delivery/http/middleware"
 	"goilerplate/internal/model"
 	"goilerplate/internal/model/auth"
 	"goilerplate/internal/usecase"
 	"goilerplate/pkg/helper"
+	"goilerplate/pkg/middleware"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -15,28 +15,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type AuthController interface {
+type AuthHandler interface {
 	Me(ctx *fiber.Ctx) error
 	Login(ctx *fiber.Ctx) error
 	Logout(ctx *fiber.Ctx) error
 	Token(ctx *fiber.Ctx) error
 }
 
-type authController struct {
+type authHandler struct {
 	Log         *logrus.Logger
 	Validator   *validator.Validate
 	AuthUsecase usecase.AuthUsecase
 }
 
-func NewAuthController(log *logrus.Logger, validator *validator.Validate, authUsecase usecase.AuthUsecase) AuthController {
-	return &authController{
+func NewAuthHandler(log *logrus.Logger, validator *validator.Validate, authUsecase usecase.AuthUsecase) AuthHandler {
+	return &authHandler{
 		Log:         log,
 		Validator:   validator,
 		AuthUsecase: authUsecase,
 	}
 }
 
-func (c *authController) Me(ctx *fiber.Ctx) error {
+func (c *authHandler) Me(ctx *fiber.Ctx) error {
 	user := middleware.GetUser(ctx)
 
 	if user == nil {
@@ -55,7 +55,7 @@ func (c *authController) Me(ctx *fiber.Ctx) error {
 	return model.OK(ctx, nil, resp)
 }
 
-func (c *authController) Login(ctx *fiber.Ctx) error {
+func (c *authHandler) Login(ctx *fiber.Ctx) error {
 	var req auth.LoginRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return model.BadRequest(ctx, "Malformed JSON payload")
@@ -78,7 +78,7 @@ func (c *authController) Login(ctx *fiber.Ctx) error {
 	return model.OK(ctx, nil, resp)
 }
 
-func (c *authController) Logout(ctx *fiber.Ctx) error {
+func (c *authHandler) Logout(ctx *fiber.Ctx) error {
 
 	req := auth.LogoutRequest{
 		ID: middleware.GetUser(ctx).ID,
@@ -95,7 +95,7 @@ func (c *authController) Logout(ctx *fiber.Ctx) error {
 	return model.OK(ctx, "Logout successful")
 }
 
-func (c *authController) Token(ctx *fiber.Ctx) error {
+func (c *authHandler) Token(ctx *fiber.Ctx) error {
 	var req auth.TokenRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return model.BadRequest(ctx, "Malformed JSON payload")

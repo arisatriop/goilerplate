@@ -1,15 +1,16 @@
-package config
+package pkg
 
 import (
+	"goilerplate/config"
+
 	"github.com/gofiber/fiber/v2"
-	"github.com/spf13/viper"
 )
 
-func NewFiber(config *viper.Viper) *fiber.App {
+func NewFiber(cfg *config.Config) *fiber.App {
 	var app = fiber.New(fiber.Config{
-		AppName:      config.GetString("app.name"),
+		AppName:      cfg.App.Name,
 		ErrorHandler: NewErrorHandler(),
-		Prefork:      config.GetBool("web.prefork"),
+		Prefork:      cfg.Server.Prefork,
 	})
 
 	return app
@@ -23,7 +24,7 @@ func NewErrorHandler() fiber.ErrorHandler {
 		}
 
 		return ctx.Status(code).JSON(fiber.Map{
-			"errors": err.Error(),
+			"message": err.Error(),
 		})
 	}
 }

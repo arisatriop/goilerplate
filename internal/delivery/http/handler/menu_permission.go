@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"errors"
@@ -12,25 +12,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type MenuPermissionController interface {
+type MenuPermissionHandler interface {
 	GetAll(ctx *fiber.Ctx) error
 }
 
-type menuPermissionController struct {
+type menuPermissionHandler struct {
 	Log                   *logrus.Logger
 	Validator             *validator.Validate
 	MenuPermissionUsecase usecase.MenuPermissionUsecase
 }
 
-func NewMenuPermissionController(log *logrus.Logger, validator *validator.Validate, menuPermissionUsecase usecase.MenuPermissionUsecase) MenuPermissionController {
-	return &menuPermissionController{
+func NewMenuPermissionHandler(log *logrus.Logger, validator *validator.Validate, menuPermissionUsecase usecase.MenuPermissionUsecase) MenuPermissionHandler {
+	return &menuPermissionHandler{
 		Log:                   log,
 		Validator:             validator,
 		MenuPermissionUsecase: menuPermissionUsecase,
 	}
 }
 
-func (c *menuPermissionController) GetAll(ctx *fiber.Ctx) error {
+func (c *menuPermissionHandler) GetAll(ctx *fiber.Ctx) error {
 	params := menupermission.GetParams()
 	if err := ctx.QueryParser(params); err != nil {
 		return model.BadRequest(ctx, "Invalid query parameters")

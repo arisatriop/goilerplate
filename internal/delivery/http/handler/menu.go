@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"errors"
@@ -12,25 +12,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type MenuController interface {
+type MenuHandler interface {
 	GetAll(ctx *fiber.Ctx) error
 }
 
-type menuController struct {
+type menuHandler struct {
 	Log         *logrus.Logger
 	Validator   *validator.Validate
 	MenuUsecase usecase.MenuUsecase
 }
 
-func NewMenuController(log *logrus.Logger, validator *validator.Validate, menuUsecase usecase.MenuUsecase) MenuController {
-	return &menuController{
+func NewMenuHandler(log *logrus.Logger, validator *validator.Validate, menuUsecase usecase.MenuUsecase) MenuHandler {
+	return &menuHandler{
 		Log:         log,
 		Validator:   validator,
 		MenuUsecase: menuUsecase,
 	}
 }
 
-func (c *menuController) GetAll(ctx *fiber.Ctx) error {
+func (c *menuHandler) GetAll(ctx *fiber.Ctx) error {
 	params := &menu.GetRequest{}
 	if err := ctx.QueryParser(params); err != nil {
 		return model.BadRequest(ctx, "Malformed JSON payload")

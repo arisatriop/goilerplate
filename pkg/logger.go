@@ -1,17 +1,17 @@
-package config
+package pkg
 
 import (
 	"encoding/json"
+	"goilerplate/config"
 	"runtime"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
-func NewLogger(viper *viper.Viper) *logrus.Logger {
+func NewLogger(cfg *config.Config) *logrus.Logger {
 	log := logrus.New()
 
-	log.SetLevel(logrus.Level(viper.GetInt32("log.level")))
+	log.SetLevel(logrus.Level(cfg.Log.Level))
 	log.SetFormatter(&customLogrusFormatter{})
 	log.AddHook(&callerHook{})
 	log.SetReportCaller(false)

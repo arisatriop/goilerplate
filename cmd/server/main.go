@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"goilerplate/config"
-	"goilerplate/internal"
+	"goilerplate/internal/delivery/http"
+	"goilerplate/pkg"
 	"os/signal"
 	"syscall"
 	"time"
@@ -14,25 +15,26 @@ import (
 )
 
 func main() {
-	viperConfig := config.NewViper()
-	log := config.NewLogger(viperConfig)
-	app := config.NewFiber(viperConfig)
-	db := config.NewDatabase(viperConfig, log)
-	validate := config.NewValidator(viperConfig)
+	validator := pkg.NewValidator()
+	vpr := config.NewViper()
+	cfg := config.Load(vpr)
+	log := pkg.NewLogger(cfg)
+	app := pkg.NewFiber(cfg)
+	db := pkg.NewDatabase(cfg, log)
 
-	internal.Bootstrap(&internal.BootstrapConfig{
+	http.Boot(&http.Bootstrap{
 		DB:       db,
 		App:      app,
 		Log:      log,
-		Validate: validate,
-		Config:   viperConfig,
+		Validate: validator,
+		Config:   cfg,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
-		webPort := viperConfig.GetInt("server.port")
+		webPort := cfg.Server.Port
 		if err := app.Listen(fmt.Sprintf(":%d", webPort)); err != nil {
 			log.Error("Failed to start the server: ", err)
 			stop()
@@ -50,7 +52,7 @@ func main() {
 	gracefulShutdown(timeoutCtx, app, db, log)
 }
 
-func gracefulShutdown(ctx context.Context, app *fiber.App, db *config.DB, log *logrus.Logger) {
+func gracefulShutdown(ctx context.Context, app *fiber.App, db *pkg.DB, log *logrus.Logger) {
 	message := "Server shutting down gracefully..."
 
 	log.Info("Cleaning up resources...")
