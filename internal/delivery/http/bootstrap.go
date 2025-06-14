@@ -53,7 +53,7 @@ func Boot(b *Bootstrap) {
 	roleUsecase := usecase.NewRoleUseCase(b.Log, b.DB, roleRepository, menuPermRepo, menuPermissionRoleRepository)
 	menuPermUsecase := usecase.NewMenuPermissionUsecase(b.Log, b.DB, menuPermRepo)
 
-	// 	// setup Handler
+	// setup Handler
 	exampleHandler := handler.NewExampleHandler(b.Log, b.Validate, exampleUsecase)
 	authHandler := handler.NewAuthHandler(b.Log, b.Validate, authUsecase)
 	userHandler := handler.NewUserHandler(b.Log, b.Validate, userUsecase)
@@ -61,7 +61,7 @@ func Boot(b *Bootstrap) {
 	roleHandler := handler.NewRoleHandler(b.Log, b.Validate, roleUsecase)
 	menuPermHandler := handler.NewMenuPermissionHandler(b.Log, b.Validate, menuPermUsecase)
 
-	// 	// setup middleware
+	// setup middleware
 	auth := middleware.NewAuth(b.Config, authUsecase, userUsecase)
 
 	route := Route{
