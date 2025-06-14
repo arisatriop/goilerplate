@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"goilerplate/internal/config"
+	"goilerplate/config"
 	"goilerplate/internal/model/menupermission"
 	"goilerplate/internal/repository"
 

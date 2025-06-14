@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"goilerplate/internal/config"
+	"goilerplate/config"
 	"goilerplate/internal/model/zexample"
 	"goilerplate/internal/repository"
 	"goilerplate/pkg/helper"

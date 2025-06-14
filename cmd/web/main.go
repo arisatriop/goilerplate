@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"goilerplate/config"
 	"goilerplate/internal"
-	"goilerplate/internal/config"
 	"os/signal"
 	"syscall"
 	"time"

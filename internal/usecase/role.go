@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	"goilerplate/internal/config"
+	"goilerplate/config"
 	"goilerplate/internal/model/role"
 	"goilerplate/internal/repository"
 	"goilerplate/pkg/helper"

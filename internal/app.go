@@ -1,7 +1,7 @@
 package internal
 
 import (
-	"goilerplate/internal/config"
+	"goilerplate/config"
 	"goilerplate/internal/delivery/http"
 	"goilerplate/internal/delivery/http/middleware"
 	"goilerplate/internal/delivery/http/route"

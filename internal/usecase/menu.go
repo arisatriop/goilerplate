@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	"goilerplate/internal/config"
+	"goilerplate/config"
 	"goilerplate/internal/entity"
 	"goilerplate/internal/model/menu"
 	"goilerplate/internal/repository"

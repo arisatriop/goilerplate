@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"goilerplate/internal/config"
+	"goilerplate/config"
 	"goilerplate/internal/entity"
 	"goilerplate/internal/model"
 	"goilerplate/internal/model/auth"
