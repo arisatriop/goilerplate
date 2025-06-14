@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"goilerplate/internal/config"
 	"goilerplate/internal/entity"
-	"goilerplate/internal/helper"
 	"goilerplate/internal/model/user"
 	"goilerplate/internal/repository"
+	"goilerplate/pkg/helper"
 	"net/http"
 
 	"github.com/google/uuid"

@@ -3,10 +3,10 @@ package middleware
 import (
 	"errors"
 	"fmt"
-	"goilerplate/internal/helper"
 	"goilerplate/internal/model"
 	"goilerplate/internal/model/auth"
 	"goilerplate/internal/usecase"
+	"goilerplate/pkg/helper"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"

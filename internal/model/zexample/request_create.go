@@ -3,7 +3,7 @@ package zexample
 import (
 	"fmt"
 	"goilerplate/internal/entity"
-	"goilerplate/internal/helper"
+	"goilerplate/pkg/helper"
 	"net/http"
 	"time"
 

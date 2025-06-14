@@ -2,7 +2,7 @@ package role
 
 import (
 	"goilerplate/internal/entity"
-	"goilerplate/internal/helper"
+	"goilerplate/pkg/helper"
 	"time"
 
 	"github.com/google/uuid"

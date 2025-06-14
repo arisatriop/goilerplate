@@ -3,9 +3,9 @@ package usecase
 import (
 	"context"
 	"goilerplate/internal/config"
-	"goilerplate/internal/helper"
 	"goilerplate/internal/model/role"
 	"goilerplate/internal/repository"
+	"goilerplate/pkg/helper"
 	"net/http"
 
 	"github.com/google/uuid"

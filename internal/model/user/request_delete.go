@@ -2,7 +2,7 @@ package user
 
 import (
 	"goilerplate/internal/entity"
-	"goilerplate/internal/helper"
+	"goilerplate/pkg/helper"
 
 	"github.com/google/uuid"
 )
