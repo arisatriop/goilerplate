@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"goilerplate/internal/model"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -10,7 +9,7 @@ import (
 )
 
 type PermissionRepository interface {
-	GetPermission(ctx context.Context, db *gorm.DB, id uuid.UUID) (model.Permission, error)
+	GetPermission(ctx context.Context, db *gorm.DB, id uuid.UUID) (map[string]struct{}, error)
 }
 
 type permissionRepository struct {
@@ -23,7 +22,7 @@ func NewPermissionRepository(log *logrus.Logger) PermissionRepository {
 	}
 }
 
-func (r *permissionRepository) GetPermission(ctx context.Context, db *gorm.DB, id uuid.UUID) (model.Permission, error) {
+func (r *permissionRepository) GetPermission(ctx context.Context, db *gorm.DB, id uuid.UUID) (map[string]struct{}, error) {
 	var permissions []string
 
 	err := db.Table("users u").

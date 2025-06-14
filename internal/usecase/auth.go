@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"goilerplate/config"
 	"goilerplate/internal/entity"
-	"goilerplate/internal/model"
 	"goilerplate/internal/model/auth"
 	"goilerplate/internal/model/menu"
 	"goilerplate/internal/repository"
@@ -29,7 +28,7 @@ type AuthUsecase interface {
 	Login(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error)
 	Logout(ctx context.Context, req *auth.LogoutRequest) error
 	SetPermission(ctx context.Context, id uuid.UUID) error
-	GetPermissions(ctx context.Context, id uuid.UUID) (model.Permission, error)
+	GetPermissions(ctx context.Context, id uuid.UUID) (map[string]struct{}, error)
 	GetPermissionFromRedis(ctx context.Context, key string) (map[string]struct{}, error)
 }
 
@@ -240,7 +239,7 @@ func (u *authUsecase) SetPermission(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (u *authUsecase) GetPermissions(ctx context.Context, id uuid.UUID) (model.Permission, error) {
+func (u *authUsecase) GetPermissions(ctx context.Context, id uuid.UUID) (map[string]struct{}, error) {
 	return u.PermissionRepository.GetPermission(ctx, u.DB.GDB, id)
 }
 
