@@ -48,7 +48,8 @@ func (r *menuRepository) GetByRoleID(ctx context.Context, db *gorm.DB, roleID uu
 				menus.path, 
 				menus.parent_id, 
 				menus.icon, 
-				menus."order"
+				menus."order",
+				menus.is_active
 			FROM menus
 			LEFT JOIN menu_permissions 
 				ON menus.id = menu_permissions.menu_id
@@ -70,7 +71,7 @@ func (r *menuRepository) GetByRoleID(ctx context.Context, db *gorm.DB, roleID uu
 
 	for rows.Next() {
 		var menu entity.Menu
-		if err := rows.Scan(&menu.ID, &menu.Name, &menu.Path, &menu.ParentID, &menu.Icon, &menu.Order); err != nil {
+		if err := rows.Scan(&menu.ID, &menu.Name, &menu.Path, &menu.ParentID, &menu.Icon, &menu.Order, &menu.IsActive); err != nil {
 			r.Log.Errorf("failed to scan menu: %v\n", err)
 			return nil, err
 		}
