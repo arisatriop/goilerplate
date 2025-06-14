@@ -13,18 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// import (
-// 	"goilerplate/config"
-// 	"goilerplate/internal/delivery/http/middleware"
-// 	"goilerplate/internal/repository"
-// 	"goilerplate/internal/usecase"
-
-// 	"github.com/go-playground/validator/v10"
-// 	"github.com/gofiber/fiber/v2"
-// 	"github.com/sirupsen/logrus"
-// 	"github.com/spf13/viper"
-// )
-
 type Bootstrap struct {
 	DB       *db.DB
 	App      *fiber.App
