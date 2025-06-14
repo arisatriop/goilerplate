@@ -24,7 +24,7 @@ import (
 )
 
 type AuthUsecase interface {
-	Me(ctx context.Context, id uuid.UUID) (*model.MeResponse, error)
+	Me(ctx context.Context, user *model.Auth) (*model.MeResponse, error)
 	Token(ctx context.Context, req *auth.TokenRequest) (*auth.TokenResponse, error)
 	Login(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error)
 	Logout(ctx context.Context, req *auth.LogoutRequest) error
@@ -68,31 +68,27 @@ func NewAuthUsecase(
 	}
 }
 
-func (u *authUsecase) Me(ctx context.Context, id uuid.UUID) (*model.MeResponse, error) {
+func (u *authUsecase) Me(ctx context.Context, user *model.Auth) (*model.MeResponse, error) {
 	db := u.DB.GDB.WithContext(ctx)
 
-	role, err := u.RoleRepo.GetByUserID(ctx, db, id)
+	role, err := u.RoleRepo.GetByUserID(ctx, db, user.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get roles by user ID: %w", err)
 	}
 
 	allMenu, err := u.MenuRepo.GetAll(ctx, db, &menu.GetRequest{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get all menus: %w", err)
 	}
 
 	var myRoles []model.MyRole
 	for _, v := range role {
 		menu, err := u.MenuRepo.GetByRoleID(ctx, db, v.ID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get menus by role ID %s: %w", v.ID, err)
 		}
 
 		menuTree := BuildMenuTree(allMenu, menu)
-		if err != nil {
-			return nil, err
-		}
-
 		myRoles = append(myRoles, model.MyRole{
 			ID:   v.ID,
 			Name: v.Name,
@@ -101,11 +97,11 @@ func (u *authUsecase) Me(ctx context.Context, id uuid.UUID) (*model.MeResponse, 
 	}
 
 	meResponse := &model.MeResponse{
-		ID:       id,
-		Name:     "name",
-		Username: "username",
-		Email:    "email@gmail.com",
-		Phone:    "1234567890",
+		ID:       user.ID,
+		Name:     user.Name,
+		Username: "",
+		Email:    user.Email,
+		Phone:    "",
 		Avatar:   "https://example.com/avatar.png",
 		MyRole:   myRoles,
 	}
@@ -118,7 +114,7 @@ func (u *authUsecase) Token(ctx context.Context, req *auth.TokenRequest) (*auth.
 
 	user, err := u.UserRepository.GetByRefrehToken(ctx, db, req.RefreshToken)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by refresh token: %w", err)
 	}
 
 	if user == nil {
@@ -146,7 +142,7 @@ func (u *authUsecase) Token(ctx context.Context, req *auth.TokenRequest) (*auth.
 
 	user.AccessToken = accessToken
 	if err := u.UserRepository.Update(ctx, db, user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to update user access token: %w", err)
 	}
 
 	if err := u.SetPermission(ctx, user.ID); err != nil {
@@ -231,14 +227,14 @@ func (u *authUsecase) Logout(ctx context.Context, req *auth.LogoutRequest) error
 func (u *authUsecase) SetPermission(ctx context.Context, id uuid.UUID) error {
 	permissions, err := u.PermissionRepository.GetPermission(ctx, u.DB.GDB.WithContext(ctx), id)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get permissions for user %s: %w", id, err)
 	}
 
 	key := fmt.Sprintf("permissions:%s", id.String())
 	value, _ := json.Marshal(permissions)
 	if err := u.RedisRepository.Set(ctx, key, value, time.Duration(u.Config.GetInt("jwt.access_token_expiry"))*time.Second); err != nil {
 		u.Log.Error("failed to set permissions in Redis: ", err)
-		return err
+		return fmt.Errorf("failed to set permissions in Redis: %w", err)
 	}
 
 	return nil
@@ -255,13 +251,13 @@ func (u *authUsecase) GetPermissionFromRedis(ctx context.Context, key string) (m
 			return nil, helper.Error(http.StatusUnauthorized, "Unauthorized")
 		}
 		u.Log.Errorf("failed to get permission from redis: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to get permission from redis: %w", err)
 	}
 
 	var permissions map[string]struct{}
 	if err := json.Unmarshal([]byte(permission), &permissions); err != nil {
 		u.Log.Errorf("failed to unmarshal permissions: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal permissions: %w", err)
 	}
 
 	return permissions, nil

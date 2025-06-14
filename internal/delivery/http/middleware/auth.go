@@ -64,7 +64,9 @@ func (m *Auth) Authenticated() fiber.Handler {
 			return model.Unauthorized(ctx)
 		}
 		ctx.Locals("auth", &model.Auth{
-			ID: user.ID,
+			ID:    user.ID,
+			Name:  user.Name,
+			Email: user.Email,
 		})
 
 		return ctx.Next()

@@ -8,7 +8,12 @@ import (
 
 type Auth struct {
 	// Login user id
-	ID uuid.UUID
+	ID       uuid.UUID
+	Name     string
+	Username string
+	Email    string
+	Phone    string
+	Avatar   string
 }
 
 type MeResponse struct {

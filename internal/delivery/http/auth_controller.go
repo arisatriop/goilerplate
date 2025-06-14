@@ -43,7 +43,7 @@ func (c *authController) Me(ctx *fiber.Ctx) error {
 		return model.Unauthorized(ctx, "Unauthorized access")
 	}
 
-	resp, err := c.AuthUsecase.Me(ctx.UserContext(), user.ID)
+	resp, err := c.AuthUsecase.Me(ctx.UserContext(), user)
 	if err != nil {
 		var cerr *helper.ClientError
 		if errors.As(err, &cerr) {
