@@ -1,8 +1,6 @@
 package model
 
 import (
-	"goilerplate/internal/model/menu"
-
 	"github.com/google/uuid"
 )
 
@@ -25,10 +23,19 @@ type MeResponse struct {
 	Avatar   string    `json:"avatar"`
 	MyRole   []MyRole  `json:"role"`
 }
-
 type MyRole struct {
-	ID          uuid.UUID             `json:"id"`
-	Name        string                `json:"name"`
-	Description string                `json:"description"`
-	Menu        []menu.GetAllResponse `json:"menu"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Menu        []MyMenu  `json:"menu"`
+}
+
+type MyMenu struct {
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Path     string    `json:"path"`
+	Icon     string    `json:"icon"`
+	Order    int       `json:"order"`
+	IsActive bool      `json:"isActive"`
+	Child    []MyMenu  `json:"child"`
 }

@@ -263,7 +263,7 @@ func (u *authUsecase) GetPermissionFromRedis(ctx context.Context, key string) (m
 	return permissions, nil
 }
 
-func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []menu.GetAllResponse {
+func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []model.MyMenu {
 	// Index all menus by ID
 	allMap := make(map[uuid.UUID]entity.Menu)
 	for _, mnu := range allMenu {
@@ -290,7 +290,7 @@ func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []menu.GetAllResponse {
 	}
 
 	// Build GetAllResponse nodes
-	nodeMap := make(map[uuid.UUID]*menu.GetAllResponse)
+	nodeMap := make(map[uuid.UUID]*model.MyMenu)
 	for _, mnu := range includeMap {
 		icon := ""
 		if mnu.Icon != nil {
@@ -300,14 +300,14 @@ func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []menu.GetAllResponse {
 		if mnu.Order != nil {
 			order = *mnu.Order
 		}
-		nodeMap[mnu.ID] = &menu.GetAllResponse{
+		nodeMap[mnu.ID] = &model.MyMenu{
 			ID:       mnu.ID,
 			Name:     mnu.Name,
 			Path:     mnu.Path,
 			Icon:     icon,
 			Order:    order,
 			IsActive: mnu.IsActive,
-			Child:    []menu.GetAllResponse{},
+			Child:    []model.MyMenu{},
 		}
 	}
 
@@ -322,8 +322,8 @@ func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []menu.GetAllResponse {
 	}
 
 	// Recursively sort children by Order
-	var sortChildren func(nodes []menu.GetAllResponse)
-	sortChildren = func(nodes []menu.GetAllResponse) {
+	var sortChildren func(nodes []model.MyMenu)
+	sortChildren = func(nodes []model.MyMenu) {
 		sort.Slice(nodes, func(i, j int) bool {
 			return nodes[i].Order < nodes[j].Order
 		})
@@ -333,7 +333,7 @@ func BuildMenuTree(allMenu, filteredMenu []entity.Menu) []menu.GetAllResponse {
 	}
 
 	// Collect root nodes
-	var roots []menu.GetAllResponse
+	var roots []model.MyMenu
 	for _, node := range nodeMap {
 		if original, ok := allMap[node.ID]; ok && original.ParentID == nil {
 			roots = append(roots, *node)
