@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"goilerplate/internal/model/menupermission"
 	"goilerplate/internal/repository"
-	"goilerplate/pkg"
+	"goilerplate/pkg/db"
 
 	"github.com/sirupsen/logrus"
 )
@@ -16,11 +16,11 @@ type MenuPermissionUsecase interface {
 
 type menuPermissionUsecase struct {
 	Log                *logrus.Logger
-	DB                 *pkg.DB
+	DB                 *db.DB
 	MenuPermissionRepo repository.MenuPermissionRepository
 }
 
-func NewMenuPermissionUsecase(log *logrus.Logger, db *pkg.DB, menuPermissionRepo repository.MenuPermissionRepository) MenuPermissionUsecase {
+func NewMenuPermissionUsecase(log *logrus.Logger, db *db.DB, menuPermissionRepo repository.MenuPermissionRepository) MenuPermissionUsecase {
 	return &menuPermissionUsecase{
 		Log:                log,
 		DB:                 db,

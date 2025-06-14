@@ -10,7 +10,7 @@ import (
 	"goilerplate/internal/model/auth"
 	"goilerplate/internal/model/menu"
 	"goilerplate/internal/repository"
-	"goilerplate/pkg"
+	"goilerplate/pkg/db"
 	"goilerplate/pkg/helper"
 	"net/http"
 	"sort"
@@ -36,7 +36,7 @@ type AuthUsecase interface {
 type authUsecase struct {
 	Config               *config.Config
 	Log                  *logrus.Logger
-	DB                   *pkg.DB
+	DB                   *db.DB
 	MenuUsecase          MenuUsecase
 	UserRepository       repository.UserRepository
 	RoleRepo             repository.RoleRepository
@@ -48,7 +48,7 @@ type authUsecase struct {
 func NewAuthUsecase(
 	config *config.Config,
 	log *logrus.Logger,
-	db *pkg.DB,
+	db *db.DB,
 	menuUsecase MenuUsecase,
 	userRepo repository.UserRepository,
 	roleRepo repository.RoleRepository,

@@ -20,6 +20,7 @@ type App struct {
 	Name        string
 	Version     string
 	Description string
+	AppURL      string `mapstructure:"app_url"`
 }
 
 type Server struct {

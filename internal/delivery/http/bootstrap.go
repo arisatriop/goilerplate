@@ -5,7 +5,7 @@ import (
 	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/repository"
 	"goilerplate/internal/usecase"
-	"goilerplate/pkg"
+	"goilerplate/pkg/db"
 	"goilerplate/pkg/middleware"
 
 	"github.com/go-playground/validator/v10"
@@ -26,7 +26,7 @@ import (
 // )
 
 type Bootstrap struct {
-	DB       *pkg.DB
+	DB       *db.DB
 	App      *fiber.App
 	Log      *logrus.Logger
 	Validate *validator.Validate

@@ -4,7 +4,7 @@ import (
 	"context"
 	"goilerplate/internal/model/role"
 	"goilerplate/internal/repository"
-	"goilerplate/pkg"
+	"goilerplate/pkg/db"
 	"goilerplate/pkg/helper"
 	"net/http"
 
@@ -22,7 +22,7 @@ type RoleUseCase interface {
 
 type roleUsecase struct {
 	Log              *logrus.Logger
-	DB               *pkg.DB
+	DB               *db.DB
 	RoleRepo         repository.RoleRepository
 	MenuPermRepo     repository.MenuPermissionRepository
 	MenuPermRoleRepo repository.MenuPermissionRoleRepository
@@ -30,7 +30,7 @@ type roleUsecase struct {
 
 func NewRoleUseCase(
 	log *logrus.Logger,
-	db *pkg.DB,
+	db *db.DB,
 	roleRepo repository.RoleRepository,
 	menuPermRepo repository.MenuPermissionRepository,
 	menuPermRoleRepo repository.MenuPermissionRoleRepository) RoleUseCase {

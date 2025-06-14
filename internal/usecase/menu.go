@@ -5,7 +5,7 @@ import (
 	"goilerplate/internal/entity"
 	"goilerplate/internal/model/menu"
 	"goilerplate/internal/repository"
-	"goilerplate/pkg"
+	"goilerplate/pkg/db"
 	"sort"
 	"strings"
 
@@ -20,11 +20,11 @@ type MenuUsecase interface {
 
 type menuUsecase struct {
 	Log            *logrus.Logger
-	DB             *pkg.DB
+	DB             *db.DB
 	MenuRepository repository.MenuRepository
 }
 
-func NewMenuUsecase(log *logrus.Logger, db *pkg.DB, menuRepo repository.MenuRepository) MenuUsecase {
+func NewMenuUsecase(log *logrus.Logger, db *db.DB, menuRepo repository.MenuRepository) MenuUsecase {
 	return &menuUsecase{
 		Log:            log,
 		DB:             db,

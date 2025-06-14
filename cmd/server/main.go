@@ -6,6 +6,7 @@ import (
 	"goilerplate/config"
 	"goilerplate/internal/delivery/http"
 	"goilerplate/pkg"
+	"goilerplate/pkg/db"
 	"os/signal"
 	"syscall"
 	"time"
@@ -20,14 +21,14 @@ func main() {
 	cfg := config.Load(vpr)
 	log := pkg.NewLogger(cfg)
 	app := pkg.NewFiber(cfg)
-	db := pkg.NewDatabase(cfg, log)
+	db := db.NewDatabase(cfg, log)
 
 	http.Boot(&http.Bootstrap{
 		DB:       db,
 		App:      app,
 		Log:      log,
-		Validate: validator,
 		Config:   cfg,
+		Validate: validator,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -52,7 +53,7 @@ func main() {
 	gracefulShutdown(timeoutCtx, app, db, log)
 }
 
-func gracefulShutdown(ctx context.Context, app *fiber.App, db *pkg.DB, log *logrus.Logger) {
+func gracefulShutdown(ctx context.Context, app *fiber.App, db *db.DB, log *logrus.Logger) {
 	message := "Server shutting down gracefully..."
 
 	log.Info("Cleaning up resources...")

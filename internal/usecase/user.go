@@ -6,7 +6,7 @@ import (
 	"goilerplate/internal/entity"
 	"goilerplate/internal/model/user"
 	"goilerplate/internal/repository"
-	"goilerplate/pkg"
+	"goilerplate/pkg/db"
 	"goilerplate/pkg/helper"
 	"net/http"
 
@@ -26,11 +26,11 @@ type UserUsecase interface {
 
 type userUsecase struct {
 	Log            *logrus.Logger
-	DB             *pkg.DB
+	DB             *db.DB
 	UserRepository repository.UserRepository
 }
 
-func NewUserUsecase(log *logrus.Logger, db *pkg.DB, userRepo repository.UserRepository) UserUsecase {
+func NewUserUsecase(log *logrus.Logger, db *db.DB, userRepo repository.UserRepository) UserUsecase {
 	return &userUsecase{
 		Log:            log,
 		DB:             db,
