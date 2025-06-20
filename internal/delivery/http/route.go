@@ -10,6 +10,7 @@ import (
 type Route struct {
 	App  *fiber.App
 	Auth *middleware.Auth
+	Log  *middleware.Log
 
 	ExampleHandler  handler.ExampleHandler
 	AuthHandler     handler.AuthHandler
@@ -36,7 +37,7 @@ func (c *Route) Setup() {
 	_ = privateApi.Group("v1")
 	_ = privateApi.Group("v2")
 
-	api := c.App.Group("api").Use(c.Auth.Authenticated())
+	api := c.App.Group("api").Use(c.Auth.Authenticated()).Use(c.Log.IncomingReqestLog())
 	v1 := api.Group("v1")
 	_ = api.Group("v2")
 
@@ -74,7 +75,7 @@ func (c *Route) Setup() {
 }
 
 func registerAuthRoutes(c *Route) {
-	auth := c.App.Group("api/v1/auth")
+	auth := c.App.Group("api/v1/auth").Use(c.Log.IncomingReqestLog())
 	auth.Post("token", c.AuthHandler.Token)
 	auth.Post("login", c.AuthHandler.Login)
 	auth.Post("logout", c.Auth.Authenticated(), c.AuthHandler.Logout)

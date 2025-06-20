@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	App    App
-	Server Server
-	DB     DB
-	Redis  Redis
-	JWT    JWT
-	Log    Log
+	App           App
+	Server        Server
+	DB            DB
+	Redis         Redis
+	Elasticsearch Elasticsearch `mapstructure:"elastic"`
+	JWT           JWT
+	Log           Log
 }
 
 type App struct {
@@ -66,6 +67,17 @@ type Redis struct {
 	PoolTimeout  time.Duration `mapstructure:"pool_timeout"`
 }
 
+type Elasticsearch struct {
+	Enabled             bool     `mapstructure:"enabled"`
+	Addresses           []string `mapstructure:"host"`
+	Port                int
+	Username            string
+	Password            string
+	HealthCheckPeriod   int    `mapstructure:"health_check_period"`
+	ApiIncomingLogIndex string `mapstructure:"api_incoming_log_index"`
+	ApiOutgoingLogIndex string `mapstructure:"api_outgoing_log_index"`
+	ErrorLogIndex       string `mapstructure:"error_log_index"`
+}
 type JWT struct {
 	Secret             string
 	RefreshSecret      string `mapstructure:"refresh_secret"`

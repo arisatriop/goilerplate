@@ -51,10 +51,12 @@ func Boot(b *Bootstrap) {
 
 	// setup middleware
 	auth := middleware.NewAuth(b.Config, authUsecase, userUsecase)
+	log := middleware.NewLog(b.Config, b.DB.Elasticsearch)
 
 	route := Route{
 		App:  b.App,
 		Auth: auth,
+		Log:  log,
 
 		ExampleHandler:  exampleHandler,
 		AuthHandler:     authHandler,

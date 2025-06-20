@@ -40,6 +40,16 @@ redis:
   pool_size: 10
   pool_timeout: 6s
 
+elastic:
+  enabled: true
+  host: http://localhost:9200
+  username: elastic
+  password: changeme
+  health_check_period: 30
+  api_incoming_log_index: "goilerplate-api-incoming-log"
+  api_outgoing_log_index: "goilerplate-api-outgoing-log"
+  error_log_index: "goilerplate-error-log"
+
 jwt:
   secret: secret
   refresh_secret: refresh-secret

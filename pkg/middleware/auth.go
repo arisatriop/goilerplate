@@ -97,5 +97,17 @@ func (m *Auth) Authorized(permission string) fiber.Handler {
 }
 
 func GetUser(ctx *fiber.Ctx) *auth.User {
-	return ctx.Locals("auth").(*auth.User)
+	user := ctx.Locals("auth")
+	if user == nil {
+		return nil
+	}
+	return user.(*auth.User)
+}
+
+func GetUserID(ctx *fiber.Ctx) string {
+	user := GetUser(ctx)
+	if user == nil {
+		return ""
+	}
+	return user.ID.String()
 }
