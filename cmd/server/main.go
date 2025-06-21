@@ -93,5 +93,18 @@ func gracefulShutdown(ctx context.Context, app *fiber.App, db *db.DB, log *logru
 		}
 	}
 
+	now := time.Now()
+	hhmm := now.Hour()*100 + now.Minute()
+	switch {
+	case hhmm >= 900 && hhmm <= 1700:
+		log.Warn("You can't stop me, it's time to work!")
+		return
+	case hhmm >= 1701 && hhmm <= 2200:
+		log.Warn("You can’t stop me—your wallet isn’t even ready to start dating!")
+		log.Warn("Single life isn’t cheap, go make more money!")
+		return
+	}
+
 	log.Info(message)
+	log.Info("Hope your brain does too! Sleep well!")
 }
