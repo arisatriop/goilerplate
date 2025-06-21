@@ -100,7 +100,8 @@ func gracefulShutdown(ctx context.Context, app *fiber.App, db *db.DB, log *logru
 		log.Warn("You can't stop me, it's time to work!")
 		return
 	case hhmm >= 1701 && hhmm <= 2200:
-		log.Warn("You can’t stop me—your wallet isn’t even ready to start dating!")
+		log.Warn("You can’t stop me!")
+		log.Warn("Your wallet isn’t even ready to start dating!")
 		log.Warn("Single life isn’t cheap, go make more money!")
 		return
 	}
