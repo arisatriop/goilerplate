@@ -37,7 +37,7 @@ func (c *Route) Setup() {
 	_ = privateApi.Group("v1")
 	_ = privateApi.Group("v2")
 
-	api := c.App.Group("api").Use(c.Auth.Authenticated()).Use(c.Log.IncomingReqestLog())
+	api := c.App.Group("api").Use(c.Log.IncomingReqestLog()).Use(c.Auth.Authenticated())
 	v1 := api.Group("v1")
 	_ = api.Group("v2")
 

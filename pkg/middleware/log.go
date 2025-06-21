@@ -27,23 +27,23 @@ func NewLog(cfg *config.Config, es *elasticsearch.Client) *Log {
 }
 
 type IncomingLog struct {
-	Timestamp string            `json:"timestamp"`
-	Status    int               `json:"status"`
-	Method    string            `json:"method"`
-	Duration  string            `json:"duration"` // e.g. "12ms"
-	TraceID   string            `json:"trace_id"`
-	UserID    string            `json:"user_id,omitempty"`
-	IP        string            `json:"ip"`
-	Path      string            `json:"path"`
-	FullURL   string            `json:"full_url"`
-	UserAgent string            `json:"user_agent"`
-	Headers   map[string]string `json:"headers,omitempty"`
+	Timestamp   string            `json:"timestamp"`
+	Status      int               `json:"status"`
+	Method      string            `json:"method"`
+	DurationStr string            `json:"duration_str"`
+	DurationMs  float64           `json:"duration_ms"`
+	TraceID     string            `json:"trace_id"`
+	UserID      string            `json:"user_id,omitempty"`
+	IP          string            `json:"ip"`
+	Path        string            `json:"path"`
+	FullURL     string            `json:"full_url"`
+	UserAgent   string            `json:"user_agent"`
+	Headers     map[string]string `json:"headers,omitempty"`
 }
 
 func (l *Log) IncomingReqestLog() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
-
 		// Trace ID (from header or generate new)
 		traceID := extractTraceID(c.Get("X-Request-ID"))
 		c.Locals("trace_id", traceID)
@@ -57,21 +57,21 @@ func (l *Log) IncomingReqestLog() fiber.Handler {
 
 		// Continue to handler
 		err := c.Next()
+		duration := time.Since(start)
 		if l.Config.Elasticsearch.Enabled {
-			duration := time.Since(start)
-
 			logEntry := IncomingLog{
-				Timestamp: time.Now().Format(time.RFC3339),
-				Status:    c.Response().StatusCode(),
-				Method:    c.Method(),
-				Duration:  duration.String(), // e.g. "12ms"
-				TraceID:   traceID,
-				UserID:    GetUserID(c),
-				IP:        c.IP(),
-				Path:      c.OriginalURL(),
-				FullURL:   fmt.Sprintf("%s://%s%s", c.Protocol(), c.Hostname(), c.OriginalURL()),
-				UserAgent: c.Get("User-Agent"),
-				Headers:   headers,
+				Timestamp:   time.Now().Format(time.RFC3339),
+				Status:      c.Response().StatusCode(),
+				Method:      c.Method(),
+				DurationStr: duration.String(), // e.g. "12ms"
+				DurationMs:  float64(duration.Microseconds()) / 1000.0,
+				TraceID:     traceID,
+				UserID:      GetUserID(c),
+				IP:          c.IP(),
+				Path:        c.Path(),
+				FullURL:     fmt.Sprintf("%s://%s%s", c.Protocol(), c.Hostname(), c.OriginalURL()),
+				UserAgent:   c.Get("User-Agent"),
+				Headers:     headers,
 			}
 
 			go sendToElastic(l.Config, l.ElasticClient, logEntry)

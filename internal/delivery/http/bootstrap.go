@@ -50,8 +50,8 @@ func Boot(b *Bootstrap) {
 	menuPermHandler := handler.NewMenuPermissionHandler(b.Log, b.Validate, menuPermUsecase)
 
 	// setup middleware
-	auth := middleware.NewAuth(b.Config, authUsecase, userUsecase)
 	log := middleware.NewLog(b.Config, b.DB.Elasticsearch)
+	auth := middleware.NewAuth(b.Config, authUsecase, userUsecase)
 
 	route := Route{
 		App:  b.App,
