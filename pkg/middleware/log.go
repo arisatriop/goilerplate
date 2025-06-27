@@ -41,7 +41,7 @@ type IncomingLog struct {
 	Headers     map[string]string `json:"headers,omitempty"`
 }
 
-func (l *Log) IncomingReqestLog() fiber.Handler {
+func (l *Log) IncomingReqestLog(log *logrus.Logger) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
 		// Trace ID (from header or generate new)

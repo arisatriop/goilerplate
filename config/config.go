@@ -18,6 +18,7 @@ type Config struct {
 }
 
 type App struct {
+	Env         string
 	Name        string
 	Version     string
 	Description string

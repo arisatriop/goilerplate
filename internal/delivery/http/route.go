@@ -5,12 +5,14 @@ import (
 	"goilerplate/pkg/middleware"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/sirupsen/logrus"
 )
 
 type Route struct {
-	App  *fiber.App
-	Auth *middleware.Auth
-	Log  *middleware.Log
+	App        *fiber.App
+	Auth       *middleware.Auth
+	Log        *logrus.Logger
+	LogTraffic *middleware.Log
 
 	ExampleHandler  handler.ExampleHandler
 	AuthHandler     handler.AuthHandler
@@ -21,8 +23,6 @@ type Route struct {
 }
 
 func (c *Route) Setup() {
-
-	c.App.Use(middleware.Recover())
 
 	c.App.Get("/", func(ctx *fiber.Ctx) error {
 		return ctx.SendString("Welcome to Goilerplate!")
@@ -37,7 +37,7 @@ func (c *Route) Setup() {
 	_ = privateApi.Group("v1")
 	_ = privateApi.Group("v2")
 
-	api := c.App.Group("api").Use(c.Log.IncomingReqestLog()).Use(c.Auth.Authenticated())
+	api := c.App.Group("api").Use(c.LogTraffic.IncomingReqestLog(c.Log)).Use(c.Auth.Authenticated())
 	v1 := api.Group("v1")
 	_ = api.Group("v2")
 
@@ -75,7 +75,7 @@ func (c *Route) Setup() {
 }
 
 func registerAuthRoutes(c *Route) {
-	auth := c.App.Group("api/v1/auth").Use(c.Log.IncomingReqestLog())
+	auth := c.App.Group("api/v1/auth").Use(c.LogTraffic.IncomingReqestLog(c.Log))
 	auth.Post("token", c.AuthHandler.Token)
 	auth.Post("login", c.AuthHandler.Login)
 	auth.Post("logout", c.Auth.Authenticated(), c.AuthHandler.Logout)

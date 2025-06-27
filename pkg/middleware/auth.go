@@ -35,11 +35,12 @@ func (m *Auth) Authenticated() fiber.Handler {
 			return model.Unauthorized(ctx)
 		}
 
-		parts := strings.Split(authorization, " ")
-		token := parts[0]
-		if len(parts) == 2 {
-			token = parts[1]
+		parts := strings.SplitN(authorization, " ", 2)
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			return model.Unauthorized(ctx, "Invalid authorization header format")
 		}
+
+		token := parts[1]
 
 		jwtToken, err := jwt.Parse(token, func(t *jwt.Token) (any, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {

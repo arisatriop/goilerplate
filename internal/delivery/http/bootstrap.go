@@ -54,9 +54,10 @@ func Boot(b *Bootstrap) {
 	auth := middleware.NewAuth(b.Config, authUsecase, userUsecase)
 
 	route := Route{
-		App:  b.App,
-		Auth: auth,
-		Log:  log,
+		App:        b.App,
+		Auth:       auth,
+		Log:        b.Log,
+		LogTraffic: log,
 
 		ExampleHandler:  exampleHandler,
 		AuthHandler:     authHandler,

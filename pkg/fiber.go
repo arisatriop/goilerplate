@@ -2,8 +2,10 @@ package pkg
 
 import (
 	"goilerplate/config"
+	"goilerplate/pkg/middleware"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func NewFiber(cfg *config.Config) *fiber.App {
@@ -12,6 +14,13 @@ func NewFiber(cfg *config.Config) *fiber.App {
 		ErrorHandler: NewErrorHandler(),
 		Prefork:      cfg.Server.Prefork,
 	})
+
+	app.Use(middleware.Recover())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "*",
+	}))
 
 	return app
 }

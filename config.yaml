@@ -1,4 +1,5 @@
 app:
+  env: local
   name: Goilerplate
   version: 1.0.0
   description: This is a sample application configuration file.
@@ -53,7 +54,7 @@ elastic:
 jwt:
   secret: secret
   refresh_secret: refresh-secret
-  access_token_expiry: 3600      # 10m in seconds
+  access_token_expiry: 600      # 10m in seconds
   refresh_token_expiry: 604800  # 7d in seconds
 
 log:
