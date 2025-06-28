@@ -111,8 +111,6 @@ func (u *authUsecase) Me(ctx context.Context, user *auth.User) (*auth.GetRespons
 func (u *authUsecase) Token(ctx context.Context, req *auth.TokenRequest) (*auth.TokenResponse, error) {
 	db := u.DB.GDB.WithContext(ctx)
 
-	fmt.Println("Received refresh token request:", req.RefreshToken)
-
 	user, err := u.UserRepository.GetByRefrehToken(ctx, db, req.RefreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by refresh token: %w", err)

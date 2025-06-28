@@ -13,12 +13,14 @@ type User struct {
 	Password     string     `gorm:"column:password"`
 	AccessToken  string     `gorm:"column:access_token"`
 	RefreshToken string     `gorm:"column:refresh_token"`
+	Avatar       string     `gorm:"column:avatar"`
 	CreatedAt    time.Time  `gorm:"column:created_at"`
 	CreatedBy    string     `gorm:"column:created_by"`
 	UpdatedAt    *time.Time `gorm:"column:updated_at"`
 	UpdatedBy    *string    `gorm:"column:updated_by"`
 	DeletedAt    *time.Time `gorm:"column:deleted_at"`
 	DeletedBy    *string    `gorm:"column:deleted_by"`
+	Role         []Role     `gorm:"many2many:role_users;"`
 }
 
 func (e *User) TableName() string {

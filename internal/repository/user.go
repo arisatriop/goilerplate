@@ -67,11 +67,19 @@ func (r *userRepository) Update(ctx context.Context, db *gorm.DB, user *entity.U
 
 func (r *userRepository) GetAll(ctx context.Context, db *gorm.DB, req *user.GetRequest) ([]entity.User, int64, error) {
 	var users []entity.User
-	query := db.Model(&entity.User{}).Where("deleted_at IS NULL")
+	query := db.Model(&entity.User{}).Preload("Role").Where("deleted_at IS NULL")
 
 	if req.Keyword != "" {
 		keyword := "%" + strings.ToLower(req.Keyword) + "%"
 		query = query.Where("LOWER(email) LIKE ? OR LOWER(name) LIKE ?", keyword, keyword)
+	}
+
+	if req.Offset > 0 {
+		query = query.Offset(req.Offset)
+	}
+
+	if req.Limit > 0 {
+		query = query.Limit(req.Limit)
 	}
 
 	if err := query.Find(&users).Error; err != nil {
@@ -83,13 +91,12 @@ func (r *userRepository) GetAll(ctx context.Context, db *gorm.DB, req *user.GetR
 	if err != nil {
 		return nil, 0, err
 	}
-
 	return users, total, nil
 }
 
 func (r *userRepository) GetByID(ctx context.Context, db *gorm.DB, id uuid.UUID) (*entity.User, error) {
 	var user entity.User
-	if err := db.Where("id = ? AND deleted_at is null", id).First(&user).Error; err != nil {
+	if err := db.Preload("Role").Where("id = ? AND deleted_at is null", id).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
