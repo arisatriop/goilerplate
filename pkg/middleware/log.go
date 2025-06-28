@@ -58,6 +58,7 @@ func (l *Log) IncomingReqestLog(log *logrus.Logger) fiber.Handler {
 		// Continue to handler
 		err := c.Next()
 		duration := time.Since(start)
+
 		if l.Config.Elasticsearch.Enabled {
 			logEntry := IncomingLog{
 				Timestamp:   time.Now().Format(time.RFC3339),
@@ -73,9 +74,21 @@ func (l *Log) IncomingReqestLog(log *logrus.Logger) fiber.Handler {
 				UserAgent:   c.Get("User-Agent"),
 				Headers:     headers,
 			}
-
 			go sendToElastic(l.Config, l.ElasticClient, logEntry)
 		}
+
+		if l.Config.App.Env == "local" {
+			log.WithFields(logrus.Fields{
+				"status":       c.Response().StatusCode(),
+				"method":       c.Method(),
+				"duration_str": duration.String(),
+				"trace_id":     traceID,
+				"ip":           c.IP(),
+				"path":         c.Path(),
+			}).Info("Incoming request")
+			fmt.Println()
+		}
+
 		return err
 	}
 }

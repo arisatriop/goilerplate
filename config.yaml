@@ -42,7 +42,7 @@ redis:
   pool_timeout: 6s
 
 elastic:
-  enabled: false
+  enabled: true
   host: http://localhost:9200
   username: elastic
   password: changeme
