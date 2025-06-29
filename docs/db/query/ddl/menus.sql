@@ -4,7 +4,7 @@ CREATE TABLE menus (
     path VARCHAR(100) NOT NULL,
     permission VARCHAR(100) NOT NULL,
     parent_id UUID NULL,
-    icon VARCHAR(100) NULL,
+    icon TEXT NULL,
     "order" INT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE;
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,

@@ -58,7 +58,7 @@ func (r *userRepository) Create(ctx context.Context, db *gorm.DB, user *entity.U
 }
 
 func (r *userRepository) Update(ctx context.Context, db *gorm.DB, user *entity.User) error {
-	if err := db.Save(user).Error; err != nil {
+	if err := db.Omit("Role").Save(user).Error; err != nil {
 		r.Log.Errorf("failed to update user: %v", err)
 		return err
 	}
