@@ -1,0 +1,11 @@
+main
+server
+migrate
+
+config.yaml
+
+docker-compose.yaml
+
+*.env
+
+bin

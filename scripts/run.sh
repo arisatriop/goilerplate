@@ -1,0 +1,1 @@
+nodemon -e go --signal SIGINT --exec "go run cmd/server/main.go"
