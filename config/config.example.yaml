@@ -14,10 +14,11 @@ server:
   enable_cors: true
 
 db:
+  driver: postgres
   host: localhost
   port: 5432
-  name: goilerplate
-  sslmode: disable  
+  name: postgres
+  sslmode: disable
   username: postgres
   password: postgres
   min_open_connections: 10
@@ -39,12 +40,12 @@ redis:
 
 jwt:
   secret_key: your-super-secret-jwt-key
-  access_secret: access-secret
-  refresh_secret: refresh-secret
+  access_secret: your-access-token-super-secret-key
+  refresh_secret: your-refresh-token-super-secret-key
   access_token_expiry: 15m
   refresh_token_expiry: 168h # 1 week
   issuer: goilerplate
 
-logger:
+log:
   level: debug
-  
+  source: false
