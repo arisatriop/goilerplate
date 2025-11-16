@@ -1,0 +1,79 @@
+app:
+  env: local
+  name: Ktlg.id
+  version: 1.0.0
+  description: This is a sample application configuration file.
+
+server:
+  host: localhost
+  port: 80
+  prefork: false
+  read_timeout: 5s
+  write_timeout: 5s
+  idle_timeout: 120s
+  enable_cors: true
+
+db:
+  driver: mysql
+  host: localhost
+  port: 3306
+  name: me_ktlgid
+  sslmode: disable
+  username: root
+  password: root
+  min_open_connections: 10
+  max_open_connections: 100
+  connection_max_lifetime: 300
+  connection_max_idle_time: 60
+  health_check_period: 30
+
+redis:
+  enabled: true
+  host: localhost:6379
+  password: ""
+  db: 0
+  dial_timeout: 5s
+  read_timeout: 5s
+  write_timeout: 5s
+  pool_size: 10
+  pool_timeout: 6s
+
+jwt:
+  secret_key: your-super-secret-jwt-key
+  access_secret: your-access-token-super-secret-key
+  refresh_secret: your-refresh-token-super-secret-key
+  access_token_expiry: 15m
+  refresh_token_expiry: 168h # 1 week
+  issuer: goilerplate
+
+log:
+  level: debug
+  source: false
+
+filesystem:
+  driver: s3  # Options: local, s3, r2, drive
+  max_file_size: 3145728
+
+  # Local storage configuration
+  local:
+    base_path: ./storage
+    base_url: http://localhost:80/storage
+
+  # AWS S3 configuration
+  s3:
+    access_key_id: your-access-key
+    secret_access_key: your-secret-access-key
+    region: region
+    bucket: bucket-name
+    endpoint: ""  # Optional: for MinIO or S3-compatible services (e.g., http://localhost:9000)
+
+  # Google Drive configuration
+  drive:
+    credentials_file: ./credentials/gdrive-sa-credentials.json
+    client_id: your-client-id
+    client_secret: your-client-secret
+    refresh_token: your-refresh-token
+    folder_id: your-folder-id
+
+crypto:
+  encryption_key: your-32-byte-encryption-key-here
