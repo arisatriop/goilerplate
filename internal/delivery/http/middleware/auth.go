@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"goilerplate/config"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/pkg/constants"
 	jwtService "goilerplate/pkg/jwt"
@@ -23,14 +24,16 @@ type Auth struct {
 	authRepository    auth.Repository
 	cacheService      *auth.CacheService
 	permissionService *auth.PermissionService
+	apikeys           []config.Apikey
 }
 
-func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, cacheService *auth.CacheService, permissionService *auth.PermissionService) *Auth {
+func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, cacheService *auth.CacheService, permissionService *auth.PermissionService, apikeys []config.Apikey) *Auth {
 	return &Auth{
 		jwtService:        jwtService,
 		authRepository:    authRepository,
 		cacheService:      cacheService,
 		permissionService: permissionService,
+		apikeys:           apikeys,
 	}
 }
 
@@ -170,8 +173,26 @@ func (m *Auth) InternalAuthenticate() fiber.Handler {
 // PartnerAuthenticate provides authentication for partner services
 func (m *Auth) PartnerAuthenticate() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		userID := "partner"
-		userName := "parner"
+		apiKey := ctx.Get("x-api-key")
+		if apiKey == "" {
+			return response.Unauthorized(ctx, "")
+		}
+
+		isValid := false
+		userID := ""
+		userName := ""
+		for _, k := range m.apikeys {
+			if apiKey == k.Key {
+				isValid = true
+				userID = k.Key
+				userName = k.Name
+				break
+			}
+		}
+
+		if !isValid {
+			return response.Unauthorized(ctx, "")
+		}
 
 		userIdCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyUserID, userID)
 		userNameCtx := context.WithValue(userIdCtx, constants.ContextKeyUserName, userName)

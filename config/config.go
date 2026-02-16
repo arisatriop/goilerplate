@@ -15,7 +15,7 @@ type Config struct {
 	Log        *Logger
 	FileSystem FileSystem
 	Crypto     Crypto
-	Apikey     Apikey
+	Apikey     []Apikey
 }
 
 type App struct {
@@ -96,6 +96,6 @@ type Crypto struct {
 }
 
 type Apikey struct {
-	Default  string `mapstructure:"default"`
-	Partner1 string `mapstructure:"partner1"`
+	Name string `mapstructure:"name"`
+	Key  string `mapstructure:"key"`
 }
