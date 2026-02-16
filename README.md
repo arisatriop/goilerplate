@@ -53,7 +53,7 @@ A clean, scalable Go REST API template featuring JWT authentication, role-based 
 
 ### Core
 
-- **[Go 1.25](https://golang.org/)** - Programming language
+- **[Go 1.24](https://golang.org/)** - Programming language
 - **[Fiber v2](https://gofiber.io/)** - Fast HTTP web framework
 - **[GORM](https://gorm.io/)** - ORM for database operations
 
