@@ -104,7 +104,7 @@ func (r *example) GetExampleList(ctx context.Context, filter *zexample.Filter) (
 		Select("id", "code", "example").
 		Where("deleted_at IS NULL")
 
-	query = r.applyExampleFilters(query, filter, true) // true = apply pagination
+	r.applyExampleFilters(query, filter, true) // true = apply pagination
 
 	err := query.Find(&models).Error
 	if err != nil {
@@ -126,7 +126,7 @@ func (r *example) CountExample(ctx context.Context, filter *zexample.Filter) (in
 		Model(&model.Example{}).
 		Where("deleted_at IS NULL")
 
-	query = r.applyExampleFilters(query, filter, false) // false = don't apply pagination
+	r.applyExampleFilters(query, filter, false) // false = don't apply pagination
 
 	if err := query.Count(&count).Error; err != nil {
 		return 0, fmt.Errorf("failed to count examples: %w", err)
@@ -183,25 +183,23 @@ func (r *example) getExampleByID(ctx context.Context, id string) (*model.Example
 	return &data, nil
 }
 
-func (r *example) applyExampleFilters(query *gorm.DB, filter *zexample.Filter, applyPagination bool) *gorm.DB {
+func (r *example) applyExampleFilters(query *gorm.DB, filter *zexample.Filter, applyPagination bool) {
 	if filter == nil {
-		return query
+		return
 	}
 
 	if filter.Keyword != "" {
 		keyword := "%" + filter.Keyword + "%"
-		query = query.Where("code ILIKE ? OR example ILIKE ?", keyword, keyword)
+		query.Where("code ILIKE ? OR example ILIKE ?", keyword, keyword)
 	}
 
 	if filter.Code != "" {
-		query = query.Where("code = ?", filter.Code)
+		query.Where("code = ?", filter.Code)
 	}
 
 	if applyPagination && filter.Pagination != nil {
-		query = query.Offset(filter.Pagination.GetOffset()).Limit(filter.Pagination.GetLimit())
+		query.Offset(filter.Pagination.GetOffset()).Limit(filter.Pagination.GetLimit())
 	}
-
-	return query
 }
 
 func (r *example) modelToEntity(model *model.Example) *zexample.Example {
