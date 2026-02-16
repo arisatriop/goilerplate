@@ -3,16 +3,27 @@
 
 -- Create user_tokens table for email verification and password reset tokens
 CREATE TABLE user_tokens (
-    id CHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()) COMMENT 'Unique identifier for the token',
-    user_id CHAR(36) NOT NULL COMMENT 'Reference to the user who owns this token',
-    token_hash VARCHAR(255) NOT NULL UNIQUE COMMENT 'Hashed token for security',
-    token_type VARCHAR(50) NOT NULL COMMENT 'Type of token: email_verification, password_reset, email_change',
-    expires_at TIMESTAMP NOT NULL COMMENT 'When this token expires',
-    used_at TIMESTAMP NULL DEFAULT NULL COMMENT 'When this token was used (NULL if not used yet)',
-    ip_address VARCHAR(45) DEFAULT NULL COMMENT 'IP address where token was created',
-    user_agent TEXT COMMENT 'User agent of the request that created the token',
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    token_type VARCHAR(50) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP NULL DEFAULT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    user_agent TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Table for managing verification and reset tokens';
+);
+
+-- Comments
+COMMENT ON COLUMN user_tokens.id IS 'Unique identifier for the token';
+COMMENT ON COLUMN user_tokens.user_id IS 'Reference to the user who owns this token';
+COMMENT ON COLUMN user_tokens.token_hash IS 'Hashed token for security';
+COMMENT ON COLUMN user_tokens.token_type IS 'Type of token: email_verification, password_reset, email_change';
+COMMENT ON COLUMN user_tokens.expires_at IS 'When this token expires';
+COMMENT ON COLUMN user_tokens.used_at IS 'When this token was used (NULL if not used yet)';
+COMMENT ON COLUMN user_tokens.ip_address IS 'IP address where token was created';
+COMMENT ON COLUMN user_tokens.user_agent IS 'User agent of the request that created the token';
+COMMENT ON TABLE user_tokens IS 'Table for managing verification and reset tokens';
 
 -- Create indexes for performance
 CREATE INDEX idx_user_tokens_user_id ON user_tokens(user_id);

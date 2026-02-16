@@ -2,22 +2,39 @@
 -- Created at: 2025-10-25T12:00:03+07:00
 
 CREATE TABLE menus (
-    id CHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()) COMMENT 'Unique identifier for the menu',
-    parent_id CHAR(36) DEFAULT NULL COMMENT 'Reference to parent menu for hierarchical structure',
-    name VARCHAR(100) NOT NULL COMMENT 'Display name of the menu item',
-    slug VARCHAR(100) UNIQUE NOT NULL COMMENT 'Unique slug identifier for the menu',
-    icon VARCHAR(100) DEFAULT NULL COMMENT 'Icon identifier for the menu item',
-    route VARCHAR(255) DEFAULT NULL COMMENT 'Route/path for the menu item',
-    display_order DECIMAL(10,2) DEFAULT 0 COMMENT 'Order in which menu items should be displayed (supports decimals like 1.5 for easy insertion between items)',
-    is_active TINYINT(1) DEFAULT 1 COMMENT 'Whether the menu item is active/visible',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Timestamp when menu was created',
-    created_by VARCHAR(255) NOT NULL COMMENT 'User who created this menu',
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Timestamp when menu was last updated',
-    updated_by VARCHAR(255) NOT NULL COMMENT 'User who last updated this menu',
-    deleted_at TIMESTAMP NULL DEFAULT NULL COMMENT 'Timestamp when menu was soft deleted',
-    deleted_by VARCHAR(255) DEFAULT NULL COMMENT 'User who deleted this menu',
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    parent_id UUID DEFAULT NULL,
+    name VARCHAR(100) NOT NULL,
+    slug VARCHAR(100) UNIQUE NOT NULL,
+    icon VARCHAR(100) DEFAULT NULL,
+    route VARCHAR(255) DEFAULT NULL,
+    display_order DECIMAL(10,2) DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255) NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(255) NOT NULL,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    deleted_by VARCHAR(255) DEFAULT NULL,
     FOREIGN KEY (parent_id) REFERENCES menus(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Menus table for navigation structure';
+);
+
+-- Comments
+COMMENT ON COLUMN menus.id IS 'Unique identifier for the menu';
+COMMENT ON COLUMN menus.parent_id IS 'Reference to parent menu for hierarchical structure';
+COMMENT ON COLUMN menus.name IS 'Display name of the menu item';
+COMMENT ON COLUMN menus.slug IS 'Unique slug identifier for the menu';
+COMMENT ON COLUMN menus.icon IS 'Icon identifier for the menu item';
+COMMENT ON COLUMN menus.route IS 'Route/path for the menu item';
+COMMENT ON COLUMN menus.display_order IS 'Order in which menu items should be displayed (supports decimals like 1.5 for easy insertion between items)';
+COMMENT ON COLUMN menus.is_active IS 'Whether the menu item is active/visible';
+COMMENT ON COLUMN menus.created_at IS 'Timestamp when menu was created';
+COMMENT ON COLUMN menus.created_by IS 'User who created this menu';
+COMMENT ON COLUMN menus.updated_at IS 'Timestamp when menu was last updated';
+COMMENT ON COLUMN menus.updated_by IS 'User who last updated this menu';
+COMMENT ON COLUMN menus.deleted_at IS 'Timestamp when menu was soft deleted';
+COMMENT ON COLUMN menus.deleted_by IS 'User who deleted this menu';
+COMMENT ON TABLE menus IS 'Menus table for navigation structure';
 
 -- Indexes for menus
 CREATE INDEX idx_menus_parent_id ON menus(parent_id);
