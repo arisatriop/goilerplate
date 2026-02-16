@@ -31,6 +31,8 @@ A clean, scalable Go REST API template featuring JWT authentication, role-based 
 
 - **Redis caching** for sessions, tokens, and permissions
 - **Database support** for PostgreSQL and MySQL
+- **Filesystem Abstraction** supporting Local, S3, and Google Drive
+- **HTTP Client** with structured logging and request tracking
 - **Request validation** with go-playground/validator
 - **Structured logging** with slog
 - **Configuration management** with Viper
@@ -51,9 +53,14 @@ A clean, scalable Go REST API template featuring JWT authentication, role-based 
 
 ### Core
 
-- **[Go 1.24](https://golang.org/)** - Programming language
+- **[Go 1.25](https://golang.org/)** - Programming language
 - **[Fiber v2](https://gofiber.io/)** - Fast HTTP web framework
 - **[GORM](https://gorm.io/)** - ORM for database operations
+
+### Cloud & Storage
+
+- **[AWS SDK v2](https://aws.amazon.com/sdk-for-go/)** - S3 integration
+- **[Google Drive API](https://developers.google.com/drive/api)** - Drive integration
 
 ### Authentication & Security
 
@@ -96,20 +103,28 @@ be-boilerplate-go/
 │   │       ├── presenter/     # Response presenters (Domain → HTTP)
 │   │       ├── handler/       # HTTP handlers (thin orchestration)
 │   │       ├── middleware/    # HTTP middleware
-│   │       └── router/        # Route definitions
+│   │       ├── router/        # Route definitions
 │   ├── domain/           # Business logic layer (Domain)
-│   │   └── auth/         # Auth domain (entities, usecases, interfaces)
+│   │   ├── auth/         # Auth domain
+│   │   ├── role/         # Role domain
+│   │   ├── user/         # User domain
+│   │   ├── userrole/     # User-Role association domain
+│   │   └── transaction/  # Transaction domain
 │   ├── application/      # Application services (orchestration)
 │   ├── infrastructure/   # Infrastructure layer
 │   │   ├── model/        # Database models (GORM)
 │   │   ├── repository/   # Repository implementations
-│   │   └── cache/        # Cache implementations (Redis)
+│   │   ├── cache/        # Cache implementations (Redis)
+│   │   └── transaction/  # DB Transaction implementation
 │   └── wire/             # Wire dependency injection
 ├── pkg/                  # Shared packages
 │   ├── auth/             # Auth utilities
 │   ├── constants/        # Application constants
+│   ├── filesystem/       # Storage abstraction (Local, S3, GDrive)
+│   ├── httpclient/       # HTTP Client with logging
 │   ├── jwt/              # JWT utilities
 │   ├── logger/           # Logging utilities
+│   ├── pagination/       # Pagination utilities
 │   ├── response/         # HTTP response helpers
 │   └── utils/            # Common utilities
 ├── go.mod
