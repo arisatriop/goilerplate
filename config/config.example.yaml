@@ -80,5 +80,6 @@ filesystem:
 crypto:
   encryption_key: your-32-byte-encryption-key-here
 
-tenant:
-  base_url: https://ktlg.sidejob.fun
+apikey:
+  default: secret
+  partner1: secret

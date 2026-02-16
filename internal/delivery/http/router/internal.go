@@ -1,5 +1,15 @@
 package router
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"goilerplate/internal/bootstrap"
+	"goilerplate/internal/wire"
 
-func (r *RouteRegistry) registerInternalAPI(route fiber.Router) {}
+	"github.com/gofiber/fiber/v2"
+)
+
+type InternalRouteRegistry struct {
+	App   *bootstrap.App
+	Wired *wire.ApplicationContainer
+}
+
+func (r *InternalRouteRegistry) register(route fiber.Router) {}

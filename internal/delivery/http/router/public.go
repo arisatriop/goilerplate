@@ -1,12 +1,19 @@
 package router
 
 import (
+	"goilerplate/internal/bootstrap"
+	"goilerplate/internal/wire"
 	"goilerplate/pkg/constants"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func (r *RouteRegistry) registerPublicAPI(route fiber.Router) {
+type PublicRouteRegistry struct {
+	App   *bootstrap.App
+	Wired *wire.ApplicationContainer
+}
+
+func (r *PublicRouteRegistry) register(route fiber.Router) {
 	auth := route.Group("api/v1/auth")
 	auth.Post("/register", r.Wired.Handlers.Auth.Register)
 	auth.Post("/login", r.Wired.Handlers.Auth.Login)
@@ -17,10 +24,10 @@ func (r *RouteRegistry) registerPublicAPI(route fiber.Router) {
 	api := route.Group("api").Use(r.Wired.Middleware.Auth.Authenticate())
 	v1 := api.Group("v1")
 
-	r.examplePublic(v1)
+	r.example(v1)
 }
 
-func (r *RouteRegistry) examplePublic(v1 fiber.Router) {
+func (r *PublicRouteRegistry) example(v1 fiber.Router) {
 	example := v1.Group("examples")
 	example.Post("",
 		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionExampleCreate),

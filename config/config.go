@@ -15,7 +15,7 @@ type Config struct {
 	Log        *Logger
 	FileSystem FileSystem
 	Crypto     Crypto
-	Tenant     Tenant
+	Apikey     Apikey
 }
 
 type App struct {
@@ -95,6 +95,7 @@ type Crypto struct {
 	EncryptionKey string `mapstructure:"encryption_key"`
 }
 
-type Tenant struct {
-	BaseURL string `mapstructure:"base_url"`
+type Apikey struct {
+	Default  string `mapstructure:"default"`
+	Partner1 string `mapstructure:"partner1"`
 }

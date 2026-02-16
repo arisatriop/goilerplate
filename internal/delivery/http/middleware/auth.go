@@ -167,6 +167,24 @@ func (m *Auth) InternalAuthenticate() fiber.Handler {
 	}
 }
 
+// PartnerAuthenticate provides authentication for partner services
+func (m *Auth) PartnerAuthenticate() fiber.Handler {
+	return func(ctx *fiber.Ctx) error {
+		userID := "partner"
+		userName := "parner"
+
+		userIdCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyUserID, userID)
+		userNameCtx := context.WithValue(userIdCtx, constants.ContextKeyUserName, userName)
+		ctx.SetUserContext(userNameCtx)
+
+		// Set in Locals (for Fiber context usage)
+		ctx.Locals(string(constants.ContextKeyUserID), userID)
+		ctx.Locals(string(constants.ContextKeyUserName), userName)
+
+		return ctx.Next()
+	}
+}
+
 // validateAuthHeader extracts and validates the authorization header
 func (m *Auth) validateAuthHeader(ctx *fiber.Ctx) (string, *jwtService.Claims, error) {
 	authHeader := ctx.Get("Authorization")
