@@ -14,5 +14,5 @@ const (
 )
 
 const (
-	HeaderRequestID = "X-Request-ID"
+	HeaderRequestID = "X-Request-Id"
 )
