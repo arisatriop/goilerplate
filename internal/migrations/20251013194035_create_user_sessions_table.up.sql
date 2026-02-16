@@ -3,7 +3,7 @@
 
 -- Create user_sessions table for managing refresh tokens and multiple device logins
 CREATE TABLE user_sessions (
-    id CHAR(36) PRIMARY KEY DEFAULT (UUID()) COMMENT 'Unique identifier for the session',
+    id CHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()) COMMENT 'Unique identifier for the session',
     user_id CHAR(36) NOT NULL COMMENT 'Reference to the user who owns this session',
     refresh_token_hash VARCHAR(255) NOT NULL UNIQUE COMMENT 'Hashed refresh token for security',
     device_name VARCHAR(255) DEFAULT NULL COMMENT 'Human-readable device name (e.g., "John iPhone")',

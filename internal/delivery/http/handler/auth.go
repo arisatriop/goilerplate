@@ -3,11 +3,10 @@ package handler
 import (
 	"time"
 
-	"goilerplate/internal/application/registration"
+	"goilerplate/internal/application/register"
 	dtorequest "goilerplate/internal/delivery/http/dto/request"
 	"goilerplate/internal/delivery/http/presenter"
 	"goilerplate/internal/domain/auth"
-	"goilerplate/internal/domain/store"
 	"goilerplate/internal/domain/user"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/response"
@@ -19,11 +18,11 @@ import (
 type Auth struct {
 	deviceService      auth.DeviceService
 	validator          *validator.Validate
-	applicationService registration.ApplicationService
+	applicationService register.ApplicationService
 	usecase            auth.Usecase
 }
 
-func NewAuth(deviceService auth.DeviceService, validator *validator.Validate, applicationService registration.ApplicationService, usecase auth.Usecase) *Auth {
+func NewAuth(deviceService auth.DeviceService, validator *validator.Validate, applicationService register.ApplicationService, usecase auth.Usecase) *Auth {
 	return &Auth{
 		validator:          validator,
 		deviceService:      deviceService,
@@ -44,23 +43,15 @@ func (h *Auth) Register(ctx *fiber.Ctx) error {
 		return response.ValidationError(ctx, validationErrors)
 	}
 
-	regisData := registration.Registration{
+	register := register.Register{
 		User: &user.User{
 			Name:         req.Name,
-			Phone:        req.Phone,
 			Email:        req.Email,
 			PasswordHash: req.Password,
 		},
-		Store: &store.Store{
-			Name:    req.StoreName,
-			Address: req.StoreAddress,
-			Desc:    req.StoreDesc,
-			Email:   req.StoreEmail,
-			Phone:   req.StorePhone,
-		},
 	}
 
-	if err := h.applicationService.RegisterNewStore(ctx.UserContext(), &regisData); err != nil {
+	if err := h.applicationService.Register(ctx.UserContext(), &register); err != nil {
 		return response.HandleError(ctx, err)
 	}
 

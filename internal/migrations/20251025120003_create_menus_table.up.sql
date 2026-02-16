@@ -2,7 +2,7 @@
 -- Created at: 2025-10-25T12:00:03+07:00
 
 CREATE TABLE menus (
-    id CHAR(36) PRIMARY KEY DEFAULT (UUID()) COMMENT 'Unique identifier for the menu',
+    id CHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()) COMMENT 'Unique identifier for the menu',
     parent_id CHAR(36) DEFAULT NULL COMMENT 'Reference to parent menu for hierarchical structure',
     name VARCHAR(100) NOT NULL COMMENT 'Display name of the menu item',
     slug VARCHAR(100) UNIQUE NOT NULL COMMENT 'Unique slug identifier for the menu',

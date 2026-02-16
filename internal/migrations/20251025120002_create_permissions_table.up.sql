@@ -2,7 +2,7 @@
 -- Created at: 2025-10-25T12:00:02+07:00
 
 CREATE TABLE permissions (
-    id CHAR(36) PRIMARY KEY DEFAULT (UUID()) COMMENT 'Unique identifier for the permission',
+    id CHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()) COMMENT 'Unique identifier for the permission',
     name VARCHAR(100) NOT NULL COMMENT 'Display name of the permission',
     slug VARCHAR(150) UNIQUE NOT NULL COMMENT 'Unique slug identifier for the permission (e.g., create:example, update:example)',
     description TEXT COMMENT 'Description of what this permission grants',

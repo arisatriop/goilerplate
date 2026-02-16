@@ -10,7 +10,6 @@ import (
 func ToLoginResponse(result *auth.LoginResult) *dtoresponse.LoginResponse {
 	return &dtoresponse.LoginResponse{
 		User:        ToUserResponse(result.User),
-		Menus:       ToMenusResponse(result.Menu),
 		Permissions: result.Permission,
 		Tokens:      ToTokenPairResponse(result.Tokens),
 		Session:     ToSessionResponse(result.Session),
@@ -57,28 +56,5 @@ func ToSessionResponse(session *auth.UserSession) dtoresponse.SessionResponse {
 		IsActive:   session.IsActive,
 		ExpiresAt:  session.ExpiresAt,
 		LastUsedAt: session.LastUsedAt,
-	}
-}
-
-// ToMenusResponse converts Menu entities to MenuResponse DTOs (recursive)
-func ToMenusResponse(menus []auth.Menu) []dtoresponse.MenuResponse {
-	result := make([]dtoresponse.MenuResponse, len(menus))
-	for i, menu := range menus {
-		result[i] = ToMenuResponse(menu)
-	}
-	return result
-}
-
-// ToMenuResponse converts a single Menu entity to MenuResponse DTO (recursive)
-func ToMenuResponse(menu auth.Menu) dtoresponse.MenuResponse {
-	return dtoresponse.MenuResponse{
-		Name:         menu.Name,
-		Slug:         menu.Slug,
-		Icon:         menu.Icon,
-		Route:        menu.Route,
-		DisplayOrder: menu.DisplayOrder,
-		IsActive:     menu.IsActive,
-		Permissions:  menu.Permissions,
-		Child:        ToMenusResponse(menu.Children), // Recursively map children
 	}
 }

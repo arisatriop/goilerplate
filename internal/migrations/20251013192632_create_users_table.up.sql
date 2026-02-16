@@ -2,7 +2,7 @@
 -- Created at: 2025-10-13T19:26:32+07:00
 
 CREATE TABLE users (
-    id CHAR(36) PRIMARY KEY DEFAULT (UUID()) COMMENT 'Unique identifier for the user',
+    id CHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()) COMMENT 'Unique identifier for the user',
     name VARCHAR(255) NOT NULL COMMENT 'Full name of the user',
     phone VARCHAR(20) COMMENT 'Phone number of the user',
     email VARCHAR(255) NOT NULL UNIQUE COMMENT 'Email address of the user (unique)',

@@ -12,17 +12,9 @@ import (
 
 // Handlers contains all HTTP handlers
 type Handlers struct {
-	Auth        *handler.Auth
-	Banner      *handler.Banner
-	Category    *handler.Category
-	Example     *handler.Example
-	Example2    *handler.Example2
-	Upload      *handler.Upload
-	Product     *handler.Product
-	ProdctImage *handler.ProductImage
-	Store       *handler.Store
-	Order       *handler.Order
-	Plan        *handler.Plan
+	Auth    *handler.Auth
+	Example *handler.Example
+	Upload  *handler.Upload
 	// Future handlers will be added here:
 	// UserHandler    *handler.UserHandler
 	// OrderHandler   *handler.OrderHandler
@@ -34,7 +26,6 @@ type Middleware struct {
 	Auth          *middleware.Auth
 	Recover       fiber.Handler
 	RequestLogger *middleware.RequestLogger
-	Store         *middleware.Store
 	// Future middleware will be added here:
 	// RateLimit *middleware.RateLimit
 	// CORS      *middleware.CORS
@@ -47,17 +38,9 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 	deviceService := auth.NewDeviceService()
 
 	return &Handlers{
-		Auth:        handler.NewAuth(deviceService, app.Validator, appServices.RegistrationService, useCases.AuthUC),
-		Example:     handler.NewExample(app.Validator, useCases.ExampleUC),
-		Example2:    handler.NewExample2(app.Validator, appServices.ExpSvc),
-		Upload:      handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
-		Banner:      handler.NewBanner(app.Validator, useCases.BannerUC, appServices.BannerService),
-		Category:    handler.NewCategory(app.Validator, appServices.CategoryService, useCases.CategoryUC),
-		Product:     handler.NewProduct(app.Validator, appServices.ProductService, useCases.ProductUC),
-		ProdctImage: handler.NewProductImage(app.Validator, useCases.ProductImageUC),
-		Store:       handler.NewStore(useCases.StoreUC),
-		Order:       handler.NewOrder(app.Validator, appServices.OrderService, useCases.OrderUC),
-		Plan:        handler.NewPlan(useCases.PlantypeUC),
+		Auth:    handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC),
+		Example: handler.NewExample(app.Validator, useCases.ExampleUC),
+		Upload:  handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
 	}
 }
 
@@ -70,7 +53,6 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, infrastructure.AuthCacheService, permissionService),
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(),
-		Store:         middleware.NewStore(cfg, repos.StoreRepo),
 		// Future middleware wiring:
 		// RateLimit: middleware.NewRateLimit(),
 		// CORS:      middleware.NewCORS(),

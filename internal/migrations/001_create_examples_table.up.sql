@@ -2,7 +2,7 @@
 -- Created at: 2025-10-11T15:30:00Z
 
 CREATE TABLE examples (
-    id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    id CHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()),
     code VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique code identifier',
     example TEXT NOT NULL COMMENT 'Example text content',
     is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether the record is active',

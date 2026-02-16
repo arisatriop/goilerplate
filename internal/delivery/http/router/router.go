@@ -3,8 +3,6 @@ package router
 import (
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/wire"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type RouteRegistry struct {
@@ -27,25 +25,7 @@ func (r *RouteRegistry) Register() {
 	http.Get("/", r.index)
 	http.Get("/health", r.healthCheck)
 
-	r.registerGuestAPI(http)
-	r.registerAuthAPI(http)
-	r.registerProtectedAPI(http)
 	r.registerInternalAPI(http)
-}
-
-// registerPublicAPI sets up the public API routes.
-func (r *RouteRegistry) registerProtectedAPI(router fiber.Router) {
-	v1 := router.Group("api/v1").Use(r.Wired.Middleware.Auth.Authenticate())
-
-	r.plan(v1)     // => /plans
-	r.example(v1)  // => /example
-	r.example2(v1) // => /example2
-	r.stores(v1)   // => /stores
-}
-
-// registerInternalAPI sets up the internal API routes.
-func (r *RouteRegistry) registerInternalAPI(router fiber.Router) {
-	v1 := router.Group("internal/v1").Use(r.Wired.Middleware.Auth.InternalAuthenticate())
-
-	_ = v1
+	r.registerPartnerAPI(http)
+	r.registerPublicAPI(http)
 }

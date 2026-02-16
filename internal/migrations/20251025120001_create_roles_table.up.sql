@@ -2,7 +2,7 @@
 -- Created at: 2025-10-25T12:00:01+07:00
 
 CREATE TABLE roles (
-    id CHAR(36) PRIMARY KEY DEFAULT (UUID()) COMMENT 'Unique identifier for the role',
+    id CHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()) COMMENT 'Unique identifier for the role',
     name VARCHAR(100) NOT NULL COMMENT 'Display name of the role',
     slug VARCHAR(100) UNIQUE NOT NULL COMMENT 'Unique slug identifier for the role',
     description TEXT COMMENT 'Description of the role',
