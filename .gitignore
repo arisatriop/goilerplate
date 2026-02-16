@@ -1,0 +1,14 @@
+config.yaml
+credentials/*
+oauth-token.json
+storage/*
+
+docker-compose.yaml
+
+*.env
+
+bin
+
+tmp
+
+.air.toml
