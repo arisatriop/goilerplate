@@ -341,6 +341,41 @@ The server will start at `http://localhost:3000` by default.
 
 ---
 
+## 🐳 Docker Support
+
+This project includes Docker support for both production and local development.
+
+### 🏠 Local Development (with Hot Reload)
+
+The easiest way to start developing is using Docker Compose, which uses `Dockerfile.local` and `air` for hot-reloading:
+
+```bash
+# Start the environment
+make up
+# or
+docker compose up -d
+```
+
+Your source code is mounted as a volume, so any changes you make will trigger a rebuild and restart inside the container.
+
+### 🏗️ Production Build
+
+To build and run the production-optimized image:
+
+```bash
+# Build the image
+make docker-build
+# or
+docker build -t goilerplate .
+
+# Run the container
+make docker-run
+# or
+docker run -p 3000:3000 goilerplate
+```
+
+---
+
 ## 📚 API Endpoints
 
 ### Authentication
