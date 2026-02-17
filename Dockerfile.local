@@ -1,38 +1,20 @@
-# Build stage
-FROM golang:1.24-alpine AS builder
-
-# Install necessary build tools
-RUN apk add --no-cache git
+FROM golang:1.24-alpine
 
 WORKDIR /app
 
-# Download dependencies first (better caching)
+# Install air for hot reloading
+# Version v1.61.7 is compatible with Go 1.24 (requires Go 1.23+)
+RUN go install github.com/air-verse/air@v1.61.7
+
+# Copy dependency files first
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
+# Copy the source code
 COPY . .
 
-# Build the application
-# CGO_ENABLED=0 creates a statically linked binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server/main.go
-
-# Final stage
-FROM alpine:latest
-
-# Install CA certificates for HTTPS calls
-RUN apk --no-cache add ca-certificates
-
-WORKDIR /root/
-
-# Copy binary from builder
-COPY --from=builder /app/main .
-
-# Copy configuration (copy example as default if main config is missing/ignored)
-COPY --from=builder /app/config/config.yaml ./config/config.yaml
-
-# Expose the application port
+# Expose the application port (matching config.yaml default)
 EXPOSE 3000
 
-# Run the binary
-CMD ["./main"]
+# Run air with configuration
+CMD ["air", "-c", ".air.toml"]

@@ -21,6 +21,7 @@ vendor/
 
 # Docker
 Dockerfile
+Dockerfile.local
 docker-compose.yaml
 
 # Documentation

@@ -65,6 +65,14 @@ docker-run:
 	@echo "Running Docker container..."
 	docker run -p 3000:3000 goilerplate
 
+docker-build-local:
+	@echo "Building Local Docker image..."
+	docker build -f Dockerfile.local -t goilerplate .
+
+docker-run-local:
+	@echo "Running Local Docker container..."
+	docker run -p 3000:3000 -v $(shell pwd):/app goilerplate
+
 # Database helpers
 db-reset: migrate-down migrate-up
 	@echo "Database reset complete"
