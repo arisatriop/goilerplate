@@ -1,0 +1,12 @@
+config.yaml
+credentials/*
+oauth-token.json
+storage/*
+
+*.env
+
+bin
+
+tmp
+
+# .air.toml

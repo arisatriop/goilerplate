@@ -1,0 +1,87 @@
+app:
+  env: local
+  name: Goilerplate
+  version: 1.0.0
+  description: This is a sample application configuration file.
+
+server:
+  host: localhost
+  port: 3000
+  prefork: false
+  read_timeout: 5s
+  write_timeout: 5s
+  idle_timeout: 120s
+  enable_cors: true
+
+db:
+  driver: postgres
+  host: localhost
+  port: 5432
+  name: postgres
+  sslmode: disable
+  username: postgres
+  password: postgres
+  min_open_connections: 10
+  max_open_connections: 100
+  connection_max_lifetime: 300
+  connection_max_idle_time: 60
+  health_check_period: 30
+
+redis:
+  enabled: true
+  host: localhost:6379
+  password: ""
+  db: 0
+  dial_timeout: 5s
+  read_timeout: 5s
+  write_timeout: 5s
+  pool_size: 10
+  pool_timeout: 6s
+
+jwt:
+  secret_key: your-super-secret-jwt-key
+  access_secret: your-access-token-super-secret-key
+  refresh_secret: your-refresh-token-super-secret-key
+  access_token_expiry: 15m
+  refresh_token_expiry: 168h # 1 week
+  issuer: goilerplate
+
+log:
+  level: debug
+  source: false
+
+filesystem:
+  driver: drive  # Options: local, s3, drive
+  max_file_size: 204800  # Maximum file size in bytes (200KB)
+
+  # Local storage configuration
+  local:
+    base_path: ./storage
+    base_url: http://localhost:3000/storage
+
+  # AWS S3 configuration
+  s3:
+    access_key_id: YOUR_AWS_ACCESS_KEY_ID
+    secret_access_key: YOUR_AWS_SECRET_ACCESS_KEY
+    region: us-east-1
+    bucket: your-bucket-name
+    endpoint: ""  # Optional: for MinIO or S3-compatible services (e.g., http://localhost:9000)
+
+  # Google Drive configuration
+  drive:
+    # Service Account: credentials_file
+    # OAuth2: client_id, client_secret, refresh_token
+    credentials_file: ./credentials/gdrive-sa-credentials.json
+    client_id: ""
+    client_secret: ""
+    refresh_token: ""
+    folder_id: ""
+
+crypto:
+  encryption_key: your-32-byte-encryption-key-here
+
+apikey:
+  - name: default
+    key: secret
+  - name: partner1
+    key: secret

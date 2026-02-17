@@ -1,0 +1,20 @@
+FROM golang:1.24-alpine
+
+WORKDIR /app
+
+# Install air for hot reloading
+# Version v1.61.7 is compatible with Go 1.24 (requires Go 1.23+)
+RUN go install github.com/air-verse/air@v1.61.7
+
+# Copy dependency files first
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the source code
+COPY . .
+
+# Expose the application port (matching config.yaml default)
+EXPOSE 3000
+
+# Run air with configuration
+CMD ["air", "-c", ".air.toml"]

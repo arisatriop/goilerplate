@@ -1,0 +1,12 @@
+# .air.toml
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/server ./cmd/server"
+bin = "tmp/server"
+# full_bin = "./tmp/server > ./../../others/grafana-loki/logs/goilerplate.log 2>&1"
+
+[log]
+color = true
+timestamp = true

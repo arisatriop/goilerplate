@@ -1,0 +1,31 @@
+# Version control
+.git
+.gitignore
+
+# Build artifacts
+bin/
+main
+tmp/
+
+# Configuration and secrets
+*.env
+credentials/
+oauth-token.json
+
+# Dependencies
+vendor/
+
+# IDE settings
+.vscode/
+.idea/
+
+# Docker
+Dockerfile
+Dockerfile.local
+docker-compose.yml
+
+# Documentation
+.docs/
+README.md
+LICENSE
+Makefile
