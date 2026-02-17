@@ -73,6 +73,10 @@ docker-run-local:
 	@echo "Running Local Docker container..."
 	docker run -p 3000:3000 -v $(shell pwd):/app goilerplate
 
+up:
+	@echo "Starting development environment..."
+	docker-compose up --build
+
 # Database helpers
 db-reset: migrate-down migrate-up
 	@echo "Database reset complete"

@@ -22,7 +22,7 @@ vendor/
 # Docker
 Dockerfile
 Dockerfile.local
-docker-compose.yaml
+docker-compose.yml
 
 # Documentation
 .docs/

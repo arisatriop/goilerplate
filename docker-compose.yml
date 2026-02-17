@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    container_name: goilerplate
+    volumes:
+      - .:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - ENV=dev
+    restart: unless-stopped
