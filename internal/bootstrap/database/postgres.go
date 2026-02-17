@@ -15,12 +15,14 @@ func NewPostgres(cfg *config.Config, log *slog.Logger) *pgxpool.Pool {
 
 	var pgx *pgxpool.Pool
 
-	connString := fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
-		cfg.DB.Username,
-		cfg.DB.Password,
+	connString := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.DB.Host,
 		cfg.DB.Port,
+		cfg.DB.Username,
+		cfg.DB.Password,
 		cfg.DB.Name,
+		cfg.DB.SSLMode,
 	)
 
 	config, err := pgxpool.ParseConfig(connString)

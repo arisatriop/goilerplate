@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goilerplate
+  labels:
+    app: goilerplate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: goilerplate
+  template:
+    metadata:
+      labels:
+        app: goilerplate
+    spec:
+      containers:
+      - name: app
+        image: asia-southeast2-docker.pkg.dev/practice-dev-487413/goilerplate/goilerplate:0.0.1
+        ports:
+        - containerPort: 3000
+        volumeMounts:
+        - name: config-volume
+          mountPath: /root/config
+          readOnly: true
+        env:
+        - name: ENV
+          value: production
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: config-volume
+        secret:
+          secretName: goilerplate-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: goilerplate-service
+spec:
+  selector:
+    app: goilerplate
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
