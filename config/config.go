@@ -15,7 +15,7 @@ type Config struct {
 	Log        *Logger            `mapstructure:"log"`
 	FileSystem FileSystem         `mapstructure:"filesystem"`
 	Crypto     Crypto             `mapstructure:"crypto"`
-	Apikeys    map[string]string  `mapstructure:"apikey"`
+	Apikeys    map[string]string  `mapstructure:"api_key"`
 	Services   map[string]Service `mapstructure:"service"`
 }
 
