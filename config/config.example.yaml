@@ -80,8 +80,16 @@ filesystem:
 crypto:
   encryption_key: your-32-byte-encryption-key-here
 
+service:
+  gopay:
+    name: "GOPAY"
+    base_url: "https://api.gopay.co.id"
+    apikey: "your-gopay-key"
+  midtrans:
+    name: "MIDTRANS"
+    base_url: "https://api.midtrans.com"
+    apikey: "your-midtrans-key"
+
 apikey:
-  - name: default
-    key: secret
-  - name: partner1
-    key: secret
+  default: secret
+  partner1: secret

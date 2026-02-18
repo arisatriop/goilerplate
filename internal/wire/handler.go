@@ -50,7 +50,7 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 	permissionService := auth.NewPermissionService(repos.AuthRepo, infrastructure.AuthCacheService)
 
 	return &Middleware{
-		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, infrastructure.AuthCacheService, permissionService, cfg.Apikey),
+		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, infrastructure.AuthCacheService, permissionService, cfg.Apikeys),
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(),
 		// Future middleware wiring:

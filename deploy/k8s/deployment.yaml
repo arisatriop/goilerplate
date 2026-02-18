@@ -6,6 +6,12 @@ metadata:
     app: goilerplate
 spec:
   replicas: 1
+  # Strategy for zero-downtime updates
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: goilerplate
@@ -14,18 +20,47 @@ spec:
       labels:
         app: goilerplate
     spec:
+      # Security: Run as non-root user
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
       containers:
       - name: app
         image: asia-southeast2-docker.pkg.dev/practice-dev-487413/goilerplate/goilerplate:0.0.1
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
+        
+        # 1. Base config from file (Static)
         volumeMounts:
         - name: config-volume
           mountPath: /root/config
           readOnly: true
+        
+        # 2. Dynamic overrides/secrets from Env (Perfect for our Map refactor)
+        envFrom:
+        - secretRef:
+            name: goilerplate-secret
+        
         env:
         - name: ENV
           value: production
+        
+        # 3. Health Checks (Vital for Zero Downtime)
+        livenessProbe:
+          httpGet:
+            path: /health # Make sure you have this endpoint!
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health # Wait until DB is ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          
         resources:
           requests:
             cpu: 100m
@@ -33,10 +68,14 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+
       volumes:
       - name: config-volume
         secret:
           secretName: goilerplate-secret
+          items:
+          - key: config.yaml
+            path: config.yaml
 ---
 apiVersion: v1
 kind: Service

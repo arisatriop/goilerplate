@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"goilerplate/config"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/pkg/constants"
 	jwtService "goilerplate/pkg/jwt"
@@ -24,10 +23,10 @@ type Auth struct {
 	authRepository    auth.Repository
 	cacheService      *auth.CacheService
 	permissionService *auth.PermissionService
-	apikeys           []config.Apikey
+	apikeys           map[string]string
 }
 
-func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, cacheService *auth.CacheService, permissionService *auth.PermissionService, apikeys []config.Apikey) *Auth {
+func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, cacheService *auth.CacheService, permissionService *auth.PermissionService, apikeys map[string]string) *Auth {
 	return &Auth{
 		jwtService:        jwtService,
 		authRepository:    authRepository,
@@ -181,11 +180,11 @@ func (m *Auth) PartnerAuthenticate() fiber.Handler {
 		isValid := false
 		userID := ""
 		userName := ""
-		for _, k := range m.apikeys {
-			if apiKey == k.Key {
+		for name, key := range m.apikeys {
+			if apiKey == key {
 				isValid = true
-				userID = k.Key
-				userName = k.Name
+				userID = key
+				userName = name
 				break
 			}
 		}

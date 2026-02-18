@@ -7,15 +7,16 @@ import (
 )
 
 type Config struct {
-	App        App
-	Server     Server
-	DB         DB
-	Redis      Redis
-	JWT        JWT
-	Log        *Logger
-	FileSystem FileSystem
-	Crypto     Crypto
-	Apikey     []Apikey
+	App        App                `mapstructure:"app"`
+	Server     Server             `mapstructure:"server"`
+	DB         DB                 `mapstructure:"db"`
+	Redis      Redis              `mapstructure:"redis"`
+	JWT        JWT                `mapstructure:"jwt"`
+	Log        *Logger            `mapstructure:"log"`
+	FileSystem FileSystem         `mapstructure:"filesystem"`
+	Crypto     Crypto             `mapstructure:"crypto"`
+	Apikeys    map[string]string  `mapstructure:"apikey"`
+	Services   map[string]Service `mapstructure:"service"`
 }
 
 type App struct {
@@ -95,7 +96,8 @@ type Crypto struct {
 	EncryptionKey string `mapstructure:"encryption_key"`
 }
 
-type Apikey struct {
-	Name string `mapstructure:"name"`
-	Key  string `mapstructure:"key"`
+type Service struct {
+	Name    string `mapstructure:"name"`
+	BaseURL string `mapstructure:"base_url"`
+	Apikey  string `mapstructure:"apikey"`
 }
