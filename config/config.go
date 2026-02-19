@@ -99,5 +99,5 @@ type Crypto struct {
 type Service struct {
 	Name    string `mapstructure:"name"`
 	BaseURL string `mapstructure:"base_url"`
-	Apikey  string `mapstructure:"apikey"`
+	Apikey  string `mapstructure:"api_key"`
 }

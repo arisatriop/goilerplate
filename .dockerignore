@@ -9,6 +9,7 @@ tmp/
 
 # Configuration and secrets
 *.env
+deploy/
 credentials/
 oauth-token.json
 

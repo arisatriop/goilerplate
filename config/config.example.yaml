@@ -1,12 +1,12 @@
 app:
-  env: local
+  env: <APP_ENV>
   name: Goilerplate
   version: 1.0.0
   description: This is a sample application configuration file.
 
 server:
-  host: localhost
-  port: 3000
+  host: <SERVER_HOST>
+  port: <SERVER_PORT>
   prefork: false
   read_timeout: 5s
   write_timeout: 5s
@@ -15,12 +15,12 @@ server:
 
 db:
   driver: postgres
-  host: localhost
-  port: 5432
-  name: postgres
+  host: <DB_HOST>
+  port: <DB_PORT>
+  name: <DB_NAME>
   sslmode: disable
-  username: postgres
-  password: postgres
+  username: <DB_USERNAME>
+  password: <DB_PASSWORD>
   min_open_connections: 10
   max_open_connections: 100
   connection_max_lifetime: 300
@@ -29,9 +29,9 @@ db:
 
 redis:
   enabled: true
-  host: localhost:6379
-  password: ""
-  db: 0
+  host: <REDIS_HOST> # localhost:6379
+  password: <REDIS_PASSWORD>
+  db: <REDIS_DB>
   dial_timeout: 5s
   read_timeout: 5s
   write_timeout: 5s
@@ -39,9 +39,9 @@ redis:
   pool_timeout: 6s
 
 jwt:
-  secret_key: your-super-secret-jwt-key
-  access_secret: your-access-token-super-secret-key
-  refresh_secret: your-refresh-token-super-secret-key
+  secret_key: <JWT_SECRET_KEY>
+  access_secret: <JWT_ACCESS_SECRET_KEY>
+  refresh_secret: <JWT_REFRESH_SECRET_KEY>
   access_token_expiry: 15m
   refresh_token_expiry: 168h # 1 week
   issuer: goilerplate
@@ -78,18 +78,22 @@ filesystem:
     folder_id: ""
 
 crypto:
-  encryption_key: your-32-byte-encryption-key-here
+  encryption_key: <CRYPTO_ENCRYPTION_KEY>
 
 service:
-  gopay:
-    name: "GOPAY"
-    base_url: "https://api.gopay.co.id"
-    apikey: "your-gopay-key"
+  xendit:
+    name: "XENDIT"
+    base_url: "https://api.xendit.co"
+    api_key: <SERVICE_XENDIT_API_KEY>
   midtrans:
     name: "MIDTRANS"
     base_url: "https://api.midtrans.com"
-    apikey: "your-midtrans-key"
+    api_key: <SERVICE_MIDTRANS_API_KEY>
+  doku:
+    name: "DOKU"
+    base_url: "https://api.doku.com"
+    api_key: <SERVICE_DOKU_API_KEY>
 
-apikey:
-  default: secret
-  partner1: secret
+api_key:
+  default: <API_KEY_DEFAULT>
+  partner1: <API_KEY_PARTNER1>
