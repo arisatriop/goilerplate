@@ -43,10 +43,6 @@ spec:
         - secretRef:
             name: goilerplate-secret
         
-        env:
-        - name: ENV
-          value: production
-        
         # 3. Health Checks (Vital for Zero Downtime)
         livenessProbe:
           httpGet:
