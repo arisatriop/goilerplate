@@ -91,3 +91,36 @@ spec:
       port: 80
       targetPort: 3000
   type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: goilerplate-ingress
+  namespace: apps
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location ~* ^/internal {
+        deny all;
+        return 403;
+      }
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: goilerplate.sidejob.fun
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: goilerplate-service
+            port:
+              number: 80
+      - path: /partner
+        pathType: Prefix
+        backend:
+          service:
+            name: goilerplate-service
+            port:
+              number: 80
