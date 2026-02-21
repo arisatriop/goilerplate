@@ -107,7 +107,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: goilerplate.sidejob.fun
+  - host: your.domain.id
     http:
       paths:
       - path: /api
