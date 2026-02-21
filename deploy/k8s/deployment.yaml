@@ -27,7 +27,7 @@ spec:
         fsGroup: 2000
       containers:
       - name: app
-        image: asia-southeast2-docker.pkg.dev/practice-dev-487413/goilerplate/goilerplate:0.0.1
+        image: asia-southeast2-docker.pkg.dev/practice-dev-487413/goilerplate/goilerplate:1.0.1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
@@ -35,7 +35,7 @@ spec:
         # 1. Base config from file (Static)
         volumeMounts:
         - name: config-volume
-          mountPath: /root/config
+          mountPath: /app/config
           readOnly: true
         
         # 2. Dynamic overrides/secrets from Env
@@ -48,14 +48,20 @@ spec:
           httpGet:
             path: /health # Make sure you have this endpoint!
             port: 3000
-          initialDelaySeconds: 15
+          initialDelaySeconds: 30
           periodSeconds: 20
+          timeoutSeconds: 5         
+          failureThreshold: 3       
+          successThreshold: 1
         readinessProbe:
           httpGet:
             path: /health # Wait until DB is ready
             port: 3000
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10   
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3       
+          successThreshold: 2       
           
         resources:
           requests:

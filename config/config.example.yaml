@@ -1,17 +1,17 @@
 app:
-  env: <APP_ENV>
+  env: dev
   name: Goilerplate
   version: 1.0.0
   description: This is a sample application configuration file.
 
 server:
-  host: <SERVER_HOST>
-  port: <SERVER_PORT>
+  host: 0.0.0.0
+  port: 3000
   prefork: false
   read_timeout: 5s
   write_timeout: 5s
   idle_timeout: 120s
-  enable_cors: true
+  enable_cors: false
 
 db:
   driver: postgres
@@ -28,7 +28,7 @@ db:
   health_check_period: 30
 
 redis:
-  enabled: true
+  enabled: false
   host: <REDIS_HOST> # localhost:6379
   password: <REDIS_PASSWORD>
   db: <REDIS_DB>
@@ -51,7 +51,7 @@ log:
   source: false
 
 filesystem:
-  driver: drive  # Options: local, s3, drive
+  driver: s3  # Options: local, s3, drive
   max_file_size: 204800  # Maximum file size in bytes (200KB)
 
   # Local storage configuration

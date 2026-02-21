@@ -2,7 +2,7 @@
 FROM golang:1.24-alpine AS builder
 
 # Install necessary build tools
-RUN apk add --no-cache git
+RUN apk add --no-cache git 
 
 WORKDIR /app
 
@@ -20,16 +20,22 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server/main.go
 # Final stage
 FROM alpine:latest
 
-# Install CA certificates for HTTPS calls
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+# Buat user non-root
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup -u 1000
 
-# Copy binary from builder
+# Working directory yang accessible oleh appuser
+WORKDIR /app
+
+# Copy binary dari builder
 COPY --from=builder /app/main .
 
-# Expose the application port
-EXPOSE 3000
+# Beri ownership ke appuser
+RUN chown -R appuser:appgroup /app
 
-# Run the binary
+# Switch ke non-root user
+USER appuser
+
+EXPOSE 3000
 CMD ["./main"]
