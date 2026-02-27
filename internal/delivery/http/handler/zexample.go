@@ -46,7 +46,7 @@ func (h *Example) Create(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.Created(ctx, nil, response.WithMessage(constants.MsgSuccess))
+	return response.Created(ctx, nil, response.WithMessage(zexample.MsgExampleCreatedSuccessfully))
 }
 
 func (h *Example) Update(ctx *fiber.Ctx) error {
@@ -73,7 +73,7 @@ func (h *Example) Update(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.Success(ctx, nil, response.WithMessage(constants.MsgSuccess))
+	return response.Success(ctx, nil, response.WithMessage(zexample.MsgExampleUpdatedSuccessfully))
 }
 
 func (h *Example) Delete(ctx *fiber.Ctx) error {
@@ -107,7 +107,7 @@ func (h *Example) List(ctx *fiber.Ctx) error {
 	exampleResponses := presenter.ToExampleListResponse(result)
 	paginatedResponse := pagination.NewPaginatedResponse(exampleResponses, total, filter.Pagination.Page, filter.Pagination.Limit)
 
-	return response.Success(ctx, paginatedResponse, response.WithMessage("Examples fetched successfully"))
+	return response.Success(ctx, paginatedResponse, response.WithMessage(zexample.MsgExampleListFetchSuccessfully))
 }
 
 func (h *Example) Get(ctx *fiber.Ctx) error {
@@ -120,5 +120,5 @@ func (h *Example) Get(ctx *fiber.Ctx) error {
 
 	exampleResponse := presenter.ToExampleResponse(entity)
 
-	return response.Success(ctx, exampleResponse, response.WithMessage("Example fetched successfully"))
+	return response.Success(ctx, exampleResponse, response.WithMessage(zexample.MsgExampleFetchedSuccessfully))
 }
