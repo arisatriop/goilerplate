@@ -1,4 +1,4 @@
-package zexample
+package example
 
 // Success Messages
 const (

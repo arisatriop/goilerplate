@@ -1,16 +1,16 @@
-package zexample
+package example
 
 import (
 	"goilerplate/pkg/utils"
 )
 
-type Zexample struct {
+type Example struct {
 	ID      string
 	Code    string
 	Example string
 }
 
-func (e *Zexample) validate() error {
+func (e *Example) validate() error {
 
 	firstThree := e.Code[:3]
 	if firstThree != "EXP" {
@@ -20,8 +20,8 @@ func (e *Zexample) validate() error {
 	return nil
 }
 
-func (e *Zexample) Clone() *Zexample {
-	return &Zexample{
+func (e *Example) Clone() *Example {
+	return &Example{
 		ID:      e.ID,
 		Code:    e.Code,
 		Example: e.Example,

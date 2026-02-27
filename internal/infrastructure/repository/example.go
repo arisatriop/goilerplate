@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"goilerplate/internal/domain/zexample"
+	"goilerplate/internal/domain/example"
 	"goilerplate/internal/infrastructure/model"
 	"goilerplate/internal/infrastructure/transaction"
 	"goilerplate/pkg/constants"
@@ -13,25 +13,25 @@ import (
 	"gorm.io/gorm"
 )
 
-type zexampleRepo struct {
+type exampleRepo struct {
 	db *gorm.DB
 }
 
-func NewZexample(db *gorm.DB) zexample.Repository {
-	return &zexampleRepo{
+func NewExample(db *gorm.DB) example.Repository {
+	return &exampleRepo{
 		db: db,
 	}
 }
 
-func (r *zexampleRepo) WithTx(ctx context.Context) zexample.Repository {
+func (r *exampleRepo) WithTx(ctx context.Context) example.Repository {
 	tx := transaction.GetTxFromContext(ctx)
 	if tx != nil {
-		return &zexampleRepo{db: tx}
+		return &exampleRepo{db: tx}
 	}
 	return r
 }
 
-func (r *zexampleRepo) CreateExample(ctx context.Context, entity *zexample.Zexample) (*zexample.Zexample, error) {
+func (r *exampleRepo) CreateExample(ctx context.Context, entity *example.Example) (*example.Example, error) {
 	now := utils.Now()
 	user := ctx.Value(constants.ContextKeyUserID).(string)
 	model := &model.Example{
@@ -51,7 +51,7 @@ func (r *zexampleRepo) CreateExample(ctx context.Context, entity *zexample.Zexam
 	return r.modelToEntity(model), nil
 }
 
-func (r *zexampleRepo) UpdateExample(ctx context.Context, entity *zexample.Zexample) error {
+func (r *exampleRepo) UpdateExample(ctx context.Context, entity *example.Example) error {
 	model, err := r.getExampleByID(ctx, entity.ID)
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ func (r *zexampleRepo) UpdateExample(ctx context.Context, entity *zexample.Zexam
 	return nil
 }
 
-func (r *zexampleRepo) DeleteExample(ctx context.Context, entity *zexample.Zexample) error {
+func (r *exampleRepo) DeleteExample(ctx context.Context, entity *example.Example) error {
 	model, err := r.getExampleByID(ctx, entity.ID)
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (r *zexampleRepo) DeleteExample(ctx context.Context, entity *zexample.Zexam
 	return nil
 }
 
-func (r *zexampleRepo) GetExampleByID(ctx context.Context, id string) (*zexample.Zexample, error) {
+func (r *exampleRepo) GetExampleByID(ctx context.Context, id string) (*example.Example, error) {
 
 	model, err := r.getExampleByID(ctx, id)
 	if err != nil {
@@ -97,7 +97,7 @@ func (r *zexampleRepo) GetExampleByID(ctx context.Context, id string) (*zexample
 	return r.modelToEntity(model), nil
 }
 
-func (r *zexampleRepo) GetExampleList(ctx context.Context, filter *zexample.Filter) ([]*zexample.Zexample, error) {
+func (r *exampleRepo) GetExampleList(ctx context.Context, filter *example.Filter) ([]*example.Example, error) {
 	var models []model.Example
 
 	query := r.db.WithContext(ctx).
@@ -111,7 +111,7 @@ func (r *zexampleRepo) GetExampleList(ctx context.Context, filter *zexample.Filt
 		return nil, fmt.Errorf("")
 	}
 
-	entities := make([]*zexample.Zexample, len(models))
+	entities := make([]*example.Example, len(models))
 	for i, model := range models {
 		entities[i] = r.modelToEntity(&model)
 	}
@@ -119,7 +119,7 @@ func (r *zexampleRepo) GetExampleList(ctx context.Context, filter *zexample.Filt
 	return entities, nil
 }
 
-func (r *zexampleRepo) CountExample(ctx context.Context, filter *zexample.Filter) (int64, error) {
+func (r *exampleRepo) CountExample(ctx context.Context, filter *example.Filter) (int64, error) {
 	var count int64
 
 	query := r.db.WithContext(ctx).
@@ -135,7 +135,7 @@ func (r *zexampleRepo) CountExample(ctx context.Context, filter *zexample.Filter
 	return count, nil
 }
 
-func (r *zexampleRepo) BulkCreate(ctx context.Context, entities []*zexample.Zexample) error {
+func (r *exampleRepo) BulkCreate(ctx context.Context, entities []*example.Example) error {
 	if len(entities) == 0 {
 		return nil
 	}
@@ -165,7 +165,7 @@ func (r *zexampleRepo) BulkCreate(ctx context.Context, entities []*zexample.Zexa
 	return nil
 }
 
-func (r *zexampleRepo) getExampleByID(ctx context.Context, id string) (*model.Example, error) {
+func (r *exampleRepo) getExampleByID(ctx context.Context, id string) (*model.Example, error) {
 
 	var data model.Example
 
@@ -183,7 +183,7 @@ func (r *zexampleRepo) getExampleByID(ctx context.Context, id string) (*model.Ex
 	return &data, nil
 }
 
-func (r *zexampleRepo) applyExampleFilters(query *gorm.DB, filter *zexample.Filter, applyPagination bool) {
+func (r *exampleRepo) applyExampleFilters(query *gorm.DB, filter *example.Filter, applyPagination bool) {
 	if filter == nil {
 		return
 	}
@@ -202,8 +202,8 @@ func (r *zexampleRepo) applyExampleFilters(query *gorm.DB, filter *zexample.Filt
 	}
 }
 
-func (r *zexampleRepo) modelToEntity(model *model.Example) *zexample.Zexample {
-	return &zexample.Zexample{
+func (r *exampleRepo) modelToEntity(model *model.Example) *example.Example {
+	return &example.Example{
 		ID:      model.ID,
 		Code:    model.Code,
 		Example: model.Example,

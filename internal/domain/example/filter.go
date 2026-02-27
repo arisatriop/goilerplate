@@ -1,4 +1,4 @@
-package zexample
+package example
 
 import (
 	"goilerplate/pkg/pagination"

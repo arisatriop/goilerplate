@@ -4,7 +4,7 @@ import (
 	dtorequest "goilerplate/internal/delivery/http/dto/request"
 	"goilerplate/internal/delivery/http/presenter"
 	"goilerplate/internal/delivery/http/request"
-	"goilerplate/internal/domain/zexample"
+	"goilerplate/internal/domain/example"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/pagination"
 	"goilerplate/pkg/response"
@@ -15,10 +15,10 @@ import (
 
 type Example struct {
 	Validator *validator.Validate
-	Usecase   zexample.Usecase
+	Usecase   example.Usecase
 }
 
-func NewExample(validator *validator.Validate, usecase zexample.Usecase) *Example {
+func NewExample(validator *validator.Validate, usecase example.Usecase) *Example {
 	return &Example{
 		Validator: validator,
 		Usecase:   usecase,
@@ -36,7 +36,7 @@ func (h *Example) Create(ctx *fiber.Ctx) error {
 		return response.ValidationError(ctx, validationErrors)
 	}
 
-	entity := &zexample.Zexample{
+	entity := &example.Example{
 		Code:    req.Code,
 		Example: req.Example,
 	}
@@ -46,7 +46,7 @@ func (h *Example) Create(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.Created(ctx, nil, response.WithMessage(zexample.MsgExampleCreatedSuccessfully))
+	return response.Created(ctx, nil, response.WithMessage(example.MsgExampleCreatedSuccessfully))
 }
 
 func (h *Example) Update(ctx *fiber.Ctx) error {
@@ -62,7 +62,7 @@ func (h *Example) Update(ctx *fiber.Ctx) error {
 		return response.ValidationError(ctx, validationErrors)
 	}
 
-	entity := &zexample.Zexample{
+	entity := &example.Example{
 		ID:      id,
 		Code:    req.Code,
 		Example: req.Example,
@@ -73,13 +73,13 @@ func (h *Example) Update(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.Success(ctx, nil, response.WithMessage(zexample.MsgExampleUpdatedSuccessfully))
+	return response.Success(ctx, nil, response.WithMessage(example.MsgExampleUpdatedSuccessfully))
 }
 
 func (h *Example) Delete(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 
-	entity := &zexample.Zexample{
+	entity := &example.Example{
 		ID: id,
 	}
 
@@ -107,7 +107,7 @@ func (h *Example) List(ctx *fiber.Ctx) error {
 	exampleResponses := presenter.ToExampleListResponse(result)
 	paginatedResponse := pagination.NewPaginatedResponse(exampleResponses, total, filter.Pagination.Page, filter.Pagination.Limit)
 
-	return response.Success(ctx, paginatedResponse, response.WithMessage(zexample.MsgExampleListFetchSuccessfully))
+	return response.Success(ctx, paginatedResponse, response.WithMessage(example.MsgExampleListFetchSuccessfully))
 }
 
 func (h *Example) Get(ctx *fiber.Ctx) error {
@@ -120,5 +120,5 @@ func (h *Example) Get(ctx *fiber.Ctx) error {
 
 	exampleResponse := presenter.ToExampleResponse(entity)
 
-	return response.Success(ctx, exampleResponse, response.WithMessage(zexample.MsgExampleFetchedSuccessfully))
+	return response.Success(ctx, exampleResponse, response.WithMessage(example.MsgExampleFetchedSuccessfully))
 }

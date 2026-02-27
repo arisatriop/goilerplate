@@ -9,7 +9,7 @@ import (
 
 // ApplicationServices contains all application services for multi-domain orchestration
 type ApplicationServices struct {
-	ExpSvc      example.ApplicationService
+	ExampleSvc  example.ApplicationService
 	RegisterSvc register.ApplicationService
 }
 
@@ -17,10 +17,10 @@ func WireApplicationServices(app *bootstrap.App, repos *Repositories, usecases *
 	txManager := transaction.NewGormTransaction(app.DB.GDB)
 
 	return &ApplicationServices{
-		ExpSvc: example.NewApplicationService(
+		ExampleSvc: example.NewApplicationService(
 			txManager,
-			usecases.ZexampleUC,
-			repos.ZexampleRepo,
+			usecases.ExampleUC,
+			repos.ExampleRepo,
 		),
 		RegisterSvc: register.NewApplicationService(
 			app.Config,

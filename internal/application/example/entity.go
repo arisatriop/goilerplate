@@ -1,9 +1,9 @@
 package example
 
 import (
-	"goilerplate/internal/domain/zexample"
+	"goilerplate/internal/domain/example"
 )
 
 type Exp struct {
-	Example *zexample.Zexample
+	Example *example.Example
 }

@@ -3,8 +3,8 @@ package example
 import (
 	"context"
 	"fmt"
+	"goilerplate/internal/domain/example"
 	"goilerplate/internal/domain/transaction"
-	"goilerplate/internal/domain/zexample"
 )
 
 // ApplicationService handles multi-domain orchestration
@@ -14,15 +14,15 @@ type ApplicationService interface {
 
 type applicationService struct {
 	txManager transaction.Transaction
-	exampleUC zexample.Usecase
+	exampleUC example.Usecase
 
-	exampleRepo zexample.Repository
+	exampleRepo example.Repository
 }
 
 func NewApplicationService(
 	txManager transaction.Transaction,
-	exampleUC zexample.Usecase,
-	exampleRepo zexample.Repository,
+	exampleUC example.Usecase,
+	exampleRepo example.Repository,
 ) ApplicationService {
 	return &applicationService{
 		txManager:   txManager,

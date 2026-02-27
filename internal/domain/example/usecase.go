@@ -1,4 +1,4 @@
-package zexample
+package example
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 )
 
 type Usecase interface {
-	Create(ctx context.Context, entity *Zexample) error
-	Update(ctx context.Context, entity *Zexample) error
-	Delete(ctx context.Context, entity *Zexample) error
+	Create(ctx context.Context, entity *Example) error
+	Update(ctx context.Context, entity *Example) error
+	Delete(ctx context.Context, entity *Example) error
 
-	GetByID(ctx context.Context, id string) (*Zexample, error)
-	GetList(ctx context.Context, filter *Filter) ([]*Zexample, int64, error)
+	GetByID(ctx context.Context, id string) (*Example, error)
+	GetList(ctx context.Context, filter *Filter) ([]*Example, int64, error)
 
-	// BulkCreate(ctx context.Context, entities []*Example) error
+	BulkCreate(ctx context.Context, entities []*Example) error
 }
 
 type usecase struct {
@@ -27,7 +27,7 @@ func NewUseCase(repo Repository) Usecase {
 	}
 }
 
-func (uc *usecase) Create(ctx context.Context, entity *Zexample) error {
+func (uc *usecase) Create(ctx context.Context, entity *Example) error {
 	if err := entity.validate(); err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (uc *usecase) ExistsByCode(ctx context.Context, code string) (bool, error) 
 	return len(examples) > 0, nil
 }
 
-func (uc *usecase) Update(ctx context.Context, entity *Zexample) error {
+func (uc *usecase) Update(ctx context.Context, entity *Example) error {
 	if err := entity.validate(); err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (uc *usecase) Update(ctx context.Context, entity *Zexample) error {
 	return nil
 }
 
-func (uc *usecase) Delete(ctx context.Context, entity *Zexample) error {
+func (uc *usecase) Delete(ctx context.Context, entity *Example) error {
 	existing, err := uc.repo.GetExampleByID(ctx, entity.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get example: %w", err)
@@ -107,7 +107,7 @@ func (uc *usecase) Delete(ctx context.Context, entity *Zexample) error {
 	return nil
 }
 
-func (uc *usecase) GetByID(ctx context.Context, id string) (*Zexample, error) {
+func (uc *usecase) GetByID(ctx context.Context, id string) (*Example, error) {
 	example, err := uc.repo.GetExampleByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get example: %w", err)
@@ -116,7 +116,7 @@ func (uc *usecase) GetByID(ctx context.Context, id string) (*Zexample, error) {
 	return example, nil
 }
 
-func (uc *usecase) GetList(ctx context.Context, filter *Filter) ([]*Zexample, int64, error) {
+func (uc *usecase) GetList(ctx context.Context, filter *Filter) ([]*Example, int64, error) {
 	if filter == nil {
 		filter = &Filter{}
 	}
@@ -151,7 +151,7 @@ func (uc *usecase) Count(ctx context.Context, filter *Filter) (int64, error) {
 	return count, nil
 }
 
-func (uc *usecase) BulkCreate(ctx context.Context, entities []*Zexample) error {
+func (uc *usecase) BulkCreate(ctx context.Context, entities []*Example) error {
 	codes := make(map[string]bool)
 	for i, entity := range entities {
 		if err := entity.validate(); err != nil {

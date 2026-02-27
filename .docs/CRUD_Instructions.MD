@@ -62,7 +62,7 @@ Create a new file e.g `template.go` in the `internal/infrastructure/repository` 
 1. Create a new file e.g `template.go` in the `internal/delivery/http/dto/request` directory, then define the struct:
     - `TemplateCreateRequest`: Define the request DTOs.
     - `TemplateUpdateRequest`: Define the request DTOs.
-    - `TemplateGetListRequest`: Define the request DTOs.
+    - `TemplateListRequest`: Define the request DTOs.
 2. Create a new file e.g `template.go` in the `internal/delivery/http/dto/response` directory, then define the struct:
     - `TemplateResponse`: Define the response DTOs.
 
