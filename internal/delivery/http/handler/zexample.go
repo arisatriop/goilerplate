@@ -2,7 +2,7 @@ package handler
 
 import (
 	dtorequest "goilerplate/internal/delivery/http/dto/request"
-	dtoresponse "goilerplate/internal/delivery/http/dto/response"
+	"goilerplate/internal/delivery/http/presenter"
 	"goilerplate/internal/delivery/http/request"
 	"goilerplate/internal/domain/zexample"
 	"goilerplate/pkg/constants"
@@ -104,15 +104,7 @@ func (h *Example) List(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	exampleResponses := make([]*dtoresponse.ExampleResponse, total)
-	for i, entity := range result {
-		exampleResponses[i] = &dtoresponse.ExampleResponse{
-			ID:      entity.ID,
-			Code:    entity.Code,
-			Example: entity.Example,
-		}
-	}
-
+	exampleResponses := presenter.ToExampleListResponse(result)
 	paginatedResponse := pagination.NewPaginatedResponse(exampleResponses, total, filter.Pagination.Page, filter.Pagination.Limit)
 
 	return response.Success(ctx, paginatedResponse, response.WithMessage("Examples fetched successfully"))
@@ -126,11 +118,7 @@ func (h *Example) Get(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	exampleResponse := &dtoresponse.ExampleResponse{
-		ID:      entity.ID,
-		Code:    entity.Code,
-		Example: entity.Example,
-	}
+	exampleResponse := presenter.ToExampleResponse(entity)
 
 	return response.Success(ctx, exampleResponse, response.WithMessage("Example fetched successfully"))
 }
