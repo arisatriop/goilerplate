@@ -39,8 +39,8 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 
 	return &Handlers{
 		Auth:    handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC),
-		Example: handler.NewExample(app.Validator, useCases.ExampleUC),
 		Upload:  handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
+		Example: handler.NewExample(app.Validator, useCases.ExampleUC),
 	}
 }
 
