@@ -65,6 +65,11 @@ Create a new file e.g `template.go` in the `internal/infrastructure/repository` 
     - `TemplateListRequest`: Define the request DTOs.
 2. Create a new file e.g `template.go` in the `internal/delivery/http/dto/response` directory, then define the struct:
     - `TemplateResponse`: Define the response DTOs.
+3. Create a new file e.g `template.go` in the `internal/delivery/http/request` directory, then define the method:
+    - `func ToTemplateFilter(req *dtorequest.TemplateListRequest, ctx *fiber.Ctx) *template.Filter`: Define request converter method.
+4. Create a new file e.g `template.go` in the `internal/delivery/http/presenter` directory, then define the method:
+    - `func ToTemplateResponse(entity *template.Template) *dtoresponse.TemplateResponse`: Define response converter method.
+    - `func ToTemplateListResponse(entities []*template.Template) []*dtoresponse.TemplateResponse`: Define response converter method.
 
 ## 5. Define the Handler
 Create a new file e.g `template.go` in the `internal/delivery/http/handler` directory, then define as follows:
