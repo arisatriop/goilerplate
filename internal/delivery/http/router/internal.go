@@ -15,7 +15,26 @@ type InternalRouteRegistry struct {
 func (r *InternalRouteRegistry) register(route fiber.Router) {
 	internal := route.Group("/internal").Use(r.Wired.Middleware.Auth.InternalAuthenticate())
 
+	r.template(internal)
 	r.example(internal)
+}
+
+func (r *InternalRouteRegistry) template(internal fiber.Router) {
+	template := internal.Group("templates")
+	template.Post("",
+		r.Wired.Handlers.Template.Create)
+
+	template.Put("/:id",
+		r.Wired.Handlers.Template.Update)
+
+	template.Delete("/:id",
+		r.Wired.Handlers.Template.Delete)
+
+	template.Get("",
+		r.Wired.Handlers.Template.List)
+
+	template.Get("/:id",
+		r.Wired.Handlers.Template.Get)
 }
 
 func (r *InternalRouteRegistry) example(internal fiber.Router) {

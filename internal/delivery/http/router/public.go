@@ -24,7 +24,31 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 	api := route.Group("api").Use(r.Wired.Middleware.Auth.Authenticate())
 	v1 := api.Group("v1")
 
+	r.template(v1)
 	r.example(v1)
+}
+
+func (r *PublicRouteRegistry) template(v1 fiber.Router) {
+	template := v1.Group("templates")
+	template.Post("",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateCreate),
+		r.Wired.Handlers.Template.Create)
+
+	template.Put("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateUpdate),
+		r.Wired.Handlers.Template.Update)
+
+	template.Delete("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateDelete),
+		r.Wired.Handlers.Template.Delete)
+
+	template.Get("",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateList),
+		r.Wired.Handlers.Template.List)
+
+	template.Get("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateDetail),
+		r.Wired.Handlers.Template.Get)
 }
 
 func (r *PublicRouteRegistry) example(v1 fiber.Router) {

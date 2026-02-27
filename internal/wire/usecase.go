@@ -3,16 +3,16 @@ package wire
 import (
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/domain/auth"
+	"goilerplate/internal/domain/template"
 	"goilerplate/internal/domain/zexample"
-	"goilerplate/internal/domain/zexamplenew"
 	"goilerplate/pkg/jwt"
 )
 
 // UseCases contains all use case implementations
 type UseCases struct {
-	AuthUC        auth.Usecase
-	ZexampleUC    zexample.Usecase
-	ZexampleNewUC zexamplenew.Usecase
+	AuthUC     auth.Usecase
+	ZexampleUC zexample.Usecase
+	TemplateUC template.Usecase
 	// Future use cases will be added here:
 	// UserUC    user.UseCase
 	// OrderUC   order.UseCase
@@ -35,10 +35,10 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 	cacheService := auth.NewCacheService(app.Redis)
 
 	return &UseCases{
-		AuthUC:        auth.NewUseCase(repos.AuthRepo, jwtService, cacheService),
-		ZexampleUC:    zexample.NewUseCase(repos.ZexampleRepo),
-		ZexampleNewUC: zexamplenew.NewUsecase(repos.ExampleNewRepo),
-		// Future use case wiring:
+		AuthUC:     auth.NewUseCase(repos.AuthRepo, jwtService, cacheService),
+		ZexampleUC: zexample.NewUseCase(repos.ZexampleRepo),
+		TemplateUC: template.NewUseCase(repos.TemplateRepo),
+		// Future use cases will be added here:
 		// UserUC:    user.NewUseCase(repos.UserRepo),
 		// OrderUC:   order.NewUseCase(repos.OrderRepo, repos.ProductRepo),
 		// ProductUC: product.NewUseCase(repos.ProductRepo),

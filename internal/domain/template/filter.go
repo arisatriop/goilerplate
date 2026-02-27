@@ -1,6 +1,8 @@
-package zexamplenew
+package template
 
-import "goilerplate/pkg/pagination"
+import (
+	"goilerplate/pkg/pagination"
+)
 
 type Filter struct {
 	Keyword string

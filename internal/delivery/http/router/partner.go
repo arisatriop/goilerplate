@@ -16,7 +16,26 @@ func (r *PartnerRouteRegistry) register(route fiber.Router) {
 	partner := route.Group("partner").Use(r.Wired.Middleware.Auth.PartnerAuthenticate())
 	v1 := partner.Group("v1")
 
+	r.template(v1)
 	r.example(v1)
+}
+
+func (r *PartnerRouteRegistry) template(v1 fiber.Router) {
+	template := v1.Group("templates")
+	template.Post("",
+		r.Wired.Handlers.Template.Create)
+
+	template.Put("/:id",
+		r.Wired.Handlers.Template.Update)
+
+	template.Delete("/:id",
+		r.Wired.Handlers.Template.Delete)
+
+	template.Get("",
+		r.Wired.Handlers.Template.List)
+
+	template.Get("/:id",
+		r.Wired.Handlers.Template.Get)
 }
 
 func (r *PartnerRouteRegistry) example(v1 fiber.Router) {
