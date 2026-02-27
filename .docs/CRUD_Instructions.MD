@@ -68,5 +68,8 @@ Add the wire binding in the `internal/wire/` directory.
 ## 6. Add API Route
 Register your API route:
 1. If you need to define as public API, so register in `internal/delivery/http/router/public.go` file.
-3. If you need to define as partner API, so register in `internal/delivery/http/router/partner.go` file.
-4. If you need to define as internal API, so register in `internal/delivery/http/router/internal.go` file.
+2. If you need to define as partner API, so register in `internal/delivery/http/router/partner.go` file.
+3. If you need to define as internal API, so register in `internal/delivery/http/router/internal.go` file.
+
+## 7. PLEASE ATTENTION 
+Please note. If your API requires data from more than one domain, you must implement the application layer to serve as a multiple domain orchestrator.
