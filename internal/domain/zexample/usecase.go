@@ -7,12 +7,12 @@ import (
 )
 
 type Usecase interface {
-	Create(ctx context.Context, entity *Example) error
-	Update(ctx context.Context, entity *Example) error
-	Delete(ctx context.Context, entity *Example) error
+	Create(ctx context.Context, entity *Zexample) error
+	Update(ctx context.Context, entity *Zexample) error
+	Delete(ctx context.Context, entity *Zexample) error
 
-	GetByID(ctx context.Context, id string) (*Example, error)
-	GetList(ctx context.Context, filter *Filter) ([]*Example, int64, error)
+	GetByID(ctx context.Context, id string) (*Zexample, error)
+	GetList(ctx context.Context, filter *Filter) ([]*Zexample, int64, error)
 
 	// BulkCreate(ctx context.Context, entities []*Example) error
 }
@@ -27,7 +27,7 @@ func NewUseCase(repo Repository) Usecase {
 	}
 }
 
-func (uc *usecase) Create(ctx context.Context, entity *Example) error {
+func (uc *usecase) Create(ctx context.Context, entity *Zexample) error {
 	if err := entity.validate(); err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (uc *usecase) ExistsByCode(ctx context.Context, code string) (bool, error) 
 	return len(examples) > 0, nil
 }
 
-func (uc *usecase) Update(ctx context.Context, entity *Example) error {
+func (uc *usecase) Update(ctx context.Context, entity *Zexample) error {
 	if err := entity.validate(); err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (uc *usecase) Update(ctx context.Context, entity *Example) error {
 	return nil
 }
 
-func (uc *usecase) Delete(ctx context.Context, entity *Example) error {
+func (uc *usecase) Delete(ctx context.Context, entity *Zexample) error {
 	existing, err := uc.repo.GetExampleByID(ctx, entity.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get example: %w", err)
@@ -107,7 +107,7 @@ func (uc *usecase) Delete(ctx context.Context, entity *Example) error {
 	return nil
 }
 
-func (uc *usecase) GetByID(ctx context.Context, id string) (*Example, error) {
+func (uc *usecase) GetByID(ctx context.Context, id string) (*Zexample, error) {
 	example, err := uc.repo.GetExampleByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get example: %w", err)
@@ -116,7 +116,7 @@ func (uc *usecase) GetByID(ctx context.Context, id string) (*Example, error) {
 	return example, nil
 }
 
-func (uc *usecase) GetList(ctx context.Context, filter *Filter) ([]*Example, int64, error) {
+func (uc *usecase) GetList(ctx context.Context, filter *Filter) ([]*Zexample, int64, error) {
 	if filter == nil {
 		filter = &Filter{}
 	}
@@ -151,38 +151,38 @@ func (uc *usecase) Count(ctx context.Context, filter *Filter) (int64, error) {
 	return count, nil
 }
 
-// func (uc *usecase) BulkCreate(ctx context.Context, entities []*Example) error {
-// 	codes := make(map[string]bool)
-// 	for i, entity := range entities {
-// 		if err := uc.validateEntity(entity); err != nil {
-// 			return fmt.Errorf("validation failed for entity %d: %w", i, err)
-// 		}
+func (uc *usecase) BulkCreate(ctx context.Context, entities []*Zexample) error {
+	codes := make(map[string]bool)
+	for i, entity := range entities {
+		if err := entity.validate(); err != nil {
+			return fmt.Errorf("validation failed for entity %d: %w", i, err)
+		}
 
-// 		code := strings.ToUpper(strings.TrimSpace(entity.Code))
-// 		if codes[code] {
-// 			return fmt.Errorf("duplicate code '%s' in batch", code)
-// 		}
-// 		codes[code] = true
+		code := strings.ToUpper(strings.TrimSpace(entity.Code))
+		if codes[code] {
+			return fmt.Errorf("duplicate code '%s' in batch", code)
+		}
+		codes[code] = true
 
-// 		entity.Code = code
-// 		entity.Example = strings.TrimSpace(entity.Example)
-// 	}
+		entity.Code = code
+		entity.Example = strings.TrimSpace(entity.Example)
+	}
 
-// 	// Check existing codes in database
-// 	for code := range codes {
-// 		exists, err := uc.ExistsByCode(ctx, code)
-// 		if err != nil {
-// 			return fmt.Errorf("failed to check code existence for '%s': %w", code, err)
-// 		}
-// 		if exists {
-// 			return fmt.Errorf("code '%s' already exists", code)
-// 		}
-// 	}
+	// Check existing codes in database
+	for code := range codes {
+		exists, err := uc.ExistsByCode(ctx, code)
+		if err != nil {
+			return fmt.Errorf("failed to check code existence for '%s': %w", code, err)
+		}
+		if exists {
+			return fmt.Errorf("code '%s' already exists", code)
+		}
+	}
 
-// 	// Bulk create
-// 	if err := uc.repo.BulkCreate(ctx, entities); err != nil {
-// 		return fmt.Errorf("failed to bulk create examples: %w", err)
-// 	}
+	// Bulk create
+	if err := uc.repo.BulkCreate(ctx, entities); err != nil {
+		return fmt.Errorf("failed to bulk create examples: %w", err)
+	}
 
-// 	return nil
-// }
+	return nil
+}

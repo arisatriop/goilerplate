@@ -36,7 +36,7 @@ func (h *Example) Create(ctx *fiber.Ctx) error {
 		return response.ValidationError(ctx, validationErrors)
 	}
 
-	entity := &zexample.Example{
+	entity := &zexample.Zexample{
 		Code:    req.Code,
 		Example: req.Example,
 	}
@@ -62,7 +62,7 @@ func (h *Example) Update(ctx *fiber.Ctx) error {
 		return response.ValidationError(ctx, validationErrors)
 	}
 
-	entity := &zexample.Example{
+	entity := &zexample.Zexample{
 		ID:      id,
 		Code:    req.Code,
 		Example: req.Example,
@@ -79,7 +79,7 @@ func (h *Example) Update(ctx *fiber.Ctx) error {
 func (h *Example) Delete(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 
-	entity := &zexample.Example{
+	entity := &zexample.Zexample{
 		ID: id,
 	}
 

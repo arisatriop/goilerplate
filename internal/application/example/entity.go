@@ -5,5 +5,5 @@ import (
 )
 
 type Exp struct {
-	Example *zexample.Example
+	Example *zexample.Zexample
 }

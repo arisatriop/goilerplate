@@ -19,8 +19,8 @@ func WireApplicationServices(app *bootstrap.App, repos *Repositories, usecases *
 	return &ApplicationServices{
 		ExpSvc: example.NewApplicationService(
 			txManager,
-			usecases.ExampleUC,
-			repos.ExampleRepo,
+			usecases.ZexampleUC,
+			repos.ZexampleRepo,
 		),
 		RegisterSvc: register.NewApplicationService(
 			app.Config,
