@@ -1,4 +1,5 @@
 # Creating ConfigMap and Secret
+You need to ConfigMap or Secret before deploying the application. Creating both is recommended: non-sensitive value store in ConfigMap, and override with Secret for sensitive value. You can also use .env file to store all the values.
 
 ## ConfigMap
 To create a ConfigMap from a file:
