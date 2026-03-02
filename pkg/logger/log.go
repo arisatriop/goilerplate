@@ -10,8 +10,7 @@ const (
 	LogLabel = "application-log"
 )
 
-// Error logs an error message with context information such as request ID and user details.
-func Error(ctx context.Context, err error) {
+func Log(ctx context.Context, level slog.Level, err error) {
 	var requestID, userID, userName string
 
 	if val := ctx.Value(constants.ContextKeyRequestID); val != nil {
@@ -37,9 +36,25 @@ func Error(ctx context.Context, err error) {
 		slog.String("request_id", requestID),
 		slog.String("user_id", userID),
 		slog.String("user_name", userName),
-		slog.Any("error", err),
+		slog.Any("message", err),
 	}
 
-	// Always log as ERROR
-	slog.LogAttrs(ctx, slog.LevelError, "Application Log", logAttrs...)
+	slog.LogAttrs(ctx, level, "Application Log", logAttrs...)
+}
+
+// Error logs an error message with context information such as request ID and user details.
+func Error(ctx context.Context, err error) {
+	Log(ctx, slog.LevelError, err)
+}
+
+func Warn(ctx context.Context, err error) {
+	Log(ctx, slog.LevelWarn, err)
+}
+
+func Info(ctx context.Context, err error) {
+	Log(ctx, slog.LevelInfo, err)
+}
+
+func Debug(ctx context.Context, err error) {
+	Log(ctx, slog.LevelDebug, err)
 }
