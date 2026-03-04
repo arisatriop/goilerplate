@@ -11,7 +11,7 @@ build:
 
 run:
 	@echo "Running application..."
-	go run cmd/server/main.go
+	sh ./.scripts/run.sh
 
 test:
 	@echo "Running tests..."
