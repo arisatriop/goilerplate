@@ -48,15 +48,22 @@ func (e *InternalError) Location() string {
 }
 
 // WrapErr wraps an error with file:line info captured at call site
-func WrapErr(err error, msg string) error {
+func WrapErr(err error, msg ...string) error {
 	if err == nil {
 		return nil
 	}
+
+	var fullMsg string
+	fullMsg = err.Error()
+	if len(msg) > 0 {
+		fullMsg = fmt.Sprintf("%s: %v", msg[0], err)
+	}
+
 	_, file, line, _ := runtime.Caller(1)
 	return &InternalError{
 		Err:  err,
 		File: file,
 		Line: line,
-		Msg:  fmt.Sprintf("%s: %v", msg, err),
+		Msg:  fullMsg,
 	}
 }
