@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"goilerplate/internal/domain/example"
 	"goilerplate/internal/infrastructure/model"
@@ -45,7 +44,7 @@ func (r *exampleRepo) CreateExample(ctx context.Context, entity *example.Example
 	}
 
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return nil, utils.WrapErr(err, "failed to create example")
+		return nil, utils.WrapErr(err)
 	}
 
 	return r.modelToEntity(model), nil
@@ -63,7 +62,7 @@ func (r *exampleRepo) UpdateExample(ctx context.Context, entity *example.Example
 	model.UpdatedBy = ctx.Value(constants.ContextKeyUserID).(string)
 
 	if err = r.db.WithContext(ctx).Save(model).Error; err != nil {
-		return utils.WrapErr(err, "failed to update example")
+		return utils.WrapErr(err)
 	}
 
 	return nil
@@ -81,7 +80,7 @@ func (r *exampleRepo) DeleteExample(ctx context.Context, entity *example.Example
 	model.DeletedBy = &user
 
 	if err := r.db.WithContext(ctx).Save(model).Error; err != nil {
-		return utils.WrapErr(err, "failed to delete example")
+		return utils.WrapErr(err)
 	}
 
 	return nil
@@ -91,7 +90,7 @@ func (r *exampleRepo) GetExampleByID(ctx context.Context, id string) (*example.E
 
 	model, err := r.getExampleByID(ctx, id)
 	if err != nil {
-		return nil, utils.WrapErr(err, "failed to get example by ID")
+		return nil, utils.WrapErr(err)
 	}
 
 	return r.modelToEntity(model), nil
@@ -108,7 +107,7 @@ func (r *exampleRepo) GetExampleList(ctx context.Context, filter *example.Filter
 
 	err := query.Find(&models).Error
 	if err != nil {
-		return nil, fmt.Errorf("")
+		return nil, utils.WrapErr(err)
 	}
 
 	entities := make([]*example.Example, len(models))
@@ -129,7 +128,7 @@ func (r *exampleRepo) CountExample(ctx context.Context, filter *example.Filter) 
 	r.applyExampleFilters(query, filter, false) // false = don't apply pagination
 
 	if err := query.Count(&count).Error; err != nil {
-		return 0, utils.WrapErr(err, "failed to count examples")
+		return 0, utils.WrapErr(err)
 	}
 
 	return count, nil
@@ -159,7 +158,7 @@ func (r *exampleRepo) BulkCreate(ctx context.Context, entities []*example.Exampl
 	if err := r.db.WithContext(ctx).Create(&models).
 		Select("code, example, is_active, created_at, created_by, updated_at, updated_by").
 		Error; err != nil {
-		return utils.WrapErr(err, "failed to bulk create examples")
+		return utils.WrapErr(err)
 	}
 
 	return nil
@@ -177,7 +176,7 @@ func (r *exampleRepo) getExampleByID(ctx context.Context, id string) (*model.Exa
 		if err == gorm.ErrRecordNotFound {
 			return nil, utils.ClientErr(404, "Example not found")
 		}
-		return nil, utils.WrapErr(err, "failed to get example by ID")
+		return nil, utils.WrapErr(err)
 	}
 
 	return &data, nil
