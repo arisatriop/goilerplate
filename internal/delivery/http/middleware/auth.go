@@ -209,7 +209,7 @@ func (m *Auth) PartnerAuthenticate() fiber.Handler {
 func (m *Auth) validateAuthHeader(ctx *fiber.Ctx) (string, *jwtService.Claims, error) {
 	authHeader := ctx.Get("Authorization")
 	if authHeader == "" {
-		return "", nil, utils.Error(http.StatusUnauthorized, "Unauthorized")
+		return "", nil, utils.ClientErr(http.StatusUnauthorized, "Unauthorized")
 	}
 
 	token, err := m.extractBearerToken(authHeader)
@@ -223,7 +223,7 @@ func (m *Auth) validateAuthHeader(ctx *fiber.Ctx) (string, *jwtService.Claims, e
 	}
 
 	if claims.Type != jwtService.AccessToken {
-		return "", nil, utils.Error(http.StatusUnauthorized, "Invalid token")
+		return "", nil, utils.ClientErr(http.StatusUnauthorized, "Invalid token")
 	}
 
 	return token, claims, nil
@@ -238,7 +238,7 @@ func (m *Auth) verifyTokenValidity(ctx *fiber.Ctx, tokenHash string) (*auth.User
 			return nil, fmt.Errorf("failed to check token blacklist: %w", err)
 		}
 		if isBlacklisted {
-			return nil, utils.Error(http.StatusUnauthorized, "Unauthorized")
+			return nil, utils.ClientErr(http.StatusUnauthorized, "Unauthorized")
 		}
 	}
 
@@ -257,12 +257,12 @@ func (m *Auth) verifyTokenValidity(ctx *fiber.Ctx, tokenHash string) (*auth.User
 	}
 
 	if userToken == nil {
-		return nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	// Check expiration if not using Redis cache
 	if !m.cacheService.IsEnabled() && userToken.IsExpired() {
-		return nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	return userToken, nil
@@ -294,17 +294,17 @@ func (m *Auth) setUserContext(ctx *fiber.Ctx, userID, userName, sessionID, token
 // extractBearerToken extracts JWT token from Authorization header
 func (m *Auth) extractBearerToken(authHeader string) (string, error) {
 	if authHeader == "" {
-		return "", utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return "", utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	token := strings.TrimSpace(parts[1])
 	if token == "" {
-		return "", utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	return token, nil

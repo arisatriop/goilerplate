@@ -175,7 +175,7 @@ func (r *exampleRepo) getExampleByID(ctx context.Context, id string) (*model.Exa
 
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, utils.Error(404, "Example not found")
+			return nil, utils.ClientErr(404, "Example not found")
 		}
 		return nil, fmt.Errorf("failed to get example by ID: %w", err)
 	}

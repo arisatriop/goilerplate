@@ -6,7 +6,7 @@ type ClientError struct {
 	Err     error
 }
 
-func Error(code int, msg string, errs ...error) *ClientError {
+func ClientErr(code int, msg string, errs ...error) *ClientError {
 	var err error
 	if len(errs) > 0 {
 		err = errs[0]

@@ -63,7 +63,7 @@ func (uc *authUseCase) Register(ctx context.Context, entity *User) error {
 		return fmt.Errorf("failed to check if user exists: %w", err)
 	}
 	if existingUser != nil {
-		return utils.Error(http.StatusBadRequest, "User is already registered")
+		return utils.ClientErr(http.StatusBadRequest, "User is already registered")
 	}
 
 	hashedPassword, err := utils.HashPassword(entity.PasswordHash)

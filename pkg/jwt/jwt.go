@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	ErrInvalidToken = utils.Error(401, "Invalid token")
-	ErrExpiredToken = utils.Error(401, "Token has expired")
-	ErrTokenClaims  = utils.Error(401, "Invalid token claims")
+	ErrInvalidToken = utils.ClientErr(401, "Invalid token")
+	ErrExpiredToken = utils.ClientErr(401, "Token has expired")
+	ErrTokenClaims  = utils.ClientErr(401, "Invalid token claims")
 )
 
 // Token types

@@ -28,11 +28,11 @@ func (uv *UserValidator) ValidateUserForLogin(ctx context.Context, email, passwo
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 	if user == nil {
-		return nil, utils.Error(http.StatusBadRequest, constants.MsgInvalidCredential)
+		return nil, utils.ClientErr(http.StatusBadRequest, constants.MsgInvalidCredential)
 	}
 
 	if !user.IsActive {
-		return nil, utils.Error(http.StatusForbidden, constants.MsgAccountDisabled)
+		return nil, utils.ClientErr(http.StatusForbidden, constants.MsgAccountDisabled)
 	}
 
 	// Reset failed attempts if the lock has expired
@@ -46,7 +46,7 @@ func (uv *UserValidator) ValidateUserForLogin(ctx context.Context, email, passwo
 	}
 
 	if user.IsLocked() {
-		return nil, utils.Error(http.StatusForbidden, constants.MsgAccountLocked)
+		return nil, utils.ClientErr(http.StatusForbidden, constants.MsgAccountLocked)
 	}
 
 	if err := uv.verifyPassword(ctx, password, user); err != nil {
@@ -64,11 +64,11 @@ func (uv *UserValidator) ValidateUserForRefresh(ctx context.Context, userID stri
 	}
 
 	if user == nil {
-		return nil, utils.Error(http.StatusNotFound, constants.MsgResourceNotFound)
+		return nil, utils.ClientErr(http.StatusNotFound, constants.MsgResourceNotFound)
 	}
 
 	if !user.IsActive {
-		return nil, utils.Error(http.StatusForbidden, constants.MsgAccountDisabled)
+		return nil, utils.ClientErr(http.StatusForbidden, constants.MsgAccountDisabled)
 	}
 
 	return user, nil
@@ -91,7 +91,7 @@ func (uv *UserValidator) verifyPassword(ctx context.Context, password string, us
 			}
 		}
 
-		return utils.Error(http.StatusBadRequest, constants.MsgInvalidCredential)
+		return utils.ClientErr(http.StatusBadRequest, constants.MsgInvalidCredential)
 	}
 	return nil
 }

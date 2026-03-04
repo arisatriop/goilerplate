@@ -14,7 +14,7 @@ func (e *Template) validate() error {
 
 	firstThree := e.Code[:3]
 	if firstThree != "TMP" {
-		return utils.Error(400, "Code must start with 'TMP'")
+		return utils.ClientErr(400, "Code must start with 'TMP'")
 	}
 
 	return nil

@@ -66,7 +66,7 @@ func DecryptString(encrypted string, key string) (string, error) {
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return "", utils.Error(http.StatusNotFound, "tenant not found", err)
+		return "", utils.ClientErr(http.StatusNotFound, "tenant not found", err)
 	}
 
 	return string(plaintext), nil

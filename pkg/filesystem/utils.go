@@ -43,7 +43,7 @@ func detectMimeType(filename string) string {
 func validateUpload(fileSize int64, mimeType string, opts UploadOptions) error {
 	// Validate size
 	if opts.MaxSize > 0 && fileSize > opts.MaxSize {
-		return utils.Error(http.StatusBadRequest, fmt.Sprintf("Ukuran file melebihi batas maksimum %.0fmb", convertToMB(opts.MaxSize)-1))
+		return utils.ClientErr(http.StatusBadRequest, fmt.Sprintf("Ukuran file melebihi batas maksimum %.0fmb", convertToMB(opts.MaxSize)-1))
 	}
 
 	// Validate MIME type
@@ -56,7 +56,7 @@ func validateUpload(fileSize int64, mimeType string, opts UploadOptions) error {
 			}
 		}
 		if !allowed {
-			return utils.Error(http.StatusBadRequest, fmt.Sprintf("mime type %s is not allowed", mimeType))
+			return utils.ClientErr(http.StatusBadRequest, fmt.Sprintf("mime type %s is not allowed", mimeType))
 		}
 	}
 

@@ -14,7 +14,7 @@ func (e *Example) validate() error {
 
 	firstThree := e.Code[:3]
 	if firstThree != "EXP" {
-		return utils.Error(400, "code must start with 'EXP'")
+		return utils.ClientErr(400, "code must start with 'EXP'")
 	}
 
 	return nil

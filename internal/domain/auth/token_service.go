@@ -56,7 +56,7 @@ func (ts *TokenService) ValidateAndGetClaims(ctx context.Context, authHeader str
 			return nil, fmt.Errorf("failed to check token blacklist: %w", err)
 		}
 		if isBlacklisted {
-			return nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+			return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 		}
 	}
 
@@ -73,12 +73,12 @@ func (ts *TokenService) ValidateAndGetClaims(ctx context.Context, authHeader str
 	}
 
 	if userToken == nil {
-		return nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	// Check if token is expired
 	if userToken.IsExpired() {
-		return nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	return claims, nil
@@ -100,7 +100,7 @@ func (ts *TokenService) ValidateRefreshTokenAndGetUser(ctx context.Context, auth
 
 	// Check token type
 	if claims.Type != jwt.RefreshToken {
-		return nil, nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	// Verify token exists in database
@@ -113,7 +113,7 @@ func (ts *TokenService) ValidateRefreshTokenAndGetUser(ctx context.Context, auth
 			return nil, nil, fmt.Errorf("failed to check token blacklist: %w", err)
 		}
 		if isBlacklisted {
-			return nil, nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+			return nil, nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 		}
 	}
 
@@ -123,12 +123,12 @@ func (ts *TokenService) ValidateRefreshTokenAndGetUser(ctx context.Context, auth
 	}
 
 	if userToken == nil {
-		return nil, nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	// Check if token is expired
 	if userToken.IsExpired() {
-		return nil, nil, utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	// Note: We allow refresh tokens to be reused multiple times until expiration
@@ -159,7 +159,7 @@ func (ts *TokenService) DeleteTokens(ctx context.Context, tokenHash string, user
 	}
 
 	if !tokensDeleted {
-		return utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	return nil
@@ -168,17 +168,17 @@ func (ts *TokenService) DeleteTokens(ctx context.Context, tokenHash string, user
 // extractBearerToken extracts JWT token from Authorization header
 func (ts *TokenService) extractBearerToken(authHeader string) (string, error) {
 	if authHeader == "" {
-		return "", utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return "", utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	token := strings.TrimSpace(parts[1])
 	if token == "" {
-		return "", utils.Error(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
 	return token, nil

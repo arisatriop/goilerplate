@@ -81,7 +81,7 @@ func (s *applicationService) checkExistingEmail(ctx context.Context, email strin
 		return fmt.Errorf("failed to check existing email: %w", err)
 	}
 	if existingUser != nil {
-		return utils.Error(http.StatusBadRequest, "email is already registered")
+		return utils.ClientErr(http.StatusBadRequest, "email is already registered")
 	}
 	return nil
 }
