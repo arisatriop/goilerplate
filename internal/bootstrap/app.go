@@ -5,7 +5,6 @@ import (
 	bootstrap "goilerplate/internal/bootstrap/database"
 	"goilerplate/pkg/logger"
 	"log/slog"
-	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -44,14 +43,14 @@ func Init() *App {
 // initializeDatabase sets up your multi-database configuration
 func initializeDatabase(cfg *config.Config, log *slog.Logger) *bootstrap.DB {
 	db := bootstrap.NewDB()
-	db.GDB = bootstrap.NewGorm(cfg, log)
+	// db.GDB = bootstrap.NewGorm(cfg, log)
 
-	switch strings.ToLower(cfg.DB.Driver) {
-	case bootstrap.Postgres:
-		db.PgxDB = bootstrap.NewPostgres(cfg, log)
-	case bootstrap.Mysql:
-		db.MysqlDB = bootstrap.NewMysql(cfg, log)
-	}
+	// switch strings.ToLower(cfg.DB.Driver) {
+	// case bootstrap.Postgres:
+	// 	db.PgxDB = bootstrap.NewPostgres(cfg, log)
+	// case bootstrap.Mysql:
+	// 	db.MysqlDB = bootstrap.NewMysql(cfg, log)
+	// }
 
 	return db
 }
