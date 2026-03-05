@@ -24,52 +24,52 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 	api := route.Group("api").Use(r.Wired.Middleware.Auth.Authenticate())
 	v1 := api.Group("v1")
 
-	r.template(v1)
-	r.example(v1)
+	r.foo(v1)
+	r.bar(v1)
 }
 
-func (r *PublicRouteRegistry) template(v1 fiber.Router) {
-	template := v1.Group("templates")
-	template.Post("",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateCreate),
-		r.Wired.Handlers.Template.Create)
+func (r *PublicRouteRegistry) foo(v1 fiber.Router) {
+	foo := v1.Group("foos")
+	foo.Post("",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooCreate),
+		r.Wired.Handlers.Foo.Create)
 
-	template.Put("/:id",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateUpdate),
-		r.Wired.Handlers.Template.Update)
+	foo.Put("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooUpdate),
+		r.Wired.Handlers.Foo.Update)
 
-	template.Delete("/:id",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateDelete),
-		r.Wired.Handlers.Template.Delete)
+	foo.Delete("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooDelete),
+		r.Wired.Handlers.Foo.Delete)
 
-	template.Get("",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateList),
-		r.Wired.Handlers.Template.List)
+	foo.Get("",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooList),
+		r.Wired.Handlers.Foo.List)
 
-	template.Get("/:id",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionTemplateDetail),
-		r.Wired.Handlers.Template.Get)
+	foo.Get("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooDetail),
+		r.Wired.Handlers.Foo.Get)
 }
 
-func (r *PublicRouteRegistry) example(v1 fiber.Router) {
-	example := v1.Group("examples")
-	example.Post("",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionExampleCreate),
-		r.Wired.Handlers.Example.Create)
+func (r *PublicRouteRegistry) bar(v1 fiber.Router) {
+	bar := v1.Group("bars")
+	bar.Post("",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBarCreate),
+		r.Wired.Handlers.Bar.Create)
 
-	example.Put("/:id",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionExampleUpdate),
-		r.Wired.Handlers.Example.Update)
+	bar.Put("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBarUpdate),
+		r.Wired.Handlers.Bar.Update)
 
-	example.Delete("/:id",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionExampleDelete),
-		r.Wired.Handlers.Example.Delete)
+	bar.Delete("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBarDelete),
+		r.Wired.Handlers.Bar.Delete)
 
-	example.Get("",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionExampleList),
-		r.Wired.Handlers.Example.List)
+	bar.Get("",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBarList),
+		r.Wired.Handlers.Bar.List)
 
-	example.Get("/:id",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionExampleDetail),
-		r.Wired.Handlers.Example.Get)
+	bar.Get("/:id",
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBarDetail),
+		r.Wired.Handlers.Bar.Get)
 }

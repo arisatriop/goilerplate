@@ -13,8 +13,8 @@ import (
 // Handlers contains all HTTP handlers
 type Handlers struct {
 	Auth     *handler.Auth
-	Template *handler.Template
-	Example  *handler.Example
+	Foo *handler.Foo
+	Bar  *handler.Bar
 	Upload   *handler.Upload
 	// Future handlers will be added here:
 	// UserHandler    *handler.UserHandler
@@ -41,8 +41,8 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 	return &Handlers{
 		Auth:     handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC),
 		Upload:   handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
-		Template: handler.NewTemplate(app.Validator, useCases.TemplateUC),
-		Example:  handler.NewExample(app.Validator, useCases.ExampleUC),
+		Foo: handler.NewFoo(app.Validator, useCases.FooUC),
+		Bar:  handler.NewBar(app.Validator, useCases.BarUC),
 	}
 }
 

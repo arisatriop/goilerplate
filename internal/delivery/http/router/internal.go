@@ -15,42 +15,42 @@ type InternalRouteRegistry struct {
 func (r *InternalRouteRegistry) register(route fiber.Router) {
 	internal := route.Group("/internal").Use(r.Wired.Middleware.Auth.InternalAuthenticate())
 
-	r.template(internal)
-	r.example(internal)
+	r.foo(internal)
+	r.bar(internal)
 }
 
-func (r *InternalRouteRegistry) template(internal fiber.Router) {
-	template := internal.Group("templates")
-	template.Post("",
-		r.Wired.Handlers.Template.Create)
+func (r *InternalRouteRegistry) foo(internal fiber.Router) {
+	foo := internal.Group("foos")
+	foo.Post("",
+		r.Wired.Handlers.Foo.Create)
 
-	template.Put("/:id",
-		r.Wired.Handlers.Template.Update)
+	foo.Put("/:id",
+		r.Wired.Handlers.Foo.Update)
 
-	template.Delete("/:id",
-		r.Wired.Handlers.Template.Delete)
+	foo.Delete("/:id",
+		r.Wired.Handlers.Foo.Delete)
 
-	template.Get("",
-		r.Wired.Handlers.Template.List)
+	foo.Get("",
+		r.Wired.Handlers.Foo.List)
 
-	template.Get("/:id",
-		r.Wired.Handlers.Template.Get)
+	foo.Get("/:id",
+		r.Wired.Handlers.Foo.Get)
 }
 
-func (r *InternalRouteRegistry) example(internal fiber.Router) {
-	example := internal.Group("examples")
-	example.Post("",
-		r.Wired.Handlers.Example.Create)
+func (r *InternalRouteRegistry) bar(internal fiber.Router) {
+	bar := internal.Group("bars")
+	bar.Post("",
+		r.Wired.Handlers.Bar.Create)
 
-	example.Put("/:id",
-		r.Wired.Handlers.Example.Update)
+	bar.Put("/:id",
+		r.Wired.Handlers.Bar.Update)
 
-	example.Delete("/:id",
-		r.Wired.Handlers.Example.Delete)
+	bar.Delete("/:id",
+		r.Wired.Handlers.Bar.Delete)
 
-	example.Get("",
-		r.Wired.Handlers.Example.List)
+	bar.Get("",
+		r.Wired.Handlers.Bar.List)
 
-	example.Get("/:id",
-		r.Wired.Handlers.Example.Get)
+	bar.Get("/:id",
+		r.Wired.Handlers.Bar.Get)
 }

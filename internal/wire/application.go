@@ -1,7 +1,7 @@
 package wire
 
 import (
-	"goilerplate/internal/application/example"
+	"goilerplate/internal/application/bar"
 	"goilerplate/internal/application/register"
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/infrastructure/transaction"
@@ -9,7 +9,7 @@ import (
 
 // ApplicationServices contains all application services for multi-domain orchestration
 type ApplicationServices struct {
-	ExampleSvc  example.ApplicationService
+	BarSvc  bar.ApplicationService
 	RegisterSvc register.ApplicationService
 }
 
@@ -17,10 +17,10 @@ func WireApplicationServices(app *bootstrap.App, repos *Repositories, usecases *
 	txManager := transaction.NewGormTransaction(app.DB.GDB)
 
 	return &ApplicationServices{
-		ExampleSvc: example.NewApplicationService(
+		BarSvc: bar.NewApplicationService(
 			txManager,
-			usecases.ExampleUC,
-			repos.ExampleRepo,
+			usecases.BarUC,
+			repos.BarRepo,
 		),
 		RegisterSvc: register.NewApplicationService(
 			app.Config,

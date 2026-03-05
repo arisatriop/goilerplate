@@ -3,22 +3,22 @@ package constants
 // Permission constants using resource.action format
 // These should match the permission slugs in the database
 
-// Template Resource Permissions
+// Foo Resource Permissions
 const (
-	PermissionTemplateList   = "template.list"
-	PermissionTemplateDetail = "template.detail"
-	PermissionTemplateCreate = "template.create"
-	PermissionTemplateUpdate = "template.update"
-	PermissionTemplateDelete = "template.delete"
+	PermissionFooList   = "foo.list"
+	PermissionFooDetail = "foo.detail"
+	PermissionFooCreate = "foo.create"
+	PermissionFooUpdate = "foo.update"
+	PermissionFooDelete = "foo.delete"
 )
 
-// Example Resource Permissions
+// Bar Resource Permissions
 const (
-	PermissionExampleList   = "example.list"
-	PermissionExampleDetail = "example.detail"
-	PermissionExampleCreate = "example.create"
-	PermissionExampleUpdate = "example.update"
-	PermissionExampleDelete = "example.delete"
+	PermissionBarList   = "bar.list"
+	PermissionBarDetail = "bar.detail"
+	PermissionBarCreate = "bar.create"
+	PermissionBarUpdate = "bar.update"
+	PermissionBarDelete = "bar.delete"
 )
 
 // Add more resource permissions here as needed

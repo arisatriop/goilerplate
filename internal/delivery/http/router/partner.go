@@ -16,42 +16,42 @@ func (r *PartnerRouteRegistry) register(route fiber.Router) {
 	partner := route.Group("partner").Use(r.Wired.Middleware.Auth.PartnerAuthenticate())
 	v1 := partner.Group("v1")
 
-	r.template(v1)
-	r.example(v1)
+	r.foo(v1)
+	r.bar(v1)
 }
 
-func (r *PartnerRouteRegistry) template(v1 fiber.Router) {
-	template := v1.Group("templates")
-	template.Post("",
-		r.Wired.Handlers.Template.Create)
+func (r *PartnerRouteRegistry) foo(v1 fiber.Router) {
+	foo := v1.Group("foos")
+	foo.Post("",
+		r.Wired.Handlers.Foo.Create)
 
-	template.Put("/:id",
-		r.Wired.Handlers.Template.Update)
+	foo.Put("/:id",
+		r.Wired.Handlers.Foo.Update)
 
-	template.Delete("/:id",
-		r.Wired.Handlers.Template.Delete)
+	foo.Delete("/:id",
+		r.Wired.Handlers.Foo.Delete)
 
-	template.Get("",
-		r.Wired.Handlers.Template.List)
+	foo.Get("",
+		r.Wired.Handlers.Foo.List)
 
-	template.Get("/:id",
-		r.Wired.Handlers.Template.Get)
+	foo.Get("/:id",
+		r.Wired.Handlers.Foo.Get)
 }
 
-func (r *PartnerRouteRegistry) example(v1 fiber.Router) {
-	example := v1.Group("examples")
-	example.Post("",
-		r.Wired.Handlers.Example.Create)
+func (r *PartnerRouteRegistry) bar(v1 fiber.Router) {
+	bar := v1.Group("bars")
+	bar.Post("",
+		r.Wired.Handlers.Bar.Create)
 
-	example.Put("/:id",
-		r.Wired.Handlers.Example.Update)
+	bar.Put("/:id",
+		r.Wired.Handlers.Bar.Update)
 
-	example.Delete("/:id",
-		r.Wired.Handlers.Example.Delete)
+	bar.Delete("/:id",
+		r.Wired.Handlers.Bar.Delete)
 
-	example.Get("",
-		r.Wired.Handlers.Example.List)
+	bar.Get("",
+		r.Wired.Handlers.Bar.List)
 
-	example.Get("/:id",
-		r.Wired.Handlers.Example.Get)
+	bar.Get("/:id",
+		r.Wired.Handlers.Bar.Get)
 }

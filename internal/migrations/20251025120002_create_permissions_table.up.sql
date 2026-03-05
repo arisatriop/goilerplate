@@ -17,7 +17,7 @@ CREATE TABLE permissions (
 -- Comments
 COMMENT ON COLUMN permissions.id IS 'Unique identifier for the permission';
 COMMENT ON COLUMN permissions.name IS 'Display name of the permission';
-COMMENT ON COLUMN permissions.slug IS 'Unique slug identifier for the permission (e.g., create:example, update:example)';
+COMMENT ON COLUMN permissions.slug IS 'Unique slug identifier for the permission (e.g., create:bar, update:bar)';
 COMMENT ON COLUMN permissions.description IS 'Description of what this permission grants';
 COMMENT ON COLUMN permissions.created_at IS 'Timestamp when permission was created';
 COMMENT ON COLUMN permissions.created_by IS 'User who created this permission';

@@ -79,7 +79,7 @@ func bindEnvs(v *viper.Viper, iface interface{}, parts ...string) {
 
 					if elemType.Kind() == reflect.Struct {
 						// For map of structs, we need to find which field this env var matches
-						// Example: SERVICE_GOPAY_NAME. envVar=SERVICE_GOPAY_NAME, envPrefix=SERVICE_
+						// Bar: SERVICE_GOPAY_NAME. envVar=SERVICE_GOPAY_NAME, envPrefix=SERVICE_
 						// We check each field of Service struct.
 						for j := 0; j < elemType.NumField(); j++ {
 							f := elemType.Field(j)
