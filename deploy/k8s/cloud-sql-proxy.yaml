@@ -1,0 +1,25 @@
+# cloud-sql-proxy.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-sql-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloud-sql-proxy
+  template:
+    metadata:
+      labels:
+        app: cloud-sql-proxy
+    spec:
+      serviceAccountName: cloud-sql-proxy    # ← important
+      containers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+        args:
+          - "--port=5432"
+          - "--private-ip"
+          - "free-tier-project-488416:asia-southeast2:dev-db"
+        ports:
+        - containerPort: 5432
