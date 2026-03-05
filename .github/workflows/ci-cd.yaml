@@ -22,7 +22,7 @@ on:
 env:
   # Hardcoded (jarang berubah)
   GO_VERSION: '1.24'
-  GAR_LOCATION: asia-southeast1-a
+  GAR_LOCATION: asia-southeast2
   GAR_REPOSITORY: goilerplate
   IMAGE_NAME: goilerplate
 
