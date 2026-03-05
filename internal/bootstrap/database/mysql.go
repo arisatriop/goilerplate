@@ -38,5 +38,7 @@ func NewMysql(cfg *config.Config, log *slog.Logger) *sql.DB {
 	db.SetConnMaxLifetime(time.Second * time.Duration(cfg.DB.ConnectionMaxLifetime))
 	db.SetConnMaxIdleTime(time.Second * time.Duration(cfg.DB.ConnectionMaxIdleTime))
 
+	fmt.Printf("Successfully connected to MySQL database %s at %s:%d\n", cfg.DB.Name, cfg.DB.Host, cfg.DB.Port)
+
 	return db
 }

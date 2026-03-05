@@ -74,5 +74,7 @@ func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
 	connection.SetConnMaxLifetime(time.Second * time.Duration(cfg.DB.ConnectionMaxLifetime))
 	connection.SetConnMaxIdleTime(time.Second * time.Duration(cfg.DB.ConnectionMaxIdleTime))
 
+	fmt.Printf("Successfully connected to %s database\n", driver)
+
 	return gdb
 }

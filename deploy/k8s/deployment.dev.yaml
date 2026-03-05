@@ -106,32 +106,3 @@ spec:
     targetPort: 3000
     nodePort: 30080
   type: NodePort
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: goilerplate-ingress
-  labels:
-    app: goilerplate
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-spec:
-  ingressClassName: nginx
-  rules:
-  - host: dev.goilerplate.example.com
-    http:
-      paths:
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: goilerplate-service
-            port:
-              number: 80
-      - path: /partner
-        pathType: Prefix
-        backend:
-          service:
-            name: goilerplate-service
-            port:
-              number: 80
