@@ -48,7 +48,5 @@ func NewPostgres(cfg *config.Config, log *slog.Logger) *pgxpool.Pool {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully connected to Postgres at %s:%d\n", cfg.DB.Host, cfg.DB.Port)
-
 	return pgx
 }
