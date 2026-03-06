@@ -10,14 +10,17 @@ on:
         type: choice
         options:
           - production
+          - staging
           - develop
   push:
     branches:
       - main
+      - staging
       - develop
   pull_request:
     branches:
       - main
+      - staging
 
 env:
   # Hardcoded (jarang berubah)
@@ -116,13 +119,51 @@ jobs:
       - name: Deploy
         run: |
           gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_DEV }} \
-            --zone ${{ vars.GKE_ZONE_DEV }} \
+            --zone ${{ vars.GKE_ZONE }} \
             --project ${{ vars.GCP_PROJECT_ID }}
           
           sed -i 's|image: .*${{ env.IMAGE_NAME }}:.*|image: ${{ needs.build.outputs.image }}|g' \
             deploy/k8s/deployment.dev.yaml
           
           kubectl apply -f deploy/k8s/deployment.dev.yaml -n apps
+          kubectl rollout status deployment/${{ env.IMAGE_NAME }} -n apps --timeout=300s
+
+  # ==============================
+  # DEPLOY STAGING
+  # ==============================
+  deploy-staging:
+    name: Deploy → Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Deploy
+        run: |
+          gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_STAG }} \
+            --zone ${{ vars.GKE_ZONE }} \
+            --project ${{ vars.GCP_PROJECT_ID }}
+          
+          sed -i 's|image: .*${{ env.IMAGE_NAME }}:.*|image: ${{ needs.build.outputs.image }}|g' \
+            deploy/k8s/deployment.stag.yaml
+          
+          kubectl apply -f deploy/k8s/deployment.stag.yaml -n apps
           kubectl rollout status deployment/${{ env.IMAGE_NAME }} -n apps --timeout=300s
 
   # ==============================
@@ -154,7 +195,7 @@ jobs:
       - name: Deploy
         run: |
           gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_PROD }} \
-            --zone ${{ vars.GKE_ZONE_PROD }} \
+            --zone ${{ vars.GKE_ZONE }} \
             --project ${{ vars.GCP_PROJECT_ID }}
           
           sed -i 's|image: .*${{ env.IMAGE_NAME }}:.*|image: ${{ needs.build.outputs.image }}|g' \
@@ -162,3 +203,5 @@ jobs:
           
           kubectl apply -f deploy/k8s/deployment.prod.yaml -n apps
           kubectl rollout status deployment/${{ env.IMAGE_NAME }} -n apps --timeout=300s
+
+  
