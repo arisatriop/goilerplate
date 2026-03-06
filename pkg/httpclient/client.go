@@ -121,7 +121,7 @@ func (lrt *LoggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 		slog.String("response_message", responseMessage),
 		slog.String("start_time", startTime),
 		slog.String("end_time", endTime),
-		slog.Float64("duration_ms", float64(duration.Nanoseconds())/1e6),
+		slog.Float64("latency_ms", float64(duration.Nanoseconds())/1e6),
 	}
 
 	if err != nil {
