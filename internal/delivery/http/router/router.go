@@ -120,9 +120,10 @@ func (r *RouteRegistry) healthCheck(ctx *fiber.Ctx) error {
 func (r *RouteRegistry) Register() {
 	http := r.App.WebServer.Use(r.Wired.Middleware.Recover)
 	http.Get("/", r.index)
-	http.Get("/health", r.health)
 	http.Get("/healthcheck", r.healthCheck)
+
 	http.Use(r.Wired.Middleware.RequestLogger.LogRequest())
+	http.Get("/health", r.health)
 
 	(&InternalRouteRegistry{
 		App:   r.App,
