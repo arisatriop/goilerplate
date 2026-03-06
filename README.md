@@ -85,7 +85,7 @@ A clean, scalable Go REST API template featuring JWT authentication, role-based 
 ## 📁 Project Structure
 
 ```
-be-boilerplate-go/
+goilerplate/
 ├── cmd/
 │   ├── migrate/          # Database migration commands
 │   ├── server/           # HTTP server entry point
