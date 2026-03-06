@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: goilerplate
+  namespace: apps          # ← FIXED: konsisten dengan Service & Ingress
   labels:
     app: goilerplate
     environment: production
@@ -19,6 +20,7 @@ spec:
     metadata:
       labels:
         app: goilerplate
+        version: "${COMMIT_SHA}"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -27,20 +29,27 @@ spec:
       containers:
       - name: app
         image: asia-southeast2-docker.pkg.dev/${PROJECT_ID}/goilerplate/goilerplate:${COMMIT_SHA}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 3000
           name: http
-        
+
         volumeMounts:
         - name: config-volume
           mountPath: /app/config
           readOnly: true
-        
+
         envFrom:
         - secretRef:
             name: goilerplate-secret
-        
+
+        startupProbe:           # ← ADDED: cegah liveness kill pod saat init
+          httpGet:
+            path: /health
+            port: 3000
+          failureThreshold: 10
+          periodSeconds: 5
+
         livenessProbe:
           httpGet:
             path: /health
@@ -49,7 +58,7 @@ spec:
           periodSeconds: 20
           timeoutSeconds: 5
           failureThreshold: 3
-        
+
         readinessProbe:
           httpGet:
             path: /health
@@ -58,7 +67,7 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
-          
+
         resources:
           requests:
             cpu: 100m
@@ -106,6 +115,7 @@ metadata:
     kubernetes.io/ingress.class: "gce"
     # Optional: force HTTPS redirect
     # networking.gke.io/managed-certificates: "goilerplate-cert"
+    # kubernetes.io/ingress.allow-http: "false"
 spec:
   rules:
   - host: goilerplate.sidejob.fun
