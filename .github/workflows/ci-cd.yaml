@@ -1,11 +1,10 @@
-name: CI/CD
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
       - develop
       - staging
-      - production
       - main
 
   workflow_dispatch:
@@ -158,7 +157,8 @@ jobs:
 # ==============================
   deploy-production:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'main'
     environment: production
 
     permissions:
@@ -167,11 +167,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - id: vars
-        run: echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - uses: google-github-actions/auth@v2
         with:
