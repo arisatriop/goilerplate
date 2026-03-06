@@ -26,6 +26,12 @@ func (r *RouteRegistry) index(ctx *fiber.Ctx) error {
 	return ctx.SendString("Welcome to Goilerplate!")
 }
 
+func (r *RouteRegistry) health(ctx *fiber.Ctx) error {
+	return ctx.Status(200).JSON(map[string]interface{}{
+		"status": "healthy",
+	})
+}
+
 func (r *RouteRegistry) healthCheck(ctx *fiber.Ctx) error {
 	response := map[string]interface{}{
 		"status":    "healthy",
@@ -115,7 +121,8 @@ func (r *RouteRegistry) Register() {
 	http.Use(r.Wired.Middleware.Recover)
 
 	http.Get("/", r.index)
-	http.Get("/health", r.healthCheck)
+	http.Get("/health", r.health)
+	http.Get("/healthcheck", r.healthCheck)
 
 	(&InternalRouteRegistry{
 		App:   r.App,
