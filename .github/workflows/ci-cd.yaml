@@ -153,12 +153,12 @@ jobs:
           kubectl rollout status deployment/goilerplate -n apps --timeout=300s
 
 # ==============================
-# DEPLOY PRODUCTION (MANUAL - workflow_dispatch)
+# DEPLOY PRODUCTION (MANUAL)
 # ==============================
   deploy-production:
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     environment: production
 
     permissions:
@@ -166,6 +166,7 @@ jobs:
       id-token: write
 
     steps:
+
       - uses: actions/checkout@v4
 
       - uses: google-github-actions/auth@v2
