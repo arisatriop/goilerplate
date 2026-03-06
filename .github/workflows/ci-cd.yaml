@@ -1,11 +1,11 @@
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches:
-      - develop
-      - staging
-      - main
+  # push:
+  #   branches:
+  #     - develop
+  #     - staging
+  #     - main
 
   workflow_dispatch:
     
