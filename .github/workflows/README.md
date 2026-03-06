@@ -10,31 +10,32 @@ GitHub Actions workflow untuk build dan deploy ke Google Kubernetes Engine (GKE)
 └─────────┘     └─────────┘     └────────────────┘
                                   │
                                   ├── develop (auto)
+                                  ├── staging (auto)
                                   └── production (manual)
 ```
 
 ## Triggers
 
-| Event | Branch | Action |
-|-------|--------|--------|
-| Push | `develop` | Test → Build → Deploy to Develop |
-| Push | `main` | Test → Build (no deploy) |
-| Pull Request | `main` | Test only |
-| Manual | - | Deploy to Production |
+| Event      | Branch     | Action                                 |
+|------------|------------|----------------------------------------|
+| Push       | develop    | Test → Build → Deploy to Develop       |
+| Push       | staging    | Test → Build → Deploy to Staging       |
+| Push       | main       | Test → Build                           |
+| Manual     | -          | Deploy to Production                   |
 
 ## Required Variables
 
 Tambahkan di **Settings → Secrets and variables → Actions → Variables**
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `GCP_PROJECT_ID` | Google Cloud Project ID | `free-tier-project-488416` |
-| `WIF_PROVIDER` | Workload Identity Provider | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
-| `GCP_SERVICE_ACCOUNT` | Service Account email | `github-actions@PROJECT_ID.iam.gserviceaccount.com` |
-| `GKE_CLUSTER_DEV` | Nama cluster development | `dev-cluster` |
-| `GKE_ZONE_DEV` | Zone cluster development | `asia-southeast2-a` |
-| `GKE_CLUSTER_PROD` | Nama cluster production | `prod-cluster` |
-| `GKE_ZONE_PROD` | Zone cluster production | `asia-southeast2-a` |
+| Variable            | Description                        | Example |
+|---------------------|------------------------------------|---------|
+| `GCP_PROJECT_ID`    | Google Cloud Project ID            | `free-tier-project-488416` |
+| `WIF_PROVIDER`      | Workload Identity Provider         | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `GCP_SERVICE_ACCOUNT`| Service Account email             | `github-actions@PROJECT_ID.iam.gserviceaccount.com` |
+| `GKE_CLUSTER_DEV`   | Nama cluster development           | `dev-cluster` |
+| `GKE_CLUSTER_STAG`  | Nama cluster staging               | `stag-cluster` |
+| `GKE_CLUSTER_PROD`  | Nama cluster production            | `prod-cluster` |
+| `GKE_ZONE`          | Zone cluster (semua env)           | `asia-southeast2-a` |
 
 > **Note:** Tidak perlu secret! Menggunakan Workload Identity Federation (lebih aman).
 
@@ -107,10 +108,11 @@ Copy output ini ke variable `WIF_PROVIDER` di GitHub.
 1. Go to **Actions** tab
 2. Select **CI/CD Pipeline**
 3. Click **Run workflow**
-4. Select `production` environment
+4. Pilih `main`pada environment
 5. Click **Run workflow**
 
 ## Deployment Files
 
-- `deploy/k8s/deployment.dev.yaml` - Development config
+- `deploy/k8s/deployment.dev.yaml`  - Development config
+- `deploy/k8s/deployment.stag.yaml` - Staging config
 - `deploy/k8s/deployment.prod.yaml` - Production config
