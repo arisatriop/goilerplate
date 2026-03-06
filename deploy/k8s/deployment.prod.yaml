@@ -26,7 +26,7 @@ spec:
         fsGroup: 2000
       containers:
       - name: app
-        image: asia-southeast2-docker.pkg.dev/practice-dev-487413/goilerplate/goilerplate:${COMMIT_SHA}
+        image: asia-southeast2-docker.pkg.dev/free-tier-project-488416/goilerplate/goilerplate:${COMMIT_SHA}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
