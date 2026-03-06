@@ -1,13 +1,15 @@
-name: CI/CD Pipeline
+name: CI/CD
 
 on:
   push:
     branches:
       - develop
       - staging
+      - production
       - main
 
   workflow_dispatch:
+    
 
 env:
   GO_VERSION: '1.24'
@@ -22,6 +24,7 @@ jobs:
 # ==============================
   test:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
 
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +44,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: test
+    if: github.event_name == 'push'
 
     permissions:
       contents: read
@@ -74,19 +78,18 @@ jobs:
           docker push $IMAGE
 
 # ==============================
-# DEPLOY DEV (AUTO)
+# DEPLOY DEV (AUTO - push to develop)
 # ==============================
   deploy-dev:
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
 
     permissions:
       contents: read
       id-token: write
 
     steps:
-
       - uses: actions/checkout@v4
 
       - uses: google-github-actions/auth@v2
@@ -113,7 +116,7 @@ jobs:
           kubectl rollout status deployment/goilerplate -n apps --timeout=300s
 
 # ==============================
-# DEPLOY STAGING (MANUAL)
+# DEPLOY STAGING (MANUAL - workflow_dispatch)
 # ==============================
   deploy-staging:
     runs-on: ubuntu-latest
@@ -125,7 +128,6 @@ jobs:
       id-token: write
 
     steps:
-
       - uses: actions/checkout@v4
 
       - uses: google-github-actions/auth@v2
@@ -152,12 +154,11 @@ jobs:
           kubectl rollout status deployment/goilerplate -n apps --timeout=300s
 
 # ==============================
-# DEPLOY PRODUCTION (MANUAL)
+# DEPLOY PRODUCTION (MANUAL - workflow_dispatch)
 # ==============================
   deploy-production:
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
     environment: production
 
     permissions:
@@ -165,8 +166,12 @@ jobs:
       id-token: write
 
     steps:
-
       - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - id: vars
+        run: echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - uses: google-github-actions/auth@v2
         with:
