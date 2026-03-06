@@ -148,7 +148,7 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 				slog.Bool("panic_occurred", panicOccurred),
 				slog.String("start_time", startTime),
 				slog.String("end_time", endTime),
-				slog.Float64("duration_ms", float64(duration.Nanoseconds())/1e6),
+				slog.Float64("latency_ms", float64(duration.Nanoseconds())/1e6),
 			}
 
 			// Add panic value if panic occurred
