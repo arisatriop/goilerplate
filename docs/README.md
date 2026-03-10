@@ -1,10 +1,10 @@
-# 🚀 Goilerplate
+# 📚 Goilerplate Documentation
 
-**Production-ready Go backend boilerplate** with authentication, authorization, and best practices built-in.
+Complete documentation for Goilerplate - Production-ready Go backend boilerplate with authentication, authorization, and best practices.
 
 ---
 
-## 📚 Getting Started
+## 🚀 Getting Started
 
 Guides to start development and setup the project.
 
