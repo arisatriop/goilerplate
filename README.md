@@ -4,6 +4,8 @@
 
 A clean, scalable Go REST API template featuring JWT authentication, role-based access control (RBAC), Redis caching, and clean architecture patterns.
 
+> 📚 **[View Full Documentation](./docs/README.md)** — Complete guides for setup, deployment, and development
+
 ---
 
 ## ✨ Features

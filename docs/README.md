@@ -2,6 +2,8 @@
 
 Complete documentation for Goilerplate - Production-ready Go backend boilerplate with authentication, authorization, and best practices.
 
+← [Back to Project Overview](../README.md)
+
 ---
 
 ## 🚀 Getting Started
