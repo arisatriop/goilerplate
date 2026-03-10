@@ -95,7 +95,7 @@ This command reconnects all MCP servers.
 
 | Server     | Description                          | Type      |
 |-----------|--------------------------------------|-----------|
-| `postgres` | Read-only access ke local PostgreSQL | Database  |
+| `postgres` | Read-only access to local PostgreSQL | Database  |
 
 ---
 

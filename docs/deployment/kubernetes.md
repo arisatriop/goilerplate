@@ -236,5 +236,5 @@ kubectl rollout undo deployment/goilerplate -n <namespace>
 ## 🔗 Related
 
 - [Configuration Guide](./configuration.md) - Setup environment variables
-- [CI/CD Pipeline](./ci-cd.md) - Automated deployment dengan GitHub Actions
+- [CI/CD Pipeline](./ci-cd.md) - Automated deployment with GitHub Actions
 - [Main Deployment Directory](../../deploy/k8s)

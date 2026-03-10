@@ -231,4 +231,4 @@ kubectl logs -f deployment/goilerplate -n <namespace>
 
 - [Kubernetes Deployment](./kubernetes.md) - Deployment configuration
 - [Configuration Guide](./configuration.md) - Environment setup
-- [GitHub Actions Workflow](.github/workflows)
+- [GitHub Actions Workflow](../../.github/workflows)

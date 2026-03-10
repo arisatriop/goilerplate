@@ -203,9 +203,9 @@ func registerUserRoutes(router fiber.Router, handler *handler.User, mw *middlewa
 
 ## 🔗 Related Docs
 
-- [CRUD Operations](../guides/crud-operations.md) - Cara membuat endpoint baru
-- [Authentication & Authorization](../guides/architecture.md) - Detail JWT & RBAC
-- [Main README - API Endpoints](../../README.md#-api-endpoints) - Contoh requests
+- [CRUD Operations](../guides/crud-operations.md) - How to create new endpoints
+- [Authentication & Authorization](../guides/architecture.md) - JWT & RBAC details
+- [Main README - API Endpoints](../../README.md#-api-endpoints) - Request examples
 
 ---
 
