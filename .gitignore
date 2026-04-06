@@ -4,6 +4,7 @@ oauth-token.json
 storage/*
 
 *.env
+*.local*
 
 bin
 

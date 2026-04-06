@@ -3,6 +3,14 @@
     "postgres": {
       "command": "sh",
       "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && npx -y @modelcontextprotocol/server-postgres \"postgresql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME\""]
+    },
+    "github": {
+      "command": "sh",
+      "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN npx -y @modelcontextprotocol/server-github"]
+    },
+    "fetch": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"]
     }
   }
 }

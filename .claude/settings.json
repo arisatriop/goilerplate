@@ -29,5 +29,5 @@
       "Bash(DROP DATABASE:*)"
     ]
   },
-  "enabledMcpjsonServers": ["postgres", "github"]
+  "enabledMcpjsonServers": ["postgres", "github", "fetch"]
 }

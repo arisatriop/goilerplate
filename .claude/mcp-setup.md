@@ -16,7 +16,7 @@ This guide explains how to set up Model Context Protocol (MCP) on your local mac
 cp config/.env.example config/.env
 ```
 
-Then edit `config/.env` and fill in the actual database credentials:
+Then edit `config/.env` and fill in the actual credentials:
 
 ```env
 DB_HOST=localhost
@@ -24,7 +24,11 @@ DB_PORT=5432
 DB_NAME=postgres
 DB_USERNAME=postgres
 DB_PASSWORD=your_actual_password
+
+GITHUB_PERSONAL_ACCESS_TOKEN=ghp_your_token_here
 ```
+
+> Generate a GitHub token at https://github.com/settings/tokens (needs `repo` scope).
 
 ### 2. No changes needed to `.mcp.json`
 
