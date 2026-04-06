@@ -1,3 +1,33 @@
 {
-  "enableAllProjectMcpServers": true
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(make run:*)",
+      "Bash(make test:*)",
+      "Bash(make lint:*)",
+      "Bash(make migrate-up:*)",
+      "Bash(make migrate-down:*)",
+      "Bash(make migrate-status:*)",
+      "Bash(make migrate-create:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(DROP TABLE:*)",
+      "Bash(DROP DATABASE:*)"
+    ]
+  },
+  "enabledMcpjsonServers": ["postgres", "github"]
 }
