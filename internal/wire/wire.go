@@ -11,6 +11,7 @@ type ApplicationContainer struct {
 	UseCases            *UseCases
 	ApplicationServices *ApplicationServices
 	Handlers            *Handlers
+	GrpcHandlers        *GrpcHandlers
 	Middleware          *Middleware
 }
 
@@ -30,6 +31,7 @@ func Init(app *bootstrap.App) *ApplicationContainer {
 
 	// Layer 5: Handler Layer (Delivery/Presentation)
 	handlers := WireHandlers(app, useCases, applicationServices, infrastructure)
+	grpcHandlers := WireGrpcHandlers()
 
 	// Layer 5: Middleware Layer
 	middleware := WireMiddleware(app.Config, repositories, infrastructure)
@@ -40,6 +42,7 @@ func Init(app *bootstrap.App) *ApplicationContainer {
 		UseCases:            useCases,
 		ApplicationServices: applicationServices,
 		Handlers:            handlers,
+		GrpcHandlers:        grpcHandlers,
 		Middleware:          middleware,
 	}
 }

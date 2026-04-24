@@ -1,7 +1,7 @@
 # Makefile for Go Boilerplate
 
 # Build and run commands
-.PHONY: build run test clean migrate-up migrate-down migrate-status migrate-create
+.PHONY: build run test clean migrate-up migrate-down migrate-status migrate-create proto-gen
 
 # Application
 build:
@@ -41,6 +41,13 @@ migrate-create:
 	fi
 	@echo "Creating new migration: $(name)"
 	go run cmd/migrate/main.go -action=create -name=$(name)
+
+# Proto generation
+proto-gen:
+	@echo "Generating proto files..."
+	protoc --go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		proto/**/*.proto
 
 # Development helpers
 dev-setup:
