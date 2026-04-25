@@ -2,7 +2,7 @@ package grpcdelivery
 
 import (
 	grpchandler "goilerplate/internal/delivery/grpc/handler"
-	pb "goilerplate/proto/hello/v1"
+	hellopb "goilerplate/proto/hello/v1"
 
 	"google.golang.org/grpc"
 )
@@ -18,5 +18,5 @@ func NewServiceRegistry(hello *grpchandler.Hello) *ServiceRegistry {
 }
 
 func (r *ServiceRegistry) Register(s *grpc.Server) {
-	pb.RegisterHelloServiceServer(s, r.Hello)
+	hellopb.RegisterHelloServiceServer(s, r.Hello)
 }
