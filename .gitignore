@@ -11,3 +11,5 @@ bin
 tmp
 
 # .air.toml
+
+*.session.sql
