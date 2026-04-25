@@ -6,7 +6,7 @@ package constants
 // Foo Resource Permissions
 const (
 	PermissionFooList   = "foo.list"
-	PermissionFooDetail = "foo.detail"
+	PermissionFooGet    = "foo.get"
 	PermissionFooCreate = "foo.create"
 	PermissionFooUpdate = "foo.update"
 	PermissionFooDelete = "foo.delete"
@@ -15,7 +15,7 @@ const (
 // Bar Resource Permissions
 const (
 	PermissionBarList   = "bar.list"
-	PermissionBarDetail = "bar.detail"
+	PermissionBarGet    = "bar.get"
 	PermissionBarCreate = "bar.create"
 	PermissionBarUpdate = "bar.update"
 	PermissionBarDelete = "bar.delete"
