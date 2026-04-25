@@ -31,7 +31,7 @@ func Init(app *bootstrap.App) *ApplicationContainer {
 
 	// Layer 5: Handler Layer (Delivery/Presentation)
 	handlers := WireHandlers(app, useCases, applicationServices, infrastructure)
-	grpcHandlers := WireGrpcHandlers()
+	grpcHandlers := WireGrpcHandlers(useCases)
 
 	// Layer 5: Middleware Layer
 	middleware := WireMiddleware(app.Config, repositories, infrastructure)

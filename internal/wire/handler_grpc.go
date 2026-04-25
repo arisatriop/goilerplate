@@ -9,10 +9,10 @@ type GrpcHandlers struct {
 	ServiceRegistry *grpcdelivery.ServiceRegistry
 }
 
-func WireGrpcHandlers() *GrpcHandlers {
+func WireGrpcHandlers(useCases *UseCases) *GrpcHandlers {
 	hello := grpchandler.NewHello()
 	foo := grpchandler.NewFoo()
-	bar := grpchandler.NewBar()
+	bar := grpchandler.NewBar(useCases.BarUC)
 
 	registry := grpcdelivery.NewServiceRegistry(
 		hello,

@@ -30,6 +30,9 @@ func RequestLogger() grpc.UnaryServerInterceptor {
 		requestID := extractOrGenerateRequestID(ctx)
 		ctx = context.WithValue(ctx, constants.ContextKeyRequestID, requestID)
 
+		caller := extractCaller(ctx)
+		ctx = context.WithValue(ctx, constants.ContextKeyUserID, caller)
+
 		peerAddr := ""
 		if p, ok := peer.FromContext(ctx); ok {
 			peerAddr = p.Addr.String()
@@ -67,9 +70,18 @@ func RequestLogger() grpc.UnaryServerInterceptor {
 	}
 }
 
+func extractCaller(ctx context.Context) string {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if values := md.Get(constants.HeaderServiceName); len(values) > 0 && values[0] != "" {
+			return values[0]
+		}
+	}
+	return "system"
+}
+
 func extractOrGenerateRequestID(ctx context.Context) string {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if ids := md.Get(strings.ToLower(constants.HeaderRequestID)); len(ids) > 0 {
+		if ids := md.Get(constants.HeaderRequestID); len(ids) > 0 {
 			return ids[0]
 		}
 	}

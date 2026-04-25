@@ -32,7 +32,7 @@ func NewRequestLogger() *RequestLogger {
 func (rl *RequestLogger) LogRequest() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		// Generate request ID
-		requestID := ctx.Get(strings.ToLower(constants.HeaderRequestID), uuid.New().String())
+		requestID := ctx.Get(constants.HeaderRequestID, uuid.New().String())
 
 		userCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyRequestID, requestID)
 		ctx.SetUserContext(userCtx)
