@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"goilerplate/pkg/grpcclient"
-	pb "goilerplate/proto/hello"
+	pb "goilerplate/proto/hello/v1"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -17,8 +17,8 @@ type mockHelloServer struct {
 	pb.UnimplementedHelloServiceServer
 }
 
-func (m *mockHelloServer) SayHello(_ context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
-	return &pb.HelloResponse{Message: "Hello, " + req.Name}, nil
+func (m *mockHelloServer) SayHello(_ context.Context, req *pb.SayHelloRequest) (*pb.SayHelloResponse, error) {
+	return &pb.SayHelloResponse{Message: "Hello, " + req.Name}, nil
 }
 
 func startTestServer(t *testing.T) (addr string, stop func()) {
@@ -47,7 +47,7 @@ func TestNewConn_UnaryCall(t *testing.T) {
 	defer conn.Close()
 
 	client := pb.NewHelloServiceClient(conn)
-	resp, err := client.SayHello(context.Background(), &pb.HelloRequest{Name: "World"})
+	resp, err := client.SayHello(context.Background(), &pb.SayHelloRequest{Name: "World"})
 	assert.NoError(t, err)
 	assert.Equal(t, "Hello, World", resp.Message)
 }
@@ -62,7 +62,7 @@ func TestNewConn_DefaultTimeout(t *testing.T) {
 	defer conn.Close()
 
 	client := pb.NewHelloServiceClient(conn)
-	resp, err := client.SayHello(context.Background(), &pb.HelloRequest{Name: "Default"})
+	resp, err := client.SayHello(context.Background(), &pb.SayHelloRequest{Name: "Default"})
 	assert.NoError(t, err)
 	assert.Equal(t, "Hello, Default", resp.Message)
 }
@@ -81,7 +81,7 @@ func TestNewConn_PropagatesRequestID(t *testing.T) {
 	// Pre-set a request ID in outgoing metadata — interceptor should reuse it
 	ctx := context.Background()
 	client := pb.NewHelloServiceClient(conn)
-	resp, err := client.SayHello(ctx, &pb.HelloRequest{Name: "ID"})
+	resp, err := client.SayHello(ctx, &pb.SayHelloRequest{Name: "ID"})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp.Message)
 }

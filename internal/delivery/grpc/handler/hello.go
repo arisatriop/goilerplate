@@ -2,7 +2,7 @@ package grpchandler
 
 import (
 	"context"
-	pb "goilerplate/proto/hello"
+	pb "goilerplate/proto/hello/v1"
 )
 
 type Hello struct {
@@ -13,8 +13,8 @@ func NewHello() *Hello {
 	return &Hello{}
 }
 
-func (h *Hello) SayHello(_ context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
-	return &pb.HelloResponse{
+func (h *Hello) SayHello(_ context.Context, req *pb.SayHelloRequest) (*pb.SayHelloResponse, error) {
+	return &pb.SayHelloResponse{
 		Message: "Hello, " + req.Name,
 	}, nil
 }

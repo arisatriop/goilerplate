@@ -2,7 +2,7 @@ package grpcdelivery
 
 import (
 	grpchandler "goilerplate/internal/delivery/grpc/handler"
-	pb "goilerplate/proto/hello"
+	pb "goilerplate/proto/hello/v1"
 
 	"google.golang.org/grpc"
 )
