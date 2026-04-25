@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"goilerplate/config"
+	grpcmiddleware "goilerplate/internal/delivery/grpc/middleware"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -9,7 +10,12 @@ import (
 )
 
 func NewGrpcServer(cfg *config.Config) *grpc.Server {
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			grpcmiddleware.RequestLogger(),
+			grpcmiddleware.Recovery(),
+		),
+	)
 
 	if strings.ToLower(cfg.App.Env) != "production" {
 		reflection.Register(s)
