@@ -12,10 +12,12 @@ type GrpcHandlers struct {
 func WireGrpcHandlers() *GrpcHandlers {
 	hello := grpchandler.NewHello()
 	foo := grpchandler.NewFoo()
+	bar := grpchandler.NewBar()
 
 	registry := grpcdelivery.NewServiceRegistry(
 		hello,
 		foo,
+		bar,
 	)
 
 	return &GrpcHandlers{

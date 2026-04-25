@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package bar.v1;
+
+option go_package = "goilerplate/proto/bar/v1";
+
+// BarService provides CRUD operations for Bar resources.
+service BarService {
+  // CreateBar creates a new Bar resource.
+  rpc CreateBar (CreateBarRequest) returns (CreateBarResponse);
+
+  // GetBar retrieves a Bar resource by ID.
+  rpc GetBar (GetBarRequest) returns (GetBarResponse);
+
+  // ListBars retrieves a paginated list of Bar resources.
+  rpc ListBars (ListBarsRequest) returns (ListBarsResponse);
+
+  // UpdateBar updates an existing Bar resource.
+  rpc UpdateBar (UpdateBarRequest) returns (UpdateBarResponse);
+
+  // DeleteBar deletes a Bar resource by ID.
+  rpc DeleteBar (DeleteBarRequest) returns (DeleteBarResponse);
+}
+
+// Bar represents the bar domain entity.
+message Bar {
+  string id         = 1;
+  string code       = 2;
+  string bar        = 3;
+}
+
+// CreateBarRequest is the request message for CreateBar.
+message CreateBarRequest {
+  string code = 1;
+  string bar  = 2;
+}
+
+// CreateBarResponse is the response message for CreateBar.
+message CreateBarResponse {}
+
+// GetBarRequest is the request message for GetBar.
+message GetBarRequest {
+  string id = 1;
+}
+
+// GetBarResponse is the response message for GetBar.
+message GetBarResponse {
+  Bar bar = 1;
+}
+
+// ListBarsRequest is the request message for ListBars.
+message ListBarsRequest {
+  int32  page    = 1;
+  int32  limit   = 2;
+  string keyword = 3;
+}
+
+// ListBarsResponse is the response message for ListBars.
+message ListBarsResponse {
+  repeated Bar bars  = 1;
+  int64        total = 2;
+  int32        page  = 3;
+  int32        limit = 4;
+}
+
+// UpdateBarRequest is the request message for UpdateBar.
+message UpdateBarRequest {
+  string id   = 1;
+  string code = 2;
+  string bar  = 3;
+}
+
+// UpdateBarResponse is the response message for UpdateBar.
+message UpdateBarResponse {}
+
+// DeleteBarRequest is the request message for DeleteBar.
+message DeleteBarRequest {
+
+}
+
+// DeleteBarResponse is the response message for DeleteBar.
+message DeleteBarResponse {}
