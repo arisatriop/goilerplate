@@ -25,7 +25,10 @@ const (
 // HelloServiceClient is the client API for HelloService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// HelloService provides greeting operations.
 type HelloServiceClient interface {
+	// SayHello returns a greeting message for the given name.
 	SayHello(ctx context.Context, in *SayHelloRequest, opts ...grpc.CallOption) (*SayHelloResponse, error)
 }
 
@@ -50,7 +53,10 @@ func (c *helloServiceClient) SayHello(ctx context.Context, in *SayHelloRequest, 
 // HelloServiceServer is the server API for HelloService service.
 // All implementations must embed UnimplementedHelloServiceServer
 // for forward compatibility.
+//
+// HelloService provides greeting operations.
 type HelloServiceServer interface {
+	// SayHello returns a greeting message for the given name.
 	SayHello(context.Context, *SayHelloRequest) (*SayHelloResponse, error)
 	mustEmbedUnimplementedHelloServiceServer()
 }

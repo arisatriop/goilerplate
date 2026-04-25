@@ -275,6 +275,7 @@ type ListFoosRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
 	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Keyword       string                 `protobuf:"bytes,3,opt,name=keyword,proto3" json:"keyword,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -321,6 +322,13 @@ func (x *ListFoosRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *ListFoosRequest) GetKeyword() string {
+	if x != nil {
+		return x.Keyword
+	}
+	return ""
 }
 
 // ListFoosResponse is the response message for ListFoos.
@@ -597,10 +605,11 @@ const file_proto_foo_v1_foo_proto_rawDesc = "" +
 	"\rGetFooRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"/\n" +
 	"\x0eGetFooResponse\x12\x1d\n" +
-	"\x03foo\x18\x01 \x01(\v2\v.foo.v1.FooR\x03foo\";\n" +
+	"\x03foo\x18\x01 \x01(\v2\v.foo.v1.FooR\x03foo\"U\n" +
 	"\x0fListFoosRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\"s\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x18\n" +
+	"\akeyword\x18\x03 \x01(\tR\akeyword\"s\n" +
 	"\x10ListFoosResponse\x12\x1f\n" +
 	"\x04foos\x18\x01 \x03(\v2\v.foo.v1.FooR\x04foos\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x12\n" +
