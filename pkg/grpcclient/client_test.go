@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"goilerplate/pkg/grpcclient"
-	pb "goilerplate/proto/hello/v1"
+	pb "github.com/arisatriop/goilerplate-proto/hello/v1"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"

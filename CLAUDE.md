@@ -6,6 +6,7 @@ Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundat
 ## Tech Stack
 - **Language**: Go 1.24
 - **Router**: GoFiber v2
+- **gRPC**: google.golang.org/grpc, proto contract at [goilerplate-proto](https://github.com/arisatriop/goilerplate-proto)
 - **Database**: PostgreSQL via GORM + pgx, MySQL via GORM
 - **Cache**: Redis (go-redis/v9)
 - **Config**: Viper (YAML — `config/config.yaml`) + `.env` for secrets
@@ -22,13 +23,15 @@ cmd/            Entry points (server, migrate, seed)
 config/         YAML config + .env secrets
 internal/
   application/  Use-case implementations (app services)
-  bootstrap/    App initialization (Fiber, DB, Redis, Viper)
-  delivery/     HTTP layer (handlers, middleware, router, DTOs)
+  bootstrap/    App initialization (Fiber, DB, Redis, gRPC, Viper)
+  delivery/
+    http/       HTTP handlers, middleware, router, DTOs
+    grpc/       gRPC handlers, middleware, service registry
   domain/       Core domain: entities, interfaces, errors
   infrastructure/ GORM models, repository implementations, transactions
   migrations/   SQL migration files
   wire/         Dependency injection wiring
-pkg/            Shared utilities (errors, response helpers, etc.)
+pkg/            Shared utilities (errors, response helpers, grpcclient, etc.)
 storage/        Uploaded file storage
 ```
 
@@ -37,7 +40,15 @@ storage/        Uploaded file storage
 - `application/` — use-case implementations (depend only on domain interfaces)
 - `infrastructure/repository/` — GORM repository implementations
 - `delivery/http/handler/` — Fiber handlers (depend on domain Usecase interface)
+- `delivery/grpc/handler/` — gRPC handlers (depend on same domain Usecase interface)
 - `wire/` — wires everything together
+
+## gRPC
+- Proto contract lives in a separate repo: [github.com/arisatriop/goilerplate-proto](https://github.com/arisatriop/goilerplate-proto)
+- Server reflection is **disabled** — clients must import the proto module
+- gRPC port: `50051` (configured in `config/config.yaml` under `grpc.port`)
+- When adding a new gRPC service: add proto to goilerplate-proto → tag new version → `go get github.com/arisatriop/goilerplate-proto@<version>` → write handler → register → wire
+- See [.docs/guides/grpc.md](.docs/guides/grpc.md) for full guide
 
 ## Development
 ```bash

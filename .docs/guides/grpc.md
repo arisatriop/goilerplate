@@ -4,6 +4,28 @@ This project runs a gRPC server alongside the HTTP server. The two share the sam
 
 ---
 
+## Proto Repository
+
+Proto files live in a **separate repository**:
+[github.com/arisatriop/goilerplate-proto](https://github.com/arisatriop/goilerplate-proto)
+
+```
+goilerplate-proto/
+  buf.yaml          # buf module config, lint rules, BSR dependencies
+  buf.gen.yaml      # code generation config (plugins + output paths)
+  buf.lock          # pinned BSR dependency versions
+  bar/v1/
+    bar.proto
+    bar.pb.go           # generated — do not edit
+    bar_grpc.pb.go      # generated — do not edit
+  foo/v1/
+  hello/v1/
+```
+
+This repo is the single source of truth for all service contracts. Both the server (goilerplate) and any client service import from here.
+
+---
+
 ## Configuration
 
 The `grpc` block is already present in `config/config.example.yaml`. Copy it to your local `config/config.yaml` if it's missing:
@@ -18,52 +40,13 @@ The gRPC server only starts when `enabled: true`. The HTTP server always starts 
 
 ---
 
-## Proto Structure
-
-Proto files live in `proto/` and are organized by service and version:
-
-```
-proto/
-  buf.yaml          # buf module config, lint rules, BSR dependencies
-  buf.gen.yaml      # code generation config (plugins + output paths)
-  buf.lock          # pinned BSR dependency versions
-  bar/
-    v1/
-      bar.proto
-      bar.pb.go           # generated — do not edit
-      bar_grpc.pb.go      # generated — do not edit
-  foo/
-    v1/
-      ...
-  hello/
-    v1/
-      ...
-```
-
-Generated Go files (`*.pb.go`, `*_grpc.pb.go`) live next to their `.proto` source because `buf.gen.yaml` uses `paths=source_relative`.
-
----
-
-## Generating Code
-
-```bash
-make proto-gen    # runs: cd proto && buf generate
-make proto-lint   # runs: cd proto && buf lint
-```
-
-Requires `buf` CLI — install with `brew install bufbuild/buf/buf`.
-
-Dependencies (e.g. `google/api/field_behavior.proto`) are resolved from the Buf Schema Registry (BSR) — no local copies needed.
-
----
-
 ## Adding a New gRPC Service
 
-Follow these steps when adding a new service (e.g. `baz`):
+Adding a new service (e.g. `baz`) involves two repos.
 
-### 1. Write the proto
+### Step 1 — Add proto to goilerplate-proto
 
-Create `proto/baz/v1/baz.proto`:
+In the `goilerplate-proto` repo, create `baz/v1/baz.proto`:
 
 ```proto
 syntax = "proto3";
@@ -73,7 +56,7 @@ package baz.v1;
 import "google/api/field_behavior.proto";
 import "google/protobuf/empty.proto";
 
-option go_package = "goilerplate/proto/baz/v1";
+option go_package = "github.com/arisatriop/goilerplate-proto/baz/v1";
 
 service BazService {
   rpc CreateBaz (CreateBazRequest) returns (Baz);
@@ -91,13 +74,24 @@ message Baz {
 // ... request/response messages
 ```
 
-Then generate:
+Then generate, commit, and tag a new version:
 
 ```bash
-make proto-gen
+# in goilerplate-proto/
+buf generate
+git add -A && git commit -m "feat: add BazService proto"
+git tag v0.2.0 && git push origin main --tags
 ```
 
-### 2. Write the handler
+### Step 2 — Update goilerplate to use the new version
+
+```bash
+# in goilerplate/
+go get github.com/arisatriop/goilerplate-proto@v0.2.0
+go mod tidy
+```
+
+### Step 3 — Write the handler
 
 Create `internal/delivery/grpc/handler/baz.go`:
 
@@ -109,7 +103,7 @@ import (
 
     bazdomain "goilerplate/internal/domain/baz"
     "goilerplate/pkg/grpcresponse"
-    pb "goilerplate/proto/baz/v1"
+    pb "github.com/arisatriop/goilerplate-proto/baz/v1"
 
     "google.golang.org/protobuf/types/known/emptypb"
 )
@@ -132,21 +126,17 @@ func (b *Baz) CreateBaz(ctx context.Context, req *pb.CreateBazRequest) (*pb.Baz,
     return toProtoBaz(created), nil
 }
 
-// ... other methods
-
 func toProtoBaz(e *bazdomain.Baz) *pb.Baz {
     return &pb.Baz{Id: e.ID, Name: e.Name}
 }
 ```
 
-### 3. Register in the service registry
+### Step 4 — Register in the service registry
 
-In `internal/delivery/grpc/server.go`, add the new service:
+In `internal/delivery/grpc/server.go`:
 
 ```go
-import (
-    bazpb "goilerplate/proto/baz/v1"
-)
+import bazpb "github.com/arisatriop/goilerplate-proto/baz/v1"
 
 type ServiceRegistry struct {
     // ...
@@ -159,7 +149,7 @@ func (r *ServiceRegistry) Register(s *grpc.Server) {
 }
 ```
 
-### 4. Wire it
+### Step 5 — Wire it
 
 In `internal/wire/handler_grpc.go`:
 
@@ -180,9 +170,7 @@ if err != nil {
 }
 ```
 
-Domain errors (e.g. `ErrNotFound`, `ErrAlreadyExists`) are mapped to the appropriate `codes.NotFound`, `codes.AlreadyExists`, etc.
-
-For simple input validation errors inside the handler:
+For simple input validation inside the handler:
 
 ```go
 import "google.golang.org/grpc/codes"
@@ -213,9 +201,9 @@ This means any use-case that reads the caller identity from context will work fo
 
 ---
 
-## Reflection & Local Testing
+## Local Testing with grpcurl
 
-Server reflection is enabled in all non-production environments (`app.env != production`). Reflection lets clients discover services without a `.proto` file.
+Server reflection is **disabled** (production mode). You must provide the proto files explicitly when using grpcurl.
 
 ### Install grpcurl
 
@@ -223,54 +211,67 @@ Server reflection is enabled in all non-production environments (`app.env != pro
 brew install grpcurl
 ```
 
-### List available services
+### Setup googleapis path (one-time)
+
+buf caches googleapis locally after running `buf generate`. Find the path:
 
 ```bash
-grpcurl -plaintext localhost:50051 list
+find ~/.cache/buf -name "field_behavior.proto" 2>/dev/null | head -1
+# Example: ~/.cache/buf/v3/modules/.../files/google/api/field_behavior.proto
+# GOOGLEAPIS = everything up to /files
 ```
 
-### Call a method
+Export for convenience:
 
 ```bash
+export GOILERPLATE_PROTO=~/Documents/work/others/goilerplate-proto
+export GOOGLEAPIS=~/.cache/buf/v3/modules/b5/buf.build/googleapis/googleapis/<commit>/files
+```
+
+### Call methods
+
+```bash
+# ListBars
+grpcurl -plaintext \
+  -import-path $GOILERPLATE_PROTO \
+  -import-path $GOOGLEAPIS \
+  -proto bar/v1/bar.proto \
+  -d '{"page":1,"limit":10}' \
+  127.0.0.1:50051 \
+  bar.v1.BarService/ListBars
+
 # CreateBar
 grpcurl -plaintext \
-  -d '{"code":"B001","bar":"My Bar"}' \
-  localhost:50051 \
+  -import-path $GOILERPLATE_PROTO \
+  -import-path $GOOGLEAPIS \
+  -proto bar/v1/bar.proto \
+  -d '{"code":"EXP001","bar":"My Bar"}' \
+  127.0.0.1:50051 \
   bar.v1.BarService/CreateBar
 
 # GetBar
 grpcurl -plaintext \
+  -import-path $GOILERPLATE_PROTO \
+  -import-path $GOOGLEAPIS \
+  -proto bar/v1/bar.proto \
   -d '{"id":"<uuid>"}' \
-  localhost:50051 \
+  127.0.0.1:50051 \
   bar.v1.BarService/GetBar
-
-# ListBars
-grpcurl -plaintext \
-  -d '{"page":1,"limit":10}' \
-  localhost:50051 \
-  bar.v1.BarService/ListBars
-
-# UpdateBar
-grpcurl -plaintext \
-  -d '{"id":"<uuid>","code":"B002","bar":"Updated Bar"}' \
-  localhost:50051 \
-  bar.v1.BarService/UpdateBar
-
-# DeleteBar
-grpcurl -plaintext \
-  -d '{"id":"<uuid>"}' \
-  localhost:50051 \
-  bar.v1.BarService/DeleteBar
 ```
+
+> **Note:** Use `127.0.0.1:50051` instead of `localhost:50051` to avoid IPv6 resolution issues on macOS.
 
 ### Pass metadata (service-to-service)
 
 ```bash
 grpcurl -plaintext \
+  -import-path $GOILERPLATE_PROTO \
+  -import-path $GOOGLEAPIS \
+  -proto bar/v1/bar.proto \
   -H "x-service-name: my-service" \
   -H "x-request-id: abc-123" \
-  -d '{"code":"B001","bar":"My Bar"}' \
-  localhost:50051 \
+  -d '{"code":"EXP001","bar":"My Bar"}' \
+  127.0.0.1:50051 \
   bar.v1.BarService/CreateBar
 ```
 
@@ -278,18 +279,30 @@ grpcurl -plaintext \
 
 ## Service-to-Service Calls
 
-When another service calls this gRPC server, it should pass its service name via metadata so the request logger can identify the caller:
+Client services import the same proto module and connect directly:
 
 ```go
-import "google.golang.org/grpc/metadata"
+import (
+    barpb "github.com/arisatriop/goilerplate-proto/bar/v1"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+    "google.golang.org/grpc/metadata"
+)
 
-md := metadata.Pairs(
-    "x-service-name", "payment-service",
+conn, err := grpc.NewClient("127.0.0.1:50051",
+    grpc.WithTransportCredentials(insecure.NewCredentials()),
+)
+client := barpb.NewBarServiceClient(conn)
+
+ctx = metadata.AppendToOutgoingContext(ctx,
+    "x-service-name", "my-service",
     "x-request-id",   requestID,
 )
-ctx = metadata.NewOutgoingContext(ctx, md)
 
-resp, err := client.CreateBar(ctx, req)
+resp, err := client.CreateBar(ctx, &barpb.CreateBarRequest{
+    Code: "EXP001",
+    Bar:  "My Bar",
+})
 ```
 
 If `x-service-name` is absent, the caller is recorded as `"system"`.

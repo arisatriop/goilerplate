@@ -35,7 +35,7 @@ func (r *barRepo) CreateBar(ctx context.Context, entity *bar.Bar) (*bar.Bar, err
 	user := ctx.Value(constants.ContextKeyUserID).(string)
 	model := &model.Bar{
 		Code:      entity.Code,
-		Bar:   entity.Bar,
+		Bar:       entity.Bar,
 		IsActive:  true,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -146,7 +146,7 @@ func (r *barRepo) BulkCreate(ctx context.Context, entities []*bar.Bar) error {
 	for i, entity := range entities {
 		models[i] = model.Bar{
 			Code:      entity.Code,
-			Bar:   entity.Bar,
+			Bar:       entity.Bar,
 			IsActive:  true,
 			CreatedAt: now,
 			UpdatedAt: now,
@@ -203,8 +203,8 @@ func (r *barRepo) applyBarFilters(query *gorm.DB, filter *bar.Filter, applyPagin
 
 func (r *barRepo) modelToEntity(model *model.Bar) *bar.Bar {
 	return &bar.Bar{
-		ID:      model.ID,
-		Code:    model.Code,
-		Bar: model.Bar,
+		ID:   model.ID,
+		Code: model.Code,
+		Bar:  model.Bar,
 	}
 }
