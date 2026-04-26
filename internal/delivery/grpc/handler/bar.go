@@ -5,7 +5,7 @@ import (
 
 	bardomain "goilerplate/internal/domain/bar"
 	"goilerplate/pkg/grpcresponse"
-	pb "goilerplate/proto/bar/v1"
+	pb "github.com/arisatriop/goilerplate-proto/bar/v1"
 	"goilerplate/pkg/pagination"
 
 	"google.golang.org/grpc/codes"

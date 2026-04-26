@@ -3,7 +3,7 @@ package grpchandler
 import (
 	"context"
 
-	pb "goilerplate/proto/foo/v1"
+	pb "github.com/arisatriop/goilerplate-proto/foo/v1"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

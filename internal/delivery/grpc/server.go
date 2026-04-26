@@ -2,9 +2,9 @@ package grpcdelivery
 
 import (
 	grpchandler "goilerplate/internal/delivery/grpc/handler"
-	barpb "goilerplate/proto/bar/v1"
-	foopb "goilerplate/proto/foo/v1"
-	hellopb "goilerplate/proto/hello/v1"
+	barpb "github.com/arisatriop/goilerplate-proto/bar/v1"
+	foopb "github.com/arisatriop/goilerplate-proto/foo/v1"
+	hellopb "github.com/arisatriop/goilerplate-proto/hello/v1"
 
 	"google.golang.org/grpc"
 )

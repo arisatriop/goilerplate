@@ -2,7 +2,7 @@ package grpchandler
 
 import (
 	"context"
-	pb "goilerplate/proto/hello/v1"
+	pb "github.com/arisatriop/goilerplate-proto/hello/v1"
 )
 
 type Hello struct {
