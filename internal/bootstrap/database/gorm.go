@@ -51,6 +51,7 @@ func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
 	gdb, err := gorm.Open(dialector, &gorm.Config{
 		SkipDefaultTransaction: true,
 		PrepareStmt:            true,
+		QueryFields:            true,
 		Logger: logger.New(NewSlogWriter(log), logger.Config{
 			SlowThreshold:             time.Second * 5,
 			Colorful:                  false,
