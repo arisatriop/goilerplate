@@ -2,15 +2,17 @@ syntax = "proto3";
 
 package bar.v1;
 
+import "google/api/field_behavior.proto";
+
 option go_package = "goilerplate/proto/bar/v1";
 
 // BarService provides CRUD operations for Bar resources.
 service BarService {
   // CreateBar creates a new Bar resource.
-  rpc CreateBar (CreateBarRequest) returns (CreateBarResponse);
+  rpc CreateBar (CreateBarRequest) returns (Bar);
 
   // GetBar retrieves a Bar resource by ID.
-  rpc GetBar (GetBarRequest) returns (GetBarResponse);
+  rpc GetBar (GetBarRequest) returns (Bar);
 
   // ListBars retrieves a paginated list of Bar resources.
   rpc ListBars (ListBarsRequest) returns (ListBarsResponse);
@@ -24,35 +26,27 @@ service BarService {
 
 // Bar represents the bar domain entity.
 message Bar {
-  string id         = 1;
-  string code       = 2;
-  string bar        = 3;
+  string id   = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string code = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string bar  = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // CreateBarRequest is the request message for CreateBar.
 message CreateBarRequest {
-  string code = 1;
-  string bar  = 2;
+  string code = 1 [(google.api.field_behavior) = REQUIRED];
+  string bar  = 2 [(google.api.field_behavior) = REQUIRED];
 }
-
-// CreateBarResponse is the response message for CreateBar.
-message CreateBarResponse {}
 
 // GetBarRequest is the request message for GetBar.
 message GetBarRequest {
-  string id = 1;
-}
-
-// GetBarResponse is the response message for GetBar.
-message GetBarResponse {
-  Bar bar = 1;
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
 // ListBarsRequest is the request message for ListBars.
 message ListBarsRequest {
-  int32  page    = 1;
-  int32  limit   = 2;
-  string keyword = 3;
+  int32  page    = 1 [(google.api.field_behavior) = OPTIONAL];
+  int32  limit   = 2 [(google.api.field_behavior) = OPTIONAL];
+  string keyword = 3 [(google.api.field_behavior) = OPTIONAL];
 }
 
 // ListBarsResponse is the response message for ListBars.
@@ -65,9 +59,9 @@ message ListBarsResponse {
 
 // UpdateBarRequest is the request message for UpdateBar.
 message UpdateBarRequest {
-  string id   = 1;
-  string code = 2;
-  string bar  = 3;
+  string id   = 1 [(google.api.field_behavior) = REQUIRED];
+  string code = 2 [(google.api.field_behavior) = REQUIRED];
+  string bar  = 3 [(google.api.field_behavior) = REQUIRED];
 }
 
 // UpdateBarResponse is the response message for UpdateBar.
@@ -75,7 +69,7 @@ message UpdateBarResponse {}
 
 // DeleteBarRequest is the request message for DeleteBar.
 message DeleteBarRequest {
-
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
 // DeleteBarResponse is the response message for DeleteBar.

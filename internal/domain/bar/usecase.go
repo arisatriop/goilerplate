@@ -7,7 +7,7 @@ import (
 )
 
 type Usecase interface {
-	Create(ctx context.Context, entity *Bar) error
+	Create(ctx context.Context, entity *Bar) (*Bar, error)
 	Update(ctx context.Context, entity *Bar) error
 	Delete(ctx context.Context, entity *Bar) error
 
@@ -27,28 +27,28 @@ func NewUseCase(repo Repository) Usecase {
 	}
 }
 
-func (uc *usecase) Create(ctx context.Context, entity *Bar) error {
+func (uc *usecase) Create(ctx context.Context, entity *Bar) (*Bar, error) {
 	if err := entity.validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	exists, err := uc.ExistsByCode(ctx, entity.Code)
 	if err != nil {
-		return fmt.Errorf("failed to check code existence: %w", err)
+		return nil, fmt.Errorf("failed to check code existence: %w", err)
 	}
 	if exists {
-		return ErrCodeAlreadyExists
+		return nil, ErrCodeAlreadyExists
 	}
 
 	entity.Code = strings.ToUpper(strings.TrimSpace(entity.Code))
 	entity.Bar = strings.TrimSpace(entity.Bar)
 
-	_, err = uc.repo.CreateBar(ctx, entity)
+	created, err := uc.repo.CreateBar(ctx, entity)
 	if err != nil {
-		return fmt.Errorf("failed to create bar: %w", err)
+		return nil, fmt.Errorf("failed to create bar: %w", err)
 	}
 
-	return nil
+	return created, nil
 }
 
 func (uc *usecase) ExistsByCode(ctx context.Context, code string) (bool, error) {

@@ -41,7 +41,7 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 		Bar: req.Bar,
 	}
 
-	err := h.Usecase.Create(ctx.UserContext(), entity)
+	_, err := h.Usecase.Create(ctx.UserContext(), entity)
 	if err != nil {
 		return response.HandleError(ctx, err)
 	}
