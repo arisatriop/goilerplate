@@ -3,6 +3,7 @@ syntax = "proto3";
 package bar.v1;
 
 import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "goilerplate/proto/bar/v1";
 
@@ -18,10 +19,10 @@ service BarService {
   rpc ListBars (ListBarsRequest) returns (ListBarsResponse);
 
   // UpdateBar updates an existing Bar resource.
-  rpc UpdateBar (UpdateBarRequest) returns (UpdateBarResponse);
+  rpc UpdateBar (UpdateBarRequest) returns (Bar);
 
   // DeleteBar deletes a Bar resource by ID.
-  rpc DeleteBar (DeleteBarRequest) returns (DeleteBarResponse);
+  rpc DeleteBar (DeleteBarRequest) returns (google.protobuf.Empty);
 }
 
 // Bar represents the bar domain entity.
@@ -64,13 +65,7 @@ message UpdateBarRequest {
   string bar  = 3 [(google.api.field_behavior) = REQUIRED];
 }
 
-// UpdateBarResponse is the response message for UpdateBar.
-message UpdateBarResponse {}
-
 // DeleteBarRequest is the request message for DeleteBar.
 message DeleteBarRequest {
   string id = 1 [(google.api.field_behavior) = REQUIRED];
 }
-
-// DeleteBarResponse is the response message for DeleteBar.
-message DeleteBarResponse {}

@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -39,9 +40,9 @@ type BarServiceClient interface {
 	// ListBars retrieves a paginated list of Bar resources.
 	ListBars(ctx context.Context, in *ListBarsRequest, opts ...grpc.CallOption) (*ListBarsResponse, error)
 	// UpdateBar updates an existing Bar resource.
-	UpdateBar(ctx context.Context, in *UpdateBarRequest, opts ...grpc.CallOption) (*UpdateBarResponse, error)
+	UpdateBar(ctx context.Context, in *UpdateBarRequest, opts ...grpc.CallOption) (*Bar, error)
 	// DeleteBar deletes a Bar resource by ID.
-	DeleteBar(ctx context.Context, in *DeleteBarRequest, opts ...grpc.CallOption) (*DeleteBarResponse, error)
+	DeleteBar(ctx context.Context, in *DeleteBarRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type barServiceClient struct {
@@ -82,9 +83,9 @@ func (c *barServiceClient) ListBars(ctx context.Context, in *ListBarsRequest, op
 	return out, nil
 }
 
-func (c *barServiceClient) UpdateBar(ctx context.Context, in *UpdateBarRequest, opts ...grpc.CallOption) (*UpdateBarResponse, error) {
+func (c *barServiceClient) UpdateBar(ctx context.Context, in *UpdateBarRequest, opts ...grpc.CallOption) (*Bar, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(UpdateBarResponse)
+	out := new(Bar)
 	err := c.cc.Invoke(ctx, BarService_UpdateBar_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -92,9 +93,9 @@ func (c *barServiceClient) UpdateBar(ctx context.Context, in *UpdateBarRequest, 
 	return out, nil
 }
 
-func (c *barServiceClient) DeleteBar(ctx context.Context, in *DeleteBarRequest, opts ...grpc.CallOption) (*DeleteBarResponse, error) {
+func (c *barServiceClient) DeleteBar(ctx context.Context, in *DeleteBarRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DeleteBarResponse)
+	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, BarService_DeleteBar_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -115,9 +116,9 @@ type BarServiceServer interface {
 	// ListBars retrieves a paginated list of Bar resources.
 	ListBars(context.Context, *ListBarsRequest) (*ListBarsResponse, error)
 	// UpdateBar updates an existing Bar resource.
-	UpdateBar(context.Context, *UpdateBarRequest) (*UpdateBarResponse, error)
+	UpdateBar(context.Context, *UpdateBarRequest) (*Bar, error)
 	// DeleteBar deletes a Bar resource by ID.
-	DeleteBar(context.Context, *DeleteBarRequest) (*DeleteBarResponse, error)
+	DeleteBar(context.Context, *DeleteBarRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedBarServiceServer()
 }
 
@@ -137,10 +138,10 @@ func (UnimplementedBarServiceServer) GetBar(context.Context, *GetBarRequest) (*B
 func (UnimplementedBarServiceServer) ListBars(context.Context, *ListBarsRequest) (*ListBarsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListBars not implemented")
 }
-func (UnimplementedBarServiceServer) UpdateBar(context.Context, *UpdateBarRequest) (*UpdateBarResponse, error) {
+func (UnimplementedBarServiceServer) UpdateBar(context.Context, *UpdateBarRequest) (*Bar, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateBar not implemented")
 }
-func (UnimplementedBarServiceServer) DeleteBar(context.Context, *DeleteBarRequest) (*DeleteBarResponse, error) {
+func (UnimplementedBarServiceServer) DeleteBar(context.Context, *DeleteBarRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteBar not implemented")
 }
 func (UnimplementedBarServiceServer) mustEmbedUnimplementedBarServiceServer() {}

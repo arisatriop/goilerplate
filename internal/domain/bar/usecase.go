@@ -8,7 +8,7 @@ import (
 
 type Usecase interface {
 	Create(ctx context.Context, entity *Bar) (*Bar, error)
-	Update(ctx context.Context, entity *Bar) error
+	Update(ctx context.Context, entity *Bar) (*Bar, error)
 	Delete(ctx context.Context, entity *Bar) error
 
 	GetByID(ctx context.Context, id string) (*Bar, error)
@@ -64,23 +64,23 @@ func (uc *usecase) ExistsByCode(ctx context.Context, code string) (bool, error) 
 	return len(bars) > 0, nil
 }
 
-func (uc *usecase) Update(ctx context.Context, entity *Bar) error {
+func (uc *usecase) Update(ctx context.Context, entity *Bar) (*Bar, error) {
 	if err := entity.validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	existing, err := uc.repo.GetBarByID(ctx, entity.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get existing bar: %w", err)
+		return nil, fmt.Errorf("failed to get existing bar: %w", err)
 	}
 
 	if existing.Code != entity.Code {
 		exists, err := uc.ExistsByCode(ctx, entity.Code)
 		if err != nil {
-			return fmt.Errorf("failed to check code existence: %w", err)
+			return nil, fmt.Errorf("failed to check code existence: %w", err)
 		}
 		if exists {
-			return ErrCodeAlreadyExists
+			return nil, ErrCodeAlreadyExists
 		}
 	}
 
@@ -88,10 +88,10 @@ func (uc *usecase) Update(ctx context.Context, entity *Bar) error {
 	entity.Bar = strings.TrimSpace(entity.Bar)
 
 	if err = uc.repo.UpdateBar(ctx, entity); err != nil {
-		return fmt.Errorf("failed to update bar: %w", err)
+		return nil, fmt.Errorf("failed to update bar: %w", err)
 	}
 
-	return nil
+	return entity, nil
 }
 
 func (uc *usecase) Delete(ctx context.Context, entity *Bar) error {

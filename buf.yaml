@@ -1,4 +1,8 @@
 version: v2
+modules:
+  - path: .
+    excludes:
+      - third_party
 deps:
   - buf.build/googleapis/googleapis
 lint:

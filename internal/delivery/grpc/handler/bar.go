@@ -3,25 +3,27 @@ package grpchandler
 import (
 	"context"
 
-	"goilerplate/internal/domain/bar"
+	bardomain "goilerplate/internal/domain/bar"
 	"goilerplate/pkg/grpcresponse"
 	pb "goilerplate/proto/bar/v1"
+	"goilerplate/pkg/pagination"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Bar struct {
 	pb.UnimplementedBarServiceServer
-	uc bar.Usecase
+	uc bardomain.Usecase
 }
 
-func NewBar(uc bar.Usecase) *Bar {
+func NewBar(uc bardomain.Usecase) *Bar {
 	return &Bar{uc: uc}
 }
 
 func (b *Bar) CreateBar(ctx context.Context, req *pb.CreateBarRequest) (*pb.Bar, error) {
-	entity := &bar.Bar{
+	entity := &bardomain.Bar{
 		Code: req.Code,
 		Bar:  req.Bar,
 	}
@@ -31,11 +33,7 @@ func (b *Bar) CreateBar(ctx context.Context, req *pb.CreateBarRequest) (*pb.Bar,
 		return nil, grpcresponse.HandleError(ctx, err)
 	}
 
-	return &pb.Bar{
-		Id:   created.ID,
-		Code: created.Code,
-		Bar:  created.Bar,
-	}, nil
+	return toProtoBar(created), nil
 }
 
 func (b *Bar) GetBar(ctx context.Context, req *pb.GetBarRequest) (*pb.Bar, error) {
@@ -48,21 +46,74 @@ func (b *Bar) GetBar(ctx context.Context, req *pb.GetBarRequest) (*pb.Bar, error
 		return nil, grpcresponse.HandleError(ctx, err)
 	}
 
-	return &pb.Bar{
-		Id:   entity.ID,
-		Code: entity.Code,
-		Bar:  entity.Bar,
+	return toProtoBar(entity), nil
+}
+
+func (b *Bar) ListBars(ctx context.Context, req *pb.ListBarsRequest) (*pb.ListBarsResponse, error) {
+	filter := &bardomain.Filter{
+		Keyword: req.Keyword,
+		Pagination: &pagination.PaginationRequest{
+			Page:  int(req.Page),
+			Limit: int(req.Limit),
+		},
+	}
+	filter.Pagination.Validate(pagination.DefaultPaginationConfig())
+
+	bars, total, err := b.uc.GetList(ctx, filter)
+	if err != nil {
+		return nil, grpcresponse.HandleError(ctx, err)
+	}
+
+	items := make([]*pb.Bar, len(bars))
+	for i, bar := range bars {
+		items[i] = toProtoBar(bar)
+	}
+
+	return &pb.ListBarsResponse{
+		Bars:  items,
+		Total: total,
+		Page:  int32(filter.Pagination.Page),
+		Limit: int32(filter.Pagination.Limit),
 	}, nil
 }
 
-func (b *Bar) ListBars(_ context.Context, req *pb.ListBarsRequest) (*pb.ListBarsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListBars not implemented")
+func (b *Bar) UpdateBar(ctx context.Context, req *pb.UpdateBarRequest) (*pb.Bar, error) {
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
+	entity := &bardomain.Bar{
+		ID:  req.Id,
+		Code: req.Code,
+		Bar:  req.Bar,
+	}
+
+	updated, err := b.uc.Update(ctx, entity)
+	if err != nil {
+		return nil, grpcresponse.HandleError(ctx, err)
+	}
+
+	return toProtoBar(updated), nil
 }
 
-func (b *Bar) UpdateBar(_ context.Context, req *pb.UpdateBarRequest) (*pb.UpdateBarResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateBar not implemented")
+func (b *Bar) DeleteBar(ctx context.Context, req *pb.DeleteBarRequest) (*emptypb.Empty, error) {
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
+	entity := &bardomain.Bar{ID: req.Id}
+
+	if err := b.uc.Delete(ctx, entity); err != nil {
+		return nil, grpcresponse.HandleError(ctx, err)
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
-func (b *Bar) DeleteBar(_ context.Context, req *pb.DeleteBarRequest) (*pb.DeleteBarResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method DeleteBar not implemented")
+func toProtoBar(e *bardomain.Bar) *pb.Bar {
+	return &pb.Bar{
+		Id:   e.ID,
+		Code: e.Code,
+		Bar:  e.Bar,
+	}
 }

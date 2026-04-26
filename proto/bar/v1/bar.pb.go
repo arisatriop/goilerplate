@@ -10,6 +10,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -372,43 +373,6 @@ func (x *UpdateBarRequest) GetBar() string {
 	return ""
 }
 
-// UpdateBarResponse is the response message for UpdateBar.
-type UpdateBarResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateBarResponse) Reset() {
-	*x = UpdateBarResponse{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateBarResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateBarResponse) ProtoMessage() {}
-
-func (x *UpdateBarResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateBarResponse.ProtoReflect.Descriptor instead.
-func (*UpdateBarResponse) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{6}
-}
-
 // DeleteBarRequest is the request message for DeleteBar.
 type DeleteBarRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -419,7 +383,7 @@ type DeleteBarRequest struct {
 
 func (x *DeleteBarRequest) Reset() {
 	*x = DeleteBarRequest{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[7]
+	mi := &file_proto_bar_v1_bar_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -431,7 +395,7 @@ func (x *DeleteBarRequest) String() string {
 func (*DeleteBarRequest) ProtoMessage() {}
 
 func (x *DeleteBarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[7]
+	mi := &file_proto_bar_v1_bar_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -444,7 +408,7 @@ func (x *DeleteBarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBarRequest.ProtoReflect.Descriptor instead.
 func (*DeleteBarRequest) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{7}
+	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteBarRequest) GetId() string {
@@ -454,48 +418,11 @@ func (x *DeleteBarRequest) GetId() string {
 	return ""
 }
 
-// DeleteBarResponse is the response message for DeleteBar.
-type DeleteBarResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeleteBarResponse) Reset() {
-	*x = DeleteBarResponse{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteBarResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteBarResponse) ProtoMessage() {}
-
-func (x *DeleteBarResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteBarResponse.ProtoReflect.Descriptor instead.
-func (*DeleteBarResponse) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{8}
-}
-
 var File_proto_bar_v1_bar_proto protoreflect.FileDescriptor
 
 const file_proto_bar_v1_bar_proto_rawDesc = "" +
 	"\n" +
-	"\x16proto/bar/v1/bar.proto\x12\x06bar.v1\x1a\x1fgoogle/api/field_behavior.proto\"J\n" +
+	"\x16proto/bar/v1/bar.proto\x12\x06bar.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\"J\n" +
 	"\x03Bar\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x03R\x02id\x12\x17\n" +
 	"\x04code\x18\x02 \x01(\tB\x03\xe0A\x03R\x04code\x12\x15\n" +
@@ -517,18 +444,16 @@ const file_proto_bar_v1_bar_proto_rawDesc = "" +
 	"\x10UpdateBarRequest\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\x12\x17\n" +
 	"\x04code\x18\x02 \x01(\tB\x03\xe0A\x02R\x04code\x12\x15\n" +
-	"\x03bar\x18\x03 \x01(\tB\x03\xe0A\x02R\x03bar\"\x13\n" +
-	"\x11UpdateBarResponse\"'\n" +
+	"\x03bar\x18\x03 \x01(\tB\x03\xe0A\x02R\x03bar\"'\n" +
 	"\x10DeleteBarRequest\x12\x13\n" +
-	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\"\x13\n" +
-	"\x11DeleteBarResponse2\xb1\x02\n" +
+	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id2\xa0\x02\n" +
 	"\n" +
 	"BarService\x122\n" +
 	"\tCreateBar\x12\x18.bar.v1.CreateBarRequest\x1a\v.bar.v1.Bar\x12,\n" +
 	"\x06GetBar\x12\x15.bar.v1.GetBarRequest\x1a\v.bar.v1.Bar\x12=\n" +
-	"\bListBars\x12\x17.bar.v1.ListBarsRequest\x1a\x18.bar.v1.ListBarsResponse\x12@\n" +
-	"\tUpdateBar\x12\x18.bar.v1.UpdateBarRequest\x1a\x19.bar.v1.UpdateBarResponse\x12@\n" +
-	"\tDeleteBar\x12\x18.bar.v1.DeleteBarRequest\x1a\x19.bar.v1.DeleteBarResponseB\x1aZ\x18goilerplate/proto/bar/v1b\x06proto3"
+	"\bListBars\x12\x17.bar.v1.ListBarsRequest\x1a\x18.bar.v1.ListBarsResponse\x122\n" +
+	"\tUpdateBar\x12\x18.bar.v1.UpdateBarRequest\x1a\v.bar.v1.Bar\x12=\n" +
+	"\tDeleteBar\x12\x18.bar.v1.DeleteBarRequest\x1a\x16.google.protobuf.EmptyB\x1aZ\x18goilerplate/proto/bar/v1b\x06proto3"
 
 var (
 	file_proto_bar_v1_bar_proto_rawDescOnce sync.Once
@@ -542,17 +467,16 @@ func file_proto_bar_v1_bar_proto_rawDescGZIP() []byte {
 	return file_proto_bar_v1_bar_proto_rawDescData
 }
 
-var file_proto_bar_v1_bar_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_proto_bar_v1_bar_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_proto_bar_v1_bar_proto_goTypes = []any{
-	(*Bar)(nil),               // 0: bar.v1.Bar
-	(*CreateBarRequest)(nil),  // 1: bar.v1.CreateBarRequest
-	(*GetBarRequest)(nil),     // 2: bar.v1.GetBarRequest
-	(*ListBarsRequest)(nil),   // 3: bar.v1.ListBarsRequest
-	(*ListBarsResponse)(nil),  // 4: bar.v1.ListBarsResponse
-	(*UpdateBarRequest)(nil),  // 5: bar.v1.UpdateBarRequest
-	(*UpdateBarResponse)(nil), // 6: bar.v1.UpdateBarResponse
-	(*DeleteBarRequest)(nil),  // 7: bar.v1.DeleteBarRequest
-	(*DeleteBarResponse)(nil), // 8: bar.v1.DeleteBarResponse
+	(*Bar)(nil),              // 0: bar.v1.Bar
+	(*CreateBarRequest)(nil), // 1: bar.v1.CreateBarRequest
+	(*GetBarRequest)(nil),    // 2: bar.v1.GetBarRequest
+	(*ListBarsRequest)(nil),  // 3: bar.v1.ListBarsRequest
+	(*ListBarsResponse)(nil), // 4: bar.v1.ListBarsResponse
+	(*UpdateBarRequest)(nil), // 5: bar.v1.UpdateBarRequest
+	(*DeleteBarRequest)(nil), // 6: bar.v1.DeleteBarRequest
+	(*emptypb.Empty)(nil),    // 7: google.protobuf.Empty
 }
 var file_proto_bar_v1_bar_proto_depIdxs = []int32{
 	0, // 0: bar.v1.ListBarsResponse.bars:type_name -> bar.v1.Bar
@@ -560,12 +484,12 @@ var file_proto_bar_v1_bar_proto_depIdxs = []int32{
 	2, // 2: bar.v1.BarService.GetBar:input_type -> bar.v1.GetBarRequest
 	3, // 3: bar.v1.BarService.ListBars:input_type -> bar.v1.ListBarsRequest
 	5, // 4: bar.v1.BarService.UpdateBar:input_type -> bar.v1.UpdateBarRequest
-	7, // 5: bar.v1.BarService.DeleteBar:input_type -> bar.v1.DeleteBarRequest
+	6, // 5: bar.v1.BarService.DeleteBar:input_type -> bar.v1.DeleteBarRequest
 	0, // 6: bar.v1.BarService.CreateBar:output_type -> bar.v1.Bar
 	0, // 7: bar.v1.BarService.GetBar:output_type -> bar.v1.Bar
 	4, // 8: bar.v1.BarService.ListBars:output_type -> bar.v1.ListBarsResponse
-	6, // 9: bar.v1.BarService.UpdateBar:output_type -> bar.v1.UpdateBarResponse
-	8, // 10: bar.v1.BarService.DeleteBar:output_type -> bar.v1.DeleteBarResponse
+	0, // 9: bar.v1.BarService.UpdateBar:output_type -> bar.v1.Bar
+	7, // 10: bar.v1.BarService.DeleteBar:output_type -> google.protobuf.Empty
 	6, // [6:11] is the sub-list for method output_type
 	1, // [1:6] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -584,7 +508,7 @@ func file_proto_bar_v1_bar_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_bar_v1_bar_proto_rawDesc), len(file_proto_bar_v1_bar_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
