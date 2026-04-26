@@ -78,4 +78,4 @@ Project-level slash commands available:
 | `/fix-issue <topic>` | Guided workflow to investigate and fix an issue |
 
 ## MCP Setup
-See [.claude/mcp-setup.md](.claude/mcp-setup.md) for MCP server configuration guide.
+See [.docs/reference/mcp-setup.md](.docs/reference/mcp-setup.md) for MCP server configuration guide.
