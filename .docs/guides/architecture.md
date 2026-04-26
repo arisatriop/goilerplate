@@ -9,17 +9,14 @@ In-depth explanation of Clean Architecture used in Goilerplate and how the layer
 Goilerplate mengikuti **Clean Architecture** principles dengan clear separation of concerns:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   DELIVERY LAYER                     │
-│  ┌────────────┐  ┌──────────┐  ┌────────────────┐  │
-│  │    DTO     │  │ Request  │  │    Presenter   │  │
-│  │  (Structs) │  │ (Parsers)│  │  (Formatters)  │  │
-│  └────────────┘  └──────────┘  └────────────────┘  │
-│         ↓              ↓                  ↑          │
-│  ┌──────────────────────────────────────────────┐  │
-│  │             Handler (Orchestration)           │  │
-│  └──────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        DELIVERY LAYER                             │
+│  ┌──────────────────────────────┐  ┌──────────────────────────┐  │
+│  │         HTTP (Fiber)         │  │       gRPC (protobuf)    │  │
+│  │  DTO │ Request │ Presenter   │  │  Proto │ Handler         │  │
+│  │           Handler            │  │        Handler           │  │
+│  └──────────────────────────────┘  └──────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
                         ↓↑
 ┌─────────────────────────────────────────────────────┐
 │               APPLICATION LAYER                      │
@@ -49,9 +46,16 @@ Goilerplate mengikuti **Clean Architecture** principles dengan clear separation 
 
 ## 📍 Layer Responsibilities
 
-### 🖥️ Delivery Layer (HTTP)
+### 🖥️ Delivery Layer
 
-**File location:** `internal/delivery/http/`
+The delivery layer has two parallel paths that both depend on the same domain interfaces:
+
+- **HTTP** (`internal/delivery/http/`) — GoFiber handlers for REST API clients
+- **gRPC** (`internal/delivery/grpc/`) — protobuf handlers for service-to-service calls
+
+Both use the exact same use-case instances wired in `internal/wire/`. Adding a gRPC handler for an existing domain requires zero changes to the domain or application layers.
+
+#### HTTP (`internal/delivery/http/`)
 
 Responsible for handling HTTP requests and responses.
 
@@ -456,7 +460,7 @@ Database → Repository → Usecase → Handler → Presenter → JSON Response
 |---------|-------------|
 | **Testability** | Each layer can be tested in isolation |
 | **Maintainability** | Clear separation makes changes easier |
-| **Reusability** | Presenters/parsers work with any delivery (gRPC, WebSocket) |
+| **Reusability** | Same domain/use-case shared by HTTP and gRPC delivery layers |
 | **Scalability** | Easy to add new features without breaking existing |
 | **Clean Code** | Handlers stay thin, logic stays in domain |
 | **Type Safety** | Strong typing throughout all layers |

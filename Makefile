@@ -1,7 +1,7 @@
 # Makefile for Go Boilerplate
 
 # Build and run commands
-.PHONY: build run test clean migrate-up migrate-down migrate-status migrate-create proto-gen proto-lint db-seed
+.PHONY: build run test clean migrate-up migrate-down migrate-status migrate-create db-seed
 
 # Application
 build:
@@ -41,15 +41,6 @@ migrate-create:
 	fi
 	@echo "Creating new migration: $(name)"
 	go run cmd/migrate/main.go -action=create -name=$(name)
-
-# Proto generation
-proto-gen:
-	@echo "Generating proto files..."
-	cd proto && buf generate
-
-proto-lint:
-	@echo "Linting proto files..."
-	cd proto && buf lint
 
 # Development helpers
 dev-setup:
@@ -105,6 +96,4 @@ help:
 	@echo "  dev-setup      - Setup development environment"
 	@echo "  format         - Format code"
 	@echo "  lint           - Run linter"
-	@echo "  proto-gen      - Generate proto files"
-	@echo "  proto-lint     - Lint proto files"
 	@echo "  help           - Show this help message"
