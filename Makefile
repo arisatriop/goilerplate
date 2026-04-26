@@ -1,7 +1,7 @@
 # Makefile for Go Boilerplate
 
 # Build and run commands
-.PHONY: build run test clean migrate-up migrate-down migrate-status migrate-create proto-gen proto-lint
+.PHONY: build run test clean migrate-up migrate-down migrate-status migrate-create proto-gen proto-lint db-seed
 
 # Application
 build:
@@ -87,9 +87,6 @@ up:
 	docker-compose up --build
 
 # Database helpers
-db-reset: migrate-down migrate-up
-	@echo "Database reset complete"
-
 db-seed:
 	@echo "Seeding database..."
 	go run cmd/seed/main.go
@@ -108,5 +105,6 @@ help:
 	@echo "  dev-setup      - Setup development environment"
 	@echo "  format         - Format code"
 	@echo "  lint           - Run linter"
-	@echo "  db-reset       - Reset database (down + up)"
+	@echo "  proto-gen      - Generate proto files"
+	@echo "  proto-lint     - Lint proto files"
 	@echo "  help           - Show this help message"
