@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package bar.v1;
+
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "goilerplate/proto/bar/v1";
+
+// BarService provides CRUD operations for Bar resources.
+service BarService {
+  // CreateBar creates a new Bar resource.
+  rpc CreateBar (CreateBarRequest) returns (Bar);
+
+  // GetBar retrieves a Bar resource by ID.
+  rpc GetBar (GetBarRequest) returns (Bar);
+
+  // ListBars retrieves a paginated list of Bar resources.
+  rpc ListBars (ListBarsRequest) returns (ListBarsResponse);
+
+  // UpdateBar updates an existing Bar resource.
+  rpc UpdateBar (UpdateBarRequest) returns (Bar);
+
+  // DeleteBar deletes a Bar resource by ID.
+  rpc DeleteBar (DeleteBarRequest) returns (google.protobuf.Empty);
+}
+
+// Bar represents the bar domain entity.
+message Bar {
+  string id   = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string code = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string bar  = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// CreateBarRequest is the request message for CreateBar.
+message CreateBarRequest {
+  string code = 1 [(google.api.field_behavior) = REQUIRED];
+  string bar  = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// GetBarRequest is the request message for GetBar.
+message GetBarRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// ListBarsRequest is the request message for ListBars.
+message ListBarsRequest {
+  int32  page    = 1 [(google.api.field_behavior) = OPTIONAL];
+  int32  limit   = 2 [(google.api.field_behavior) = OPTIONAL];
+  string keyword = 3 [(google.api.field_behavior) = OPTIONAL];
+}
+
+// ListBarsResponse is the response message for ListBars.
+message ListBarsResponse {
+  repeated Bar bars  = 1;
+  int64        total = 2;
+  int32        page  = 3;
+  int32        limit = 4;
+}
+
+// UpdateBarRequest is the request message for UpdateBar.
+message UpdateBarRequest {
+  string id   = 1 [(google.api.field_behavior) = REQUIRED];
+  string code = 2 [(google.api.field_behavior) = REQUIRED];
+  string bar  = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DeleteBarRequest is the request message for DeleteBar.
+message DeleteBarRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}

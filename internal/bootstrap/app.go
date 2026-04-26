@@ -10,16 +10,18 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
 )
 
 // App holds only infrastructure dependencies (Clean Architecture compliant)
 type App struct {
-	DB        *bootstrap.DB
-	Log       *slog.Logger
-	Redis     *redis.Client
-	Config    *config.Config
-	WebServer *fiber.App
-	Validator *validator.Validate
+	DB         *bootstrap.DB
+	Log        *slog.Logger
+	Redis      *redis.Client
+	Config     *config.Config
+	WebServer  *fiber.App
+	GrpcServer *grpc.Server
+	Validator  *validator.Validate
 }
 
 func Init() *App {
@@ -32,12 +34,13 @@ func Init() *App {
 	db := initializeDatabase(cfg, log)
 
 	return &App{
-		Config:    cfg,
-		Log:       log,
-		WebServer: fiber,
-		DB:        db,
-		Redis:     redis,
-		Validator: validator,
+		Config:     cfg,
+		Log:        log,
+		WebServer:  fiber,
+		GrpcServer: NewGrpcServer(cfg),
+		DB:         db,
+		Redis:      redis,
+		Validator:  validator,
 	}
 }
 

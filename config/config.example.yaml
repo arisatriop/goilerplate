@@ -4,6 +4,10 @@ app:
   version: 1.0.0
   description: This is a sample application configuration file.
 
+grpc:
+  enabled: true
+  port: 50051
+
 server:
   host: 0.0.0.0
   port: 3000

@@ -9,6 +9,7 @@ import (
 type Config struct {
 	App        App                `mapstructure:"app"`
 	Server     Server             `mapstructure:"server"`
+	GRPC       GRPC               `mapstructure:"grpc"`
 	DB         DB                 `mapstructure:"db"`
 	Redis      Redis              `mapstructure:"redis"`
 	JWT        JWT                `mapstructure:"jwt"`
@@ -17,6 +18,11 @@ type Config struct {
 	Crypto     Crypto             `mapstructure:"crypto"`
 	Apikeys    map[string]string  `mapstructure:"api_key"`
 	Services   map[string]Service `mapstructure:"service"`
+}
+
+type GRPC struct {
+	Enabled bool `mapstructure:"enabled"`
+	Port    int  `mapstructure:"port"`
 }
 
 type App struct {

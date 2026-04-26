@@ -2,7 +2,7 @@
 
 **Production-ready Go backend boilerplate** with authentication, authorization, and best practices built-in.
 
-A clean, scalable REST API template featuring JWT authentication, role-based access control (RBAC), Redis caching, and clean architecture patterns.
+A clean, scalable REST API template featuring JWT authentication, role-based access control (RBAC), Redis caching, and clean architecture patterns — with built-in gRPC support.
 
 > 📚 **[→ View Full Documentation](./.docs/README.md)** — Installation, deployment, architecture, and development guides
 
@@ -14,6 +14,7 @@ A clean, scalable REST API template featuring JWT authentication, role-based acc
 - **🏗️ Clean Architecture** — Layered structure with clear separation of concerns
 - **⚡ Performance** — Redis caching, connection pooling, optimized queries
 - **📦 Database Agnostic** — PostgreSQL or MySQL support
+- **📡 gRPC Support** — Proto-first gRPC server with buf toolchain, AIP conventions, and reflection
 - **☁️ Cloud Ready** — S3, Google Drive, Kubernetes deployment
 - **🧪 Quality First** — Type-safe code, comprehensive validation, error handling
 
@@ -23,6 +24,7 @@ A clean, scalable REST API template featuring JWT authentication, role-based acc
 
 - **Go 1.24** — Modern Go with generics
 - **Fiber v2** — Fast HTTP framework
+- **gRPC** — Proto-first RPC with buf toolchain and Google AIP conventions
 - **GORM** — Type-safe ORM
 - **PostgreSQL/MySQL** — Relational database
 - **Redis** — Caching & sessions

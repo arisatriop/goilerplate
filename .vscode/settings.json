@@ -1,0 +1,20 @@
+{
+    "protoc": {
+        "options": [
+            "--proto_path=${workspaceRoot}/third_party"
+        ]
+    },
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "askForPassword": true,
+            "driver": "PostgreSQL",
+            "name": "postgres: goilerplate",
+            "database": "goilerplate",
+            "username": "postgres"
+        }
+    ]
+}

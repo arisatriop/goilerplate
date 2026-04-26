@@ -6,7 +6,7 @@ import (
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/delivery/http/router"
 	"goilerplate/internal/wire"
-
+	"net"
 	"os/signal"
 	"syscall"
 	"time"
@@ -18,10 +18,13 @@ func main() {
 	// 2. Wire all dependencies in dedicated wire package
 	wired := wire.Init(app)
 
-	// 3. Setup routes with wired dependencies
+	// 3. Setup HTTP routes
 	router.NewRouteRegistry(app, wired).Register()
 
-	// 4. Start the server
+	// 4. Register gRPC services
+	wired.GrpcHandlers.ServiceRegistry.Register(app.GrpcServer)
+
+	// 5. Start the servers
 	start(app)
 }
 
@@ -32,10 +35,26 @@ func start(app *bootstrap.App) {
 	go func() {
 		webPort := app.Config.Server.Port
 		if err := app.WebServer.Listen(fmt.Sprintf(":%d", webPort)); err != nil {
-			fmt.Printf("Failed to start the server: %v\n", err)
+			fmt.Printf("Failed to start HTTP server: %v\n", err)
 			stop()
 		}
 	}()
+
+	if app.Config.GRPC.Enabled {
+		go func() {
+			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", app.Config.GRPC.Port))
+			if err != nil {
+				fmt.Printf("Failed to listen for gRPC: %v\n", err)
+				stop()
+				return
+			}
+			fmt.Printf("gRPC server listening on :%d\n", app.Config.GRPC.Port)
+			if err := app.GrpcServer.Serve(lis); err != nil {
+				fmt.Printf("Failed to start gRPC server: %v\n", err)
+				stop()
+			}
+		}()
+	}
 
 	<-ctx.Done()
 
@@ -97,6 +116,9 @@ func gracefulShutdown(ctx context.Context, app *bootstrap.App) {
 			fmt.Printf("Redis connection closed successfully\n")
 		}
 	}
+
+	app.GrpcServer.GracefulStop()
+	fmt.Printf("gRPC server shutdown successfully\n")
 
 	fmt.Printf("\nServer shutting down gracefully...\n")
 }

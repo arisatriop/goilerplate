@@ -47,7 +47,7 @@ func (r *PublicRouteRegistry) foo(v1 fiber.Router) {
 		r.Wired.Handlers.Foo.List)
 
 	foo.Get("/:id",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooDetail),
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooGet),
 		r.Wired.Handlers.Foo.Get)
 }
 
@@ -70,6 +70,6 @@ func (r *PublicRouteRegistry) bar(v1 fiber.Router) {
 		r.Wired.Handlers.Bar.List)
 
 	bar.Get("/:id",
-		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBarDetail),
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBarGet),
 		r.Wired.Handlers.Bar.Get)
 }
