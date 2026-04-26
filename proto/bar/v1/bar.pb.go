@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: proto/bar/v1/bar.proto
+// source: bar/v1/bar.proto
 
 package v1
 
@@ -35,7 +35,7 @@ type Bar struct {
 
 func (x *Bar) Reset() {
 	*x = Bar{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[0]
+	mi := &file_bar_v1_bar_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +47,7 @@ func (x *Bar) String() string {
 func (*Bar) ProtoMessage() {}
 
 func (x *Bar) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[0]
+	mi := &file_bar_v1_bar_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *Bar) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Bar.ProtoReflect.Descriptor instead.
 func (*Bar) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{0}
+	return file_bar_v1_bar_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Bar) GetId() string {
@@ -95,7 +95,7 @@ type CreateBarRequest struct {
 
 func (x *CreateBarRequest) Reset() {
 	*x = CreateBarRequest{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[1]
+	mi := &file_bar_v1_bar_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -107,7 +107,7 @@ func (x *CreateBarRequest) String() string {
 func (*CreateBarRequest) ProtoMessage() {}
 
 func (x *CreateBarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[1]
+	mi := &file_bar_v1_bar_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -120,7 +120,7 @@ func (x *CreateBarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBarRequest.ProtoReflect.Descriptor instead.
 func (*CreateBarRequest) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{1}
+	return file_bar_v1_bar_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateBarRequest) GetCode() string {
@@ -147,7 +147,7 @@ type GetBarRequest struct {
 
 func (x *GetBarRequest) Reset() {
 	*x = GetBarRequest{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[2]
+	mi := &file_bar_v1_bar_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -159,7 +159,7 @@ func (x *GetBarRequest) String() string {
 func (*GetBarRequest) ProtoMessage() {}
 
 func (x *GetBarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[2]
+	mi := &file_bar_v1_bar_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -172,7 +172,7 @@ func (x *GetBarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBarRequest.ProtoReflect.Descriptor instead.
 func (*GetBarRequest) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{2}
+	return file_bar_v1_bar_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetBarRequest) GetId() string {
@@ -194,7 +194,7 @@ type ListBarsRequest struct {
 
 func (x *ListBarsRequest) Reset() {
 	*x = ListBarsRequest{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[3]
+	mi := &file_bar_v1_bar_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -206,7 +206,7 @@ func (x *ListBarsRequest) String() string {
 func (*ListBarsRequest) ProtoMessage() {}
 
 func (x *ListBarsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[3]
+	mi := &file_bar_v1_bar_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -219,7 +219,7 @@ func (x *ListBarsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBarsRequest.ProtoReflect.Descriptor instead.
 func (*ListBarsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{3}
+	return file_bar_v1_bar_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListBarsRequest) GetPage() int32 {
@@ -256,7 +256,7 @@ type ListBarsResponse struct {
 
 func (x *ListBarsResponse) Reset() {
 	*x = ListBarsResponse{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[4]
+	mi := &file_bar_v1_bar_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -268,7 +268,7 @@ func (x *ListBarsResponse) String() string {
 func (*ListBarsResponse) ProtoMessage() {}
 
 func (x *ListBarsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[4]
+	mi := &file_bar_v1_bar_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -281,7 +281,7 @@ func (x *ListBarsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBarsResponse.ProtoReflect.Descriptor instead.
 func (*ListBarsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{4}
+	return file_bar_v1_bar_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListBarsResponse) GetBars() []*Bar {
@@ -324,7 +324,7 @@ type UpdateBarRequest struct {
 
 func (x *UpdateBarRequest) Reset() {
 	*x = UpdateBarRequest{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[5]
+	mi := &file_bar_v1_bar_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -336,7 +336,7 @@ func (x *UpdateBarRequest) String() string {
 func (*UpdateBarRequest) ProtoMessage() {}
 
 func (x *UpdateBarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[5]
+	mi := &file_bar_v1_bar_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -349,7 +349,7 @@ func (x *UpdateBarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBarRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBarRequest) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{5}
+	return file_bar_v1_bar_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpdateBarRequest) GetId() string {
@@ -383,7 +383,7 @@ type DeleteBarRequest struct {
 
 func (x *DeleteBarRequest) Reset() {
 	*x = DeleteBarRequest{}
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[6]
+	mi := &file_bar_v1_bar_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -395,7 +395,7 @@ func (x *DeleteBarRequest) String() string {
 func (*DeleteBarRequest) ProtoMessage() {}
 
 func (x *DeleteBarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_bar_v1_bar_proto_msgTypes[6]
+	mi := &file_bar_v1_bar_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -408,7 +408,7 @@ func (x *DeleteBarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBarRequest.ProtoReflect.Descriptor instead.
 func (*DeleteBarRequest) Descriptor() ([]byte, []int) {
-	return file_proto_bar_v1_bar_proto_rawDescGZIP(), []int{6}
+	return file_bar_v1_bar_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteBarRequest) GetId() string {
@@ -418,11 +418,11 @@ func (x *DeleteBarRequest) GetId() string {
 	return ""
 }
 
-var File_proto_bar_v1_bar_proto protoreflect.FileDescriptor
+var File_bar_v1_bar_proto protoreflect.FileDescriptor
 
-const file_proto_bar_v1_bar_proto_rawDesc = "" +
+const file_bar_v1_bar_proto_rawDesc = "" +
 	"\n" +
-	"\x16proto/bar/v1/bar.proto\x12\x06bar.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\"J\n" +
+	"\x10bar/v1/bar.proto\x12\x06bar.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\"J\n" +
 	"\x03Bar\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x03R\x02id\x12\x17\n" +
 	"\x04code\x18\x02 \x01(\tB\x03\xe0A\x03R\x04code\x12\x15\n" +
@@ -456,19 +456,19 @@ const file_proto_bar_v1_bar_proto_rawDesc = "" +
 	"\tDeleteBar\x12\x18.bar.v1.DeleteBarRequest\x1a\x16.google.protobuf.EmptyB\x1aZ\x18goilerplate/proto/bar/v1b\x06proto3"
 
 var (
-	file_proto_bar_v1_bar_proto_rawDescOnce sync.Once
-	file_proto_bar_v1_bar_proto_rawDescData []byte
+	file_bar_v1_bar_proto_rawDescOnce sync.Once
+	file_bar_v1_bar_proto_rawDescData []byte
 )
 
-func file_proto_bar_v1_bar_proto_rawDescGZIP() []byte {
-	file_proto_bar_v1_bar_proto_rawDescOnce.Do(func() {
-		file_proto_bar_v1_bar_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_bar_v1_bar_proto_rawDesc), len(file_proto_bar_v1_bar_proto_rawDesc)))
+func file_bar_v1_bar_proto_rawDescGZIP() []byte {
+	file_bar_v1_bar_proto_rawDescOnce.Do(func() {
+		file_bar_v1_bar_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_bar_v1_bar_proto_rawDesc), len(file_bar_v1_bar_proto_rawDesc)))
 	})
-	return file_proto_bar_v1_bar_proto_rawDescData
+	return file_bar_v1_bar_proto_rawDescData
 }
 
-var file_proto_bar_v1_bar_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_proto_bar_v1_bar_proto_goTypes = []any{
+var file_bar_v1_bar_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_bar_v1_bar_proto_goTypes = []any{
 	(*Bar)(nil),              // 0: bar.v1.Bar
 	(*CreateBarRequest)(nil), // 1: bar.v1.CreateBarRequest
 	(*GetBarRequest)(nil),    // 2: bar.v1.GetBarRequest
@@ -478,7 +478,7 @@ var file_proto_bar_v1_bar_proto_goTypes = []any{
 	(*DeleteBarRequest)(nil), // 6: bar.v1.DeleteBarRequest
 	(*emptypb.Empty)(nil),    // 7: google.protobuf.Empty
 }
-var file_proto_bar_v1_bar_proto_depIdxs = []int32{
+var file_bar_v1_bar_proto_depIdxs = []int32{
 	0, // 0: bar.v1.ListBarsResponse.bars:type_name -> bar.v1.Bar
 	1, // 1: bar.v1.BarService.CreateBar:input_type -> bar.v1.CreateBarRequest
 	2, // 2: bar.v1.BarService.GetBar:input_type -> bar.v1.GetBarRequest
@@ -497,26 +497,26 @@ var file_proto_bar_v1_bar_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_proto_bar_v1_bar_proto_init() }
-func file_proto_bar_v1_bar_proto_init() {
-	if File_proto_bar_v1_bar_proto != nil {
+func init() { file_bar_v1_bar_proto_init() }
+func file_bar_v1_bar_proto_init() {
+	if File_bar_v1_bar_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_bar_v1_bar_proto_rawDesc), len(file_proto_bar_v1_bar_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bar_v1_bar_proto_rawDesc), len(file_bar_v1_bar_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_bar_v1_bar_proto_goTypes,
-		DependencyIndexes: file_proto_bar_v1_bar_proto_depIdxs,
-		MessageInfos:      file_proto_bar_v1_bar_proto_msgTypes,
+		GoTypes:           file_bar_v1_bar_proto_goTypes,
+		DependencyIndexes: file_bar_v1_bar_proto_depIdxs,
+		MessageInfos:      file_bar_v1_bar_proto_msgTypes,
 	}.Build()
-	File_proto_bar_v1_bar_proto = out.File
-	file_proto_bar_v1_bar_proto_goTypes = nil
-	file_proto_bar_v1_bar_proto_depIdxs = nil
+	File_bar_v1_bar_proto = out.File
+	file_bar_v1_bar_proto_goTypes = nil
+	file_bar_v1_bar_proto_depIdxs = nil
 }

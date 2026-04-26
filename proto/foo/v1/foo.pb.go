@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: proto/foo/v1/foo.proto
+// source: foo/v1/foo.proto
 
 package v1
 
@@ -33,7 +33,7 @@ type Foo struct {
 
 func (x *Foo) Reset() {
 	*x = Foo{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[0]
+	mi := &file_foo_v1_foo_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -45,7 +45,7 @@ func (x *Foo) String() string {
 func (*Foo) ProtoMessage() {}
 
 func (x *Foo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[0]
+	mi := &file_foo_v1_foo_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,7 +58,7 @@ func (x *Foo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Foo.ProtoReflect.Descriptor instead.
 func (*Foo) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{0}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Foo) GetId() string {
@@ -93,7 +93,7 @@ type CreateFooRequest struct {
 
 func (x *CreateFooRequest) Reset() {
 	*x = CreateFooRequest{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[1]
+	mi := &file_foo_v1_foo_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -105,7 +105,7 @@ func (x *CreateFooRequest) String() string {
 func (*CreateFooRequest) ProtoMessage() {}
 
 func (x *CreateFooRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[1]
+	mi := &file_foo_v1_foo_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -118,7 +118,7 @@ func (x *CreateFooRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFooRequest.ProtoReflect.Descriptor instead.
 func (*CreateFooRequest) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{1}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateFooRequest) GetCode() string {
@@ -145,7 +145,7 @@ type CreateFooResponse struct {
 
 func (x *CreateFooResponse) Reset() {
 	*x = CreateFooResponse{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[2]
+	mi := &file_foo_v1_foo_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -157,7 +157,7 @@ func (x *CreateFooResponse) String() string {
 func (*CreateFooResponse) ProtoMessage() {}
 
 func (x *CreateFooResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[2]
+	mi := &file_foo_v1_foo_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -170,7 +170,7 @@ func (x *CreateFooResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFooResponse.ProtoReflect.Descriptor instead.
 func (*CreateFooResponse) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{2}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CreateFooResponse) GetFoo() *Foo {
@@ -190,7 +190,7 @@ type GetFooRequest struct {
 
 func (x *GetFooRequest) Reset() {
 	*x = GetFooRequest{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[3]
+	mi := &file_foo_v1_foo_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -202,7 +202,7 @@ func (x *GetFooRequest) String() string {
 func (*GetFooRequest) ProtoMessage() {}
 
 func (x *GetFooRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[3]
+	mi := &file_foo_v1_foo_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -215,7 +215,7 @@ func (x *GetFooRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFooRequest.ProtoReflect.Descriptor instead.
 func (*GetFooRequest) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{3}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetFooRequest) GetId() string {
@@ -235,7 +235,7 @@ type GetFooResponse struct {
 
 func (x *GetFooResponse) Reset() {
 	*x = GetFooResponse{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[4]
+	mi := &file_foo_v1_foo_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -247,7 +247,7 @@ func (x *GetFooResponse) String() string {
 func (*GetFooResponse) ProtoMessage() {}
 
 func (x *GetFooResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[4]
+	mi := &file_foo_v1_foo_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -260,7 +260,7 @@ func (x *GetFooResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFooResponse.ProtoReflect.Descriptor instead.
 func (*GetFooResponse) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{4}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetFooResponse) GetFoo() *Foo {
@@ -282,7 +282,7 @@ type ListFoosRequest struct {
 
 func (x *ListFoosRequest) Reset() {
 	*x = ListFoosRequest{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[5]
+	mi := &file_foo_v1_foo_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -294,7 +294,7 @@ func (x *ListFoosRequest) String() string {
 func (*ListFoosRequest) ProtoMessage() {}
 
 func (x *ListFoosRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[5]
+	mi := &file_foo_v1_foo_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -307,7 +307,7 @@ func (x *ListFoosRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFoosRequest.ProtoReflect.Descriptor instead.
 func (*ListFoosRequest) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{5}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListFoosRequest) GetPage() int32 {
@@ -344,7 +344,7 @@ type ListFoosResponse struct {
 
 func (x *ListFoosResponse) Reset() {
 	*x = ListFoosResponse{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[6]
+	mi := &file_foo_v1_foo_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +356,7 @@ func (x *ListFoosResponse) String() string {
 func (*ListFoosResponse) ProtoMessage() {}
 
 func (x *ListFoosResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[6]
+	mi := &file_foo_v1_foo_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +369,7 @@ func (x *ListFoosResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFoosResponse.ProtoReflect.Descriptor instead.
 func (*ListFoosResponse) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{6}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListFoosResponse) GetFoos() []*Foo {
@@ -412,7 +412,7 @@ type UpdateFooRequest struct {
 
 func (x *UpdateFooRequest) Reset() {
 	*x = UpdateFooRequest{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[7]
+	mi := &file_foo_v1_foo_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -424,7 +424,7 @@ func (x *UpdateFooRequest) String() string {
 func (*UpdateFooRequest) ProtoMessage() {}
 
 func (x *UpdateFooRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[7]
+	mi := &file_foo_v1_foo_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,7 +437,7 @@ func (x *UpdateFooRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateFooRequest.ProtoReflect.Descriptor instead.
 func (*UpdateFooRequest) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{7}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UpdateFooRequest) GetId() string {
@@ -471,7 +471,7 @@ type UpdateFooResponse struct {
 
 func (x *UpdateFooResponse) Reset() {
 	*x = UpdateFooResponse{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[8]
+	mi := &file_foo_v1_foo_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -483,7 +483,7 @@ func (x *UpdateFooResponse) String() string {
 func (*UpdateFooResponse) ProtoMessage() {}
 
 func (x *UpdateFooResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[8]
+	mi := &file_foo_v1_foo_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -496,7 +496,7 @@ func (x *UpdateFooResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateFooResponse.ProtoReflect.Descriptor instead.
 func (*UpdateFooResponse) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{8}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateFooResponse) GetFoo() *Foo {
@@ -516,7 +516,7 @@ type DeleteFooRequest struct {
 
 func (x *DeleteFooRequest) Reset() {
 	*x = DeleteFooRequest{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[9]
+	mi := &file_foo_v1_foo_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -528,7 +528,7 @@ func (x *DeleteFooRequest) String() string {
 func (*DeleteFooRequest) ProtoMessage() {}
 
 func (x *DeleteFooRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[9]
+	mi := &file_foo_v1_foo_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -541,7 +541,7 @@ func (x *DeleteFooRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFooRequest.ProtoReflect.Descriptor instead.
 func (*DeleteFooRequest) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{9}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeleteFooRequest) GetId() string {
@@ -560,7 +560,7 @@ type DeleteFooResponse struct {
 
 func (x *DeleteFooResponse) Reset() {
 	*x = DeleteFooResponse{}
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[10]
+	mi := &file_foo_v1_foo_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -572,7 +572,7 @@ func (x *DeleteFooResponse) String() string {
 func (*DeleteFooResponse) ProtoMessage() {}
 
 func (x *DeleteFooResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_foo_v1_foo_proto_msgTypes[10]
+	mi := &file_foo_v1_foo_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -585,14 +585,14 @@ func (x *DeleteFooResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFooResponse.ProtoReflect.Descriptor instead.
 func (*DeleteFooResponse) Descriptor() ([]byte, []int) {
-	return file_proto_foo_v1_foo_proto_rawDescGZIP(), []int{10}
+	return file_foo_v1_foo_proto_rawDescGZIP(), []int{10}
 }
 
-var File_proto_foo_v1_foo_proto protoreflect.FileDescriptor
+var File_foo_v1_foo_proto protoreflect.FileDescriptor
 
-const file_proto_foo_v1_foo_proto_rawDesc = "" +
+const file_foo_v1_foo_proto_rawDesc = "" +
 	"\n" +
-	"\x16proto/foo/v1/foo.proto\x12\x06foo.v1\"=\n" +
+	"\x10foo/v1/foo.proto\x12\x06foo.v1\"=\n" +
 	"\x03Foo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
@@ -633,19 +633,19 @@ const file_proto_foo_v1_foo_proto_rawDesc = "" +
 	"\tDeleteFoo\x12\x18.foo.v1.DeleteFooRequest\x1a\x19.foo.v1.DeleteFooResponseB\x1aZ\x18goilerplate/proto/foo/v1b\x06proto3"
 
 var (
-	file_proto_foo_v1_foo_proto_rawDescOnce sync.Once
-	file_proto_foo_v1_foo_proto_rawDescData []byte
+	file_foo_v1_foo_proto_rawDescOnce sync.Once
+	file_foo_v1_foo_proto_rawDescData []byte
 )
 
-func file_proto_foo_v1_foo_proto_rawDescGZIP() []byte {
-	file_proto_foo_v1_foo_proto_rawDescOnce.Do(func() {
-		file_proto_foo_v1_foo_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_foo_v1_foo_proto_rawDesc), len(file_proto_foo_v1_foo_proto_rawDesc)))
+func file_foo_v1_foo_proto_rawDescGZIP() []byte {
+	file_foo_v1_foo_proto_rawDescOnce.Do(func() {
+		file_foo_v1_foo_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_foo_v1_foo_proto_rawDesc), len(file_foo_v1_foo_proto_rawDesc)))
 	})
-	return file_proto_foo_v1_foo_proto_rawDescData
+	return file_foo_v1_foo_proto_rawDescData
 }
 
-var file_proto_foo_v1_foo_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
-var file_proto_foo_v1_foo_proto_goTypes = []any{
+var file_foo_v1_foo_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_foo_v1_foo_proto_goTypes = []any{
 	(*Foo)(nil),               // 0: foo.v1.Foo
 	(*CreateFooRequest)(nil),  // 1: foo.v1.CreateFooRequest
 	(*CreateFooResponse)(nil), // 2: foo.v1.CreateFooResponse
@@ -658,7 +658,7 @@ var file_proto_foo_v1_foo_proto_goTypes = []any{
 	(*DeleteFooRequest)(nil),  // 9: foo.v1.DeleteFooRequest
 	(*DeleteFooResponse)(nil), // 10: foo.v1.DeleteFooResponse
 }
-var file_proto_foo_v1_foo_proto_depIdxs = []int32{
+var file_foo_v1_foo_proto_depIdxs = []int32{
 	0,  // 0: foo.v1.CreateFooResponse.foo:type_name -> foo.v1.Foo
 	0,  // 1: foo.v1.GetFooResponse.foo:type_name -> foo.v1.Foo
 	0,  // 2: foo.v1.ListFoosResponse.foos:type_name -> foo.v1.Foo
@@ -680,26 +680,26 @@ var file_proto_foo_v1_foo_proto_depIdxs = []int32{
 	0,  // [0:4] is the sub-list for field type_name
 }
 
-func init() { file_proto_foo_v1_foo_proto_init() }
-func file_proto_foo_v1_foo_proto_init() {
-	if File_proto_foo_v1_foo_proto != nil {
+func init() { file_foo_v1_foo_proto_init() }
+func file_foo_v1_foo_proto_init() {
+	if File_foo_v1_foo_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_foo_v1_foo_proto_rawDesc), len(file_proto_foo_v1_foo_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_foo_v1_foo_proto_rawDesc), len(file_foo_v1_foo_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_foo_v1_foo_proto_goTypes,
-		DependencyIndexes: file_proto_foo_v1_foo_proto_depIdxs,
-		MessageInfos:      file_proto_foo_v1_foo_proto_msgTypes,
+		GoTypes:           file_foo_v1_foo_proto_goTypes,
+		DependencyIndexes: file_foo_v1_foo_proto_depIdxs,
+		MessageInfos:      file_foo_v1_foo_proto_msgTypes,
 	}.Build()
-	File_proto_foo_v1_foo_proto = out.File
-	file_proto_foo_v1_foo_proto_goTypes = nil
-	file_proto_foo_v1_foo_proto_depIdxs = nil
+	File_foo_v1_foo_proto = out.File
+	file_foo_v1_foo_proto_goTypes = nil
+	file_foo_v1_foo_proto_depIdxs = nil
 }

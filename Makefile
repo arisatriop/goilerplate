@@ -45,7 +45,7 @@ migrate-create:
 # Proto generation
 proto-gen:
 	@echo "Generating proto files..."
-	buf generate
+	cd proto && buf generate
 
 # Development helpers
 dev-setup:
