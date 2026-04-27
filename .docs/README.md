@@ -22,7 +22,7 @@ In-depth guides for features and how the system works.
 
 - **[CRUD Operations](./guides/crud-operations.md)** - Step-by-step guide to create new CRUD
 - **[gRPC Guide](./guides/grpc.md)** - Proto setup, code generation, adding services, testing with grpcurl
-- **[Observability Guide](./guides/observability.md)** - OpenTelemetry tracing, Loki logs, Grafana setup
+- **[Observability Guide](./guides/observability.md)** - OpenTelemetry tracing setup and configuration
 - **[Router & API Routes](./api/router.md)** - Route structure (Public, Partner, Internal)
 - **[Architecture](./guides/architecture.md)** - Clean architecture & layer explanation
 

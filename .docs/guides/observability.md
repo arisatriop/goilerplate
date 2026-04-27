@@ -1,160 +1,82 @@
 # Observability Guide
 
-Goilerplate includes built-in OpenTelemetry (OTel) tracing across HTTP, gRPC, and database layers, with support for log aggregation via Loki and visualization via Grafana.
+Goilerplate includes built-in OpenTelemetry (OTel) distributed tracing across HTTP, gRPC, and database layers. Traces are exported via OTLP/gRPC to any compatible backend.
 
 ---
 
-## Overview
+## What is instrumented
 
-```
-App (HTTP/gRPC/DB spans)
-  └─► OTel SDK ──► OTLP/gRPC ──► Tempo ──► Grafana (traces)
-
-App (stdout logs)
-  └─► tee ──► storage/logs/app.log ──► Promtail ──► Loki ──► Grafana (logs)
-```
-
-### What is instrumented automatically
-
-| Layer | Instrumentation |
+| Layer | Package |
 |---|---|
 | HTTP (Fiber) | `otelfiber` — every request gets a trace span |
 | gRPC | `otelgrpc` stats handler — every RPC gets a trace span |
 | Database | `gorm/plugin/opentelemetry` — every SQL query gets a span |
 
+All instrumentation shares a single global `TracerProvider` initialized at startup (`internal/bootstrap/otel.go`).
+
 ---
 
-## Local Setup
-
-### Prerequisites
-
-The observability stack lives in a separate `docker-image` repo alongside this project:
-
-```
-others/
-├── goilerplate/         # this repo
-└── docker-image/
-    └── observability/   # Tempo + Loki + Promtail + Grafana
-```
-
-### 1. Start the observability stack
-
-```bash
-cd ../docker-image/observability
-docker compose up -d
-```
-
-Services started:
-
-| Service | Port | Purpose |
-|---|---|---|
-| Tempo | `4317` | OTLP gRPC receiver (traces) |
-| Tempo | `3200` | HTTP API (queried by Grafana) |
-| Loki | `3100` | Log storage (queried by Grafana) |
-| Promtail | — | Scrapes `storage/logs/app.log` → Loki |
-| Grafana | `3001` | UI for traces and logs |
-
-### 2. Enable OTel in config
+## Configuration
 
 ```yaml
 # config/config.yaml
 otel:
-  enabled: true
-  endpoint: localhost:4317
-  insecure: true   # disable TLS for local dev
+  enabled: true            # false = no-op provider, zero overhead
+  endpoint: localhost:4317 # OTLP gRPC endpoint of your backend
+  insecure: true           # set false in production (requires TLS)
 ```
 
-### 3. Run the app with log redirect
-
-Logs must be written to a file so Promtail can scrape them.
-
-**Using air (default):**
-```bash
-make run
-# .air.toml is already configured to tee logs to storage/logs/app.log
-```
-
-**Using nodemon:**
-```bash
-mkdir -p ./storage/logs && nodemon -e go --signal SIGINT \
-  --exec "sh -c 'go run cmd/server/main.go 2>&1 | tee ./storage/logs/app.log'"
-```
-
-### 4. View in Grafana
-
-Open `http://localhost:3001` → **Explore**:
-
-- **Traces**: datasource = **Tempo** → Search → Run query
-- **Logs**: datasource = **Loki** → query `{job="goilerplate"}` → Run query
+When `enabled: false` (default), a no-op provider is used — no performance impact.
 
 ---
 
-## Reading Traces
+## Reading traces
 
-Each trace shows the full lifecycle of a request as a waterfall:
+Each trace represents the full lifecycle of a request as a waterfall of spans:
 
 ```
-POST /api/v1/bars          45ms   ← HTTP span (otelfiber)
-  └─ INSERT INTO bars...   38ms   ← DB span (otelgorm)
+POST /api/v1/bars          45ms   ← HTTP span
+  └─ INSERT INTO bars...   38ms   ← DB span
 ```
 
-Click a span to see:
-- `http.method`, `http.status_code`, `http.route`
-- `db.statement` — the SQL query that ran
-- `error` — with stack trace if the span failed
+Each span includes relevant attributes:
+- HTTP: `http.method`, `http.status_code`, `http.route`
+- DB: `db.statement` — the SQL query that ran
+- Both: `error` with details if the span failed
 
 ### Identifying bottlenecks
 
-- If the DB span is nearly as long as the HTTP span → database is the bottleneck
-- Multiple DB spans for one request → possible N+1 query problem
-- Long HTTP span with no DB spans → logic/compute bottleneck
+- DB span nearly as long as the HTTP span → database is the bottleneck
+- Multiple DB spans per request → possible N+1 query problem
+- Long HTTP span with no child spans → logic/compute bottleneck
 
 ---
 
-## Reading Logs in Loki
+## Compatible backends
 
-Logs are structured JSON. Use LogQL to filter:
+Any OTLP-compatible backend works — only `otel.endpoint` needs to change:
 
-```logql
-# All logs
-{job="goilerplate"}
+| Backend | Type |
+|---|---|
+| Jaeger | Self-hosted |
+| Grafana Tempo | Self-hosted |
+| Grafana Cloud | Managed |
+| Datadog | Managed |
+| New Relic | Managed |
+| Elastic APM | Self-hosted / Managed |
 
-# Only errors
-{job="goilerplate"} | json | level="ERROR"
-
-# Specific request
-{job="goilerplate"} | json | request_id="abc-123"
-
-# Incoming requests only
-{job="goilerplate"} | json | label="incoming-request-log"
-```
+No code changes are needed when switching backends.
 
 ---
 
-## Configuration Reference
+## Production notes
 
-```yaml
-otel:
-  enabled: true           # false = no-op provider, zero overhead
-  endpoint: localhost:4317 # OTLP gRPC endpoint
-  insecure: true          # set false in production (requires TLS)
-```
-
-In production, point `endpoint` to your observability backend (Grafana Cloud, Datadog, etc.) — no code changes required.
-
----
-
-## Production Notes
-
-- The observability stack (`docker-image/observability`) is for **local development only**
-- In production, use a managed service (Grafana Cloud, Datadog, New Relic) or a dedicated infra repo
-- Only the `otel.endpoint` in `config.yaml` needs to change per environment
-- Set `otel.insecure: false` and configure TLS in production
+- Set `otel.insecure: false` in production and configure TLS on your backend
+- Use `AlwaysSample` (current default) for dev; consider a ratio sampler for high-traffic production
 
 ---
 
 ## Related
 
-- [Development Guide](../getting-started/development.md)
 - [Configuration Guide](../deployment/configuration.md)
-- [gRPC Guide](./grpc.md)
+- [Development Guide](../getting-started/development.md)

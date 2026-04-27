@@ -59,7 +59,7 @@ log:
 
 otel:
   enabled: false          # Set true to enable distributed tracing
-  endpoint: localhost:4317 # OTLP gRPC endpoint (Tempo/Jaeger)
+  endpoint: localhost:4317 # OTLP gRPC endpoint of your backend
   insecure: true          # Disable TLS — set false in production
 ```
 
