@@ -101,12 +101,13 @@ func (ts *TokenStorage) StoreAccessToken(ctx context.Context, userID string, acc
 
 // MarkTokenAsUsedAsync marks token as used in background
 func (ts *TokenStorage) MarkTokenAsUsedAsync(ctx context.Context, tokenID string) {
-	go func(tokenID string, userCtx context.Context) {
-		err := ts.authRepo.MarkTokenAsUsed(userCtx, tokenID)
+	bgCtx := context.WithoutCancel(ctx)
+	go func() {
+		err := ts.authRepo.MarkTokenAsUsed(bgCtx, tokenID)
 		if err != nil {
-			logger.Error(userCtx, err)
+			logger.Error(bgCtx, err)
 		}
-	}(tokenID, ctx)
+	}()
 }
 
 // hashToken creates a SHA256 hash of the token for secure storage

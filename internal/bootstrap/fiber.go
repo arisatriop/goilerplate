@@ -4,6 +4,7 @@ import (
 	"goilerplate/config"
 	"goilerplate/internal/delivery/http/middleware"
 
+	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -16,6 +17,7 @@ func NewFiber(cfg *config.Config) *fiber.App {
 	})
 
 	app.Use(middleware.Recover())
+	app.Use(otelfiber.Middleware())
 	// app.Use(cors.New(cors.Config{
 	// 	AllowOrigins: "*",
 	// 	AllowHeaders: "Origin, Content-Type, Accept, Authorization",

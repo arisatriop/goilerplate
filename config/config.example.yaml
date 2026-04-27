@@ -54,6 +54,11 @@ log:
   level: debug
   source: false
 
+otel:
+  enabled: false
+  endpoint: localhost:4317   # Jaeger OTLP gRPC endpoint
+  insecure: true             # disable TLS for local dev
+
 filesystem:
   driver: s3  # Options: local, s3, drive
   max_file_size: 204800  # Maximum file size in bytes (200KB)
