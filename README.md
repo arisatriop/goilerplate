@@ -15,6 +15,7 @@ A clean, scalable REST API template featuring JWT authentication, role-based acc
 - **⚡ Performance** — Redis caching, connection pooling, optimized queries
 - **📦 Database Agnostic** — PostgreSQL or MySQL support
 - **📡 gRPC Support** — Proto-first gRPC server with buf toolchain, AIP conventions, and reflection
+- **🔭 Observability** — OpenTelemetry tracing (HTTP, gRPC, DB), Loki log aggregation, Grafana dashboards
 - **☁️ Cloud Ready** — S3, Google Drive, Kubernetes deployment
 - **🧪 Quality First** — Type-safe code, comprehensive validation, error handling
 
@@ -29,6 +30,8 @@ A clean, scalable REST API template featuring JWT authentication, role-based acc
 - **PostgreSQL/MySQL** — Relational database
 - **Redis** — Caching & sessions
 - **JWT** — Stateless authentication
+- **OpenTelemetry** — Distributed tracing (OTLP/gRPC) across HTTP, gRPC, and DB layers
+- **Grafana + Tempo + Loki** — Trace visualization and log aggregation
 
 ---
 
