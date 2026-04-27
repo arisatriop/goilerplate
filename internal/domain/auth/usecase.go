@@ -386,11 +386,12 @@ func (uc *authUseCase) buildActiveSession(sessionID, userID string, deviceInfo *
 // markTokenAsUsedAsync marks a token as used in background for audit trail
 // Failures are logged but don't affect the main flow
 func (uc *authUseCase) markTokenAsUsedAsync(ctx context.Context, tokenHash string) {
-	go func(hash string, userCtx context.Context) {
-		if err := uc.authRepo.MarkTokenAsUsed(userCtx, hash); err != nil {
-			logger.Error(userCtx, err)
+	bgCtx := context.WithoutCancel(ctx)
+	go func() {
+		if err := uc.authRepo.MarkTokenAsUsed(bgCtx, tokenHash); err != nil {
+			logger.Error(bgCtx, err)
 		}
-	}(tokenHash, ctx)
+	}()
 }
 
 // blacklistAllUserTokens adds all user tokens to blacklist atomically

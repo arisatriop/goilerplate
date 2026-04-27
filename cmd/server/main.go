@@ -63,6 +63,12 @@ func start(app *bootstrap.App) {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	if app.TracerProvider != nil {
+		if err := app.TracerProvider.Shutdown(timeoutCtx); err != nil {
+			app.Log.Error("Error shutting down tracer provider", "error", err)
+		}
+	}
+
 	gracefulShutdown(timeoutCtx, app)
 }
 

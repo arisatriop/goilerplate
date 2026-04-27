@@ -270,11 +270,12 @@ func (m *Auth) verifyTokenValidity(ctx *fiber.Ctx, tokenHash string) (*auth.User
 
 // markTokenAsUsedAsync marks the token as used in the background for audit trail
 func (m *Auth) markTokenAsUsedAsync(tokenHash string, userCtx context.Context) {
-	go func(hash string, ctx context.Context) {
-		if err := m.authRepository.MarkTokenAsUsed(ctx, hash); err != nil {
-			logger.Error(ctx, err)
+	bgCtx := context.WithoutCancel(userCtx)
+	go func() {
+		if err := m.authRepository.MarkTokenAsUsed(bgCtx, tokenHash); err != nil {
+			logger.Error(bgCtx, err)
 		}
-	}(tokenHash, userCtx)
+	}()
 }
 
 // setUserContext sets user information in both Fiber context and Go context

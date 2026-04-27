@@ -10,23 +10,31 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
 )
 
 // App holds only infrastructure dependencies (Clean Architecture compliant)
 type App struct {
-	DB         *bootstrap.DB
-	Log        *slog.Logger
-	Redis      *redis.Client
-	Config     *config.Config
-	WebServer  *fiber.App
-	GrpcServer *grpc.Server
-	Validator  *validator.Validate
+	DB             *bootstrap.DB
+	Log            *slog.Logger
+	Redis          *redis.Client
+	Config         *config.Config
+	WebServer      *fiber.App
+	GrpcServer     *grpc.Server
+	Validator      *validator.Validate
+	TracerProvider *sdktrace.TracerProvider
 }
 
 func Init() *App {
 	cfg := Load()
 	log := logger.NewSlog(cfg)
+
+	tp, err := NewTracerProvider(cfg)
+	if err != nil {
+		log.Error("failed to initialize tracer provider", "error", err)
+	}
+
 	fiber := NewFiber(cfg)
 	redis := NewRedis(cfg, log)
 	validator := validator.New()
@@ -34,13 +42,14 @@ func Init() *App {
 	db := initializeDatabase(cfg, log)
 
 	return &App{
-		Config:     cfg,
-		Log:        log,
-		WebServer:  fiber,
-		GrpcServer: NewGrpcServer(cfg),
-		DB:         db,
-		Redis:      redis,
-		Validator:  validator,
+		Config:         cfg,
+		Log:            log,
+		WebServer:      fiber,
+		GrpcServer:     NewGrpcServer(cfg),
+		DB:             db,
+		Redis:          redis,
+		Validator:      validator,
+		TracerProvider: tp,
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	gormPostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"gorm.io/plugin/opentelemetry/tracing"
 )
 
 func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
@@ -63,6 +64,10 @@ func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
 	if err != nil {
 		log.Error(fmt.Sprintf("failed to connect to gorm: %v", err))
 		os.Exit(1)
+	}
+
+	if err := gdb.Use(tracing.NewPlugin(tracing.WithoutMetrics())); err != nil {
+		log.Error(fmt.Sprintf("failed to register GORM OTel plugin: %v", err))
 	}
 
 	connection, err := gdb.DB()

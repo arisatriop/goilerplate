@@ -14,10 +14,17 @@ type Config struct {
 	Redis      Redis              `mapstructure:"redis"`
 	JWT        JWT                `mapstructure:"jwt"`
 	Log        *Logger            `mapstructure:"log"`
+	OTel       OTel               `mapstructure:"otel"`
 	FileSystem FileSystem         `mapstructure:"filesystem"`
 	Crypto     Crypto             `mapstructure:"crypto"`
 	Apikeys    map[string]string  `mapstructure:"api_key"`
 	Services   map[string]Service `mapstructure:"service"`
+}
+
+type OTel struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Endpoint string `mapstructure:"endpoint"` // OTLP gRPC endpoint, e.g. "localhost:4317"
+	Insecure bool   `mapstructure:"insecure"` // skip TLS — set true for local/dev
 }
 
 type GRPC struct {
