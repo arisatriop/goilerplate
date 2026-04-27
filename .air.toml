@@ -5,7 +5,7 @@ tmp_dir = "tmp"
 [build]
 cmd = "go build -o ./tmp/server ./cmd/server"
 bin = "tmp/server"
-# full_bin = "./tmp/server > ./../../others/grafana-loki/logs/goilerplate.log 2>&1"
+full_bin = "mkdir -p ./storage/logs && ./tmp/server 2>&1 | tee ./storage/logs/app.log"
 
 [log]
 color = true
