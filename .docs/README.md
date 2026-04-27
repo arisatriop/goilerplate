@@ -22,6 +22,7 @@ In-depth guides for features and how the system works.
 
 - **[CRUD Operations](./guides/crud-operations.md)** - Step-by-step guide to create new CRUD
 - **[gRPC Guide](./guides/grpc.md)** - Proto setup, code generation, adding services, testing with grpcurl
+- **[Observability Guide](./guides/observability.md)** - OpenTelemetry tracing, Loki logs, Grafana setup
 - **[Router & API Routes](./api/router.md)** - Route structure (Public, Partner, Internal)
 - **[Architecture](./guides/architecture.md)** - Clean architecture & layer explanation
 
@@ -58,6 +59,7 @@ Technical documentation and special setup.
 |-------|------|
 | Main README | [README.md](../README.md) |
 | gRPC Guide | [guides/grpc.md](./guides/grpc.md) |
+| Observability | [guides/observability.md](./guides/observability.md) |
 | Project Structure | [README.md#-project-structure](../README.md#-project-structure) |
 | Tech Stack | [README.md#-tech-stack](../README.md#-tech-stack) |
 | Contributing | [README.md#-contributing](../README.md#-contributing) |

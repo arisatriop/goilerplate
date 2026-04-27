@@ -56,6 +56,11 @@ jwt:
 log:
   level: debug # debug, info, warn, error
   source: false # Include source code location
+
+otel:
+  enabled: false          # Set true to enable distributed tracing
+  endpoint: localhost:4317 # OTLP gRPC endpoint (Tempo/Jaeger)
+  insecure: true          # Disable TLS — set false in production
 ```
 
 ---

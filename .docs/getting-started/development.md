@@ -357,6 +357,40 @@ Then open PR on GitHub.
 
 ---
 
+## 🔭 Observability (Local)
+
+To enable distributed tracing and log aggregation locally, start the observability stack from the `docker-image` repo:
+
+```bash
+cd ../docker-image/observability
+docker compose up -d
+```
+
+Then enable OTel in `config/config.yaml`:
+
+```yaml
+otel:
+  enabled: true
+  endpoint: localhost:4317
+  insecure: true
+```
+
+Run the app with log redirect so Promtail can scrape logs into Loki:
+
+```bash
+# Using air
+make run   # .air.toml already configured to tee logs to storage/logs/app.log
+
+# Using nodemon
+mkdir -p ./storage/logs && nodemon -e go --signal SIGINT --exec "sh -c 'go run cmd/server/main.go 2>&1 | tee ./storage/logs/app.log'"
+```
+
+Open Grafana at `http://localhost:3001` → Explore → select **Tempo** for traces or **Loki** for logs.
+
+See [Observability Guide](../guides/observability.md) for full details.
+
+---
+
 ## 💡 Pro Tips
 
 1. **Use IDE features** - Most IDEs have excellent Go support
