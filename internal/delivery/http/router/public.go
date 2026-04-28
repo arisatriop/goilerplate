@@ -2,6 +2,7 @@ package router
 
 import (
 	"goilerplate/internal/bootstrap"
+	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/wire"
 	"goilerplate/pkg/constants"
 
@@ -14,6 +15,10 @@ type PublicRouteRegistry struct {
 }
 
 func (r *PublicRouteRegistry) register(route fiber.Router) {
+	broken := &handler.BrokenHandler{}
+	route.Get("/api/v1/broken/data", broken.GetData)
+	route.Get("/api/v1/broken/divide", broken.Divide)
+
 	auth := route.Group("api/v1/auth")
 	auth.Post("/register", r.Wired.Handlers.Auth.Register)
 	auth.Post("/login", r.Wired.Handlers.Auth.Login)
