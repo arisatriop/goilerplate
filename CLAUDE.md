@@ -85,7 +85,8 @@ Project-level slash commands available:
 |---|---|
 | `/commit` | Create a conventional commit for current changes |
 | `/commit-body` | Create a commit with subject + detailed body |
-| `/review` | Review current git diff for correctness, security, and conventions |
+| `/code-review` | Review current git diff for correctness, security, and conventions |
+| `/pr-review` | Review an open GitHub PR using the GitHub MCP server |
 | `/fix-issue <topic>` | Guided workflow to investigate and fix an issue |
 
 ## MCP Setup
