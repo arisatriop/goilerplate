@@ -69,6 +69,12 @@ func start(app *bootstrap.App) {
 		}
 	}
 
+	if app.MeterProvider != nil {
+		if err := app.MeterProvider.Shutdown(timeoutCtx); err != nil {
+			app.Log.Error("Error shutting down meter provider", "error", err)
+		}
+	}
+
 	gracefulShutdown(timeoutCtx, app)
 }
 

@@ -7,7 +7,9 @@ import (
 	"goilerplate/pkg/utils"
 	"time"
 
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type RouteRegistry struct {
@@ -122,6 +124,7 @@ func (r *RouteRegistry) Register() {
 	http.Get("/", r.index)
 	http.Get("/health", r.health)
 	http.Get("/healthcheck", r.healthCheck)
+	http.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
 	http.Use(r.Wired.Middleware.RequestLogger.LogRequest())
 
 	(&InternalRouteRegistry{

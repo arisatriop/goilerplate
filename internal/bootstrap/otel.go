@@ -7,11 +7,35 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
+
+func NewMeterProvider(cfg *config.Config) (*sdkmetric.MeterProvider, error) {
+	res := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceNameKey.String(cfg.App.Name),
+		semconv.ServiceVersionKey.String(cfg.App.Version),
+		semconv.DeploymentEnvironmentKey.String(cfg.App.Env),
+	)
+
+	exporter, err := prometheus.New()
+	if err != nil {
+		return nil, fmt.Errorf("creating Prometheus exporter: %w", err)
+	}
+
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(exporter),
+		sdkmetric.WithResource(res),
+	)
+
+	otel.SetMeterProvider(mp)
+	return mp, nil
+}
 
 func NewTracerProvider(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 	res := resource.NewWithAttributes(

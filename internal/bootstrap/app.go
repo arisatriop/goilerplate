@@ -10,6 +10,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
 )
@@ -24,6 +25,7 @@ type App struct {
 	GrpcServer     *grpc.Server
 	Validator      *validator.Validate
 	TracerProvider *sdktrace.TracerProvider
+	MeterProvider  *sdkmetric.MeterProvider
 }
 
 func Init() *App {
@@ -33,6 +35,11 @@ func Init() *App {
 	tp, err := NewTracerProvider(cfg)
 	if err != nil {
 		log.Error("failed to initialize tracer provider", "error", err)
+	}
+
+	mp, err := NewMeterProvider(cfg)
+	if err != nil {
+		log.Error("failed to initialize meter provider", "error", err)
 	}
 
 	fiber := NewFiber(cfg)
@@ -50,6 +57,7 @@ func Init() *App {
 		Redis:          redis,
 		Validator:      validator,
 		TracerProvider: tp,
+		MeterProvider:  mp,
 	}
 }
 
