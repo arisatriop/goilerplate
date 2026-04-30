@@ -42,6 +42,11 @@ migrate-create:
 	@echo "Creating new migration: $(name)"
 	go run cmd/migrate/main.go -action=create -name=$(name)
 
+# Swagger docs
+swag:
+	@echo "Generating Swagger docs..."
+	swag init -g cmd/server/main.go -o docs/
+
 # Development helpers
 dev-setup:
 	@echo "Setting up development environment..."
@@ -96,4 +101,5 @@ help:
 	@echo "  dev-setup      - Setup development environment"
 	@echo "  format         - Format code"
 	@echo "  lint           - Run linter"
+	@echo "  swag           - Generate Swagger docs"
 	@echo "  help           - Show this help message"

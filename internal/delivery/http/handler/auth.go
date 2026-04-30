@@ -32,6 +32,15 @@ func NewAuth(deviceService auth.DeviceService, validator *validator.Validate, ap
 }
 
 // Register handles user registration
+// @Summary      Register a new user
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.RegisterRequest  true  "Registration data"
+// @Success      201      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Router       /api/v1/auth/register [post]
 func (h *Auth) Register(ctx *fiber.Ctx) error {
 	var req dtorequest.RegisterRequest
 	if err := ctx.BodyParser(&req); err != nil {
@@ -59,6 +68,16 @@ func (h *Auth) Register(ctx *fiber.Ctx) error {
 }
 
 // Login handles user authentication
+// @Summary      Login
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.LoginRequest  true  "Login credentials"
+// @Success      200      {object}  response.BaseResponse{data=dtoresponse.LoginResponse}
+// @Failure      400      {object}  response.BaseResponse
+// @Failure      401      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Router       /api/v1/auth/login [post]
 func (h *Auth) Login(ctx *fiber.Ctx) error {
 	var req dtorequest.LoginRequest
 	if err := ctx.BodyParser(&req); err != nil {
@@ -90,7 +109,14 @@ func (h *Auth) Login(ctx *fiber.Ctx) error {
 }
 
 // Logout handles user logout by invalidating the access token
-// Note: Requires Authenticate middleware
+// @Summary      Logout
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  response.BaseResponse
+// @Failure      401  {object}  response.BaseResponse
+// @Failure      500  {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/auth/logout [post]
 func (h *Auth) Logout(ctx *fiber.Ctx) error {
 	// Get user ID, token hash, and session ID from context (guaranteed by middleware)
 	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
@@ -106,7 +132,14 @@ func (h *Auth) Logout(ctx *fiber.Ctx) error {
 }
 
 // LogoutAll handles logout from all devices for a user
-// Note: Requires Authenticate middleware
+// @Summary      Logout from all devices
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  response.BaseResponse
+// @Failure      401  {object}  response.BaseResponse
+// @Failure      500  {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/auth/logout-all [post]
 func (h *Auth) LogoutAll(ctx *fiber.Ctx) error {
 	// Get user ID from context (guaranteed by middleware)
 	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
@@ -120,7 +153,14 @@ func (h *Auth) LogoutAll(ctx *fiber.Ctx) error {
 }
 
 // RefreshToken handles token refresh using refresh token
-// Note: Requires AuthenticateRefreshToken middleware
+// @Summary      Refresh access token
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  response.BaseResponse{data=dtoresponse.LoginResponse}
+// @Failure      401  {object}  response.BaseResponse
+// @Failure      500  {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/auth/refresh [post]
 func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 	// Get data from context (guaranteed by AuthenticateRefreshToken middleware)
 	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)

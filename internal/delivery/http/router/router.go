@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
+	fiberswagger "github.com/gofiber/swagger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -125,6 +126,7 @@ func (r *RouteRegistry) Register() {
 	http.Get("/health", r.health)
 	http.Get("/healthcheck", r.healthCheck)
 	http.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+	http.Get("/docs/*", fiberswagger.HandlerDefault)
 	http.Use(r.Wired.Middleware.RequestLogger.LogRequest())
 
 	(&InternalRouteRegistry{

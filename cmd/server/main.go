@@ -1,3 +1,19 @@
+// @title           Goilerplate API
+// @version         1.0
+// @description     Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and multi-database support.
+// @host            localhost:3000
+// @BasePath        /
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and your JWT token.
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
+// @description Partner API key.
+
 package main
 
 import (
@@ -6,6 +22,7 @@ import (
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/delivery/http/router"
 	"goilerplate/internal/wire"
+	_ "goilerplate/docs"
 	"net"
 	"os/signal"
 	"syscall"

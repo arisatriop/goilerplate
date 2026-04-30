@@ -25,6 +25,17 @@ func NewBar(validator *validator.Validate, usecase bar.Usecase) *Bar {
 	}
 }
 
+// @Summary      Create bar
+// @Tags         bars
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.BarCreateRequest  true  "Bar data"
+// @Success      201      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse
+// @Failure      401      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/bars [post]
 func (h *Bar) Create(ctx *fiber.Ctx) error {
 	var req dtorequest.BarCreateRequest
 	if err := ctx.BodyParser(&req); err != nil {
@@ -49,6 +60,19 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 	return response.Created(ctx, nil, response.WithMessage(bar.MsgBarCreatedSuccessfully))
 }
 
+// @Summary      Update bar
+// @Tags         bars
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                       true  "Bar ID"
+// @Param        request  body      dtorequest.BarUpdateRequest  true  "Bar data"
+// @Success      200      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse
+// @Failure      401      {object}  response.BaseResponse
+// @Failure      404      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/bars/{id} [put]
 func (h *Bar) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 
@@ -76,6 +100,16 @@ func (h *Bar) Update(ctx *fiber.Ctx) error {
 	return response.Success(ctx, nil, response.WithMessage(bar.MsgBarUpdatedSuccessfully))
 }
 
+// @Summary      Delete bar
+// @Tags         bars
+// @Produce      json
+// @Param        id   path      string  true  "Bar ID"
+// @Success      204  {object}  response.BaseResponse
+// @Failure      401  {object}  response.BaseResponse
+// @Failure      404  {object}  response.BaseResponse
+// @Failure      500  {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/bars/{id} [delete]
 func (h *Bar) Delete(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 
@@ -91,6 +125,17 @@ func (h *Bar) Delete(ctx *fiber.Ctx) error {
 	return response.NoContent(ctx)
 }
 
+// @Summary      List bars
+// @Tags         bars
+// @Produce      json
+// @Param        keyword  query     string  false  "Search keyword"
+// @Param        page     query     int     false  "Page number"   default(1)
+// @Param        limit    query     int     false  "Page size"     default(10)
+// @Success      200      {object}  response.PaginatedResponse{data=[]dtoresponse.BarResponse}
+// @Failure      401      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/bars [get]
 func (h *Bar) List(ctx *fiber.Ctx) error {
 	var req dtorequest.BarListRequest
 	if err := ctx.QueryParser(&req); err != nil {
@@ -110,6 +155,16 @@ func (h *Bar) List(ctx *fiber.Ctx) error {
 	return response.Success(ctx, paginatedResponse, response.WithMessage(bar.MsgBarListFetchSuccessfully))
 }
 
+// @Summary      Get bar by ID
+// @Tags         bars
+// @Produce      json
+// @Param        id   path      string  true  "Bar ID"
+// @Success      200  {object}  response.BaseResponse{data=dtoresponse.BarResponse}
+// @Failure      401  {object}  response.BaseResponse
+// @Failure      404  {object}  response.BaseResponse
+// @Failure      500  {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/bars/{id} [get]
 func (h *Bar) Get(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 
