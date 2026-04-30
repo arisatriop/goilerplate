@@ -13,7 +13,7 @@ type PartnerRouteRegistry struct {
 }
 
 func (r *PartnerRouteRegistry) register(route fiber.Router) {
-	partner := route.Group("partner").Use(r.Wired.Middleware.Auth.PartnerAuthenticate())
+	partner := route.Group("partner").Use(r.Wired.Middleware.Auth.PartnerAuthenticate(), r.Wired.Middleware.RateLimit.Partner)
 	v1 := partner.Group("v1")
 
 	r.foo(v1)

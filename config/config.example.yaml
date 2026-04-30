@@ -59,6 +59,17 @@ otel:
   endpoint: localhost:4317   # Jaeger OTLP gRPC endpoint
   insecure: true             # disable TLS for local dev
 
+rate_limit:
+  auth:             # per IP — login, register (brute force protection)
+    max: 10
+    expiration: 1m
+  user:             # per user ID — authenticated routes
+    max: 100
+    expiration: 1m
+  partner:          # per API key — partner routes
+    max: 1000
+    expiration: 1m
+
 filesystem:
   driver: s3  # Options: local, s3, drive
   max_file_size: 204800  # Maximum file size in bytes (200KB)

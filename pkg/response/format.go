@@ -207,6 +207,17 @@ func Paginated(ctx *fiber.Ctx, data interface{}, paginationData interface{}, opt
 	return ctx.Status(http.StatusOK).JSON(response)
 }
 
+// TooManyRequests sends a 429 rate limit exceeded response
+func TooManyRequests(ctx *fiber.Ctx, message string) error {
+	if message == "" {
+		message = "Too many requests, please try again later"
+	}
+	return ctx.Status(http.StatusTooManyRequests).JSON(&BaseResponse{
+		Success: false,
+		Message: message,
+	})
+}
+
 // CustomError sends a custom error response with specified status code
 func CustomError(ctx *fiber.Ctx, statusCode int, message string, errors interface{}) error {
 	return ctx.Status(statusCode).JSON(&BaseResponse{

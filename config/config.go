@@ -15,10 +15,22 @@ type Config struct {
 	JWT        JWT                `mapstructure:"jwt"`
 	Log        *Logger            `mapstructure:"log"`
 	OTel       OTel               `mapstructure:"otel"`
+	RateLimit  RateLimit          `mapstructure:"rate_limit"`
 	FileSystem FileSystem         `mapstructure:"filesystem"`
 	Crypto     Crypto             `mapstructure:"crypto"`
 	Apikeys    map[string]string  `mapstructure:"api_key"`
 	Services   map[string]Service `mapstructure:"service"`
+}
+
+type RateLimit struct {
+	Auth    RateLimitRule `mapstructure:"auth"`
+	User    RateLimitRule `mapstructure:"user"`
+	Partner RateLimitRule `mapstructure:"partner"`
+}
+
+type RateLimitRule struct {
+	Max        int           `mapstructure:"max"`
+	Expiration time.Duration `mapstructure:"expiration"`
 }
 
 type OTel struct {

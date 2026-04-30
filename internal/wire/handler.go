@@ -27,10 +27,10 @@ type Middleware struct {
 	Auth          *middleware.Auth
 	Recover       fiber.Handler
 	RequestLogger *middleware.RequestLogger
+	RateLimit     *middleware.RateLimiter
 	// Future middleware will be added here:
-	// RateLimit *middleware.RateLimit
-	// CORS      *middleware.CORS
-	// Logger    *middleware.Logger
+	// CORS   *middleware.CORS
+	// Logger *middleware.Logger
 }
 
 // WireHandlers creates all HTTP handlers
@@ -55,9 +55,9 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, infrastructure.AuthCacheService, permissionService, cfg.Apikeys),
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(),
+		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit),
 		// Future middleware wiring:
-		// RateLimit: middleware.NewRateLimit(),
-		// CORS:      middleware.NewCORS(),
-		// Logger:    middleware.NewLogger(),
+		// CORS:   middleware.NewCORS(),
+		// Logger: middleware.NewLogger(),
 	}
 }

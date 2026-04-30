@@ -14,14 +14,14 @@ type PublicRouteRegistry struct {
 }
 
 func (r *PublicRouteRegistry) register(route fiber.Router) {
-	auth := route.Group("api/v1/auth")
+	auth := route.Group("api/v1/auth").Use(r.Wired.Middleware.RateLimit.Auth)
 	auth.Post("/register", r.Wired.Handlers.Auth.Register)
 	auth.Post("/login", r.Wired.Handlers.Auth.Login)
 	auth.Post("/refresh", r.Wired.Middleware.Auth.AuthenticateRefreshToken(), r.Wired.Handlers.Auth.RefreshToken)
 	auth.Post("/logout", r.Wired.Middleware.Auth.Authenticate(), r.Wired.Handlers.Auth.Logout)
 	auth.Post("/logout-all", r.Wired.Middleware.Auth.Authenticate(), r.Wired.Handlers.Auth.LogoutAll)
 
-	api := route.Group("api").Use(r.Wired.Middleware.Auth.Authenticate())
+	api := route.Group("api").Use(r.Wired.Middleware.Auth.Authenticate(), r.Wired.Middleware.RateLimit.User)
 	v1 := api.Group("v1")
 
 	r.foo(v1)
