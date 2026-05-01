@@ -126,7 +126,11 @@ func (r *RouteRegistry) Register() {
 	http.Get("/health", r.health)
 	http.Get("/healthcheck", r.healthCheck)
 	http.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
-	http.Get("/docs/*", fiberswagger.HandlerDefault)
+
+	http.Static("/swagger-ui", ".swagger")
+	http.Get("/swaggerui/*", fiberswagger.New(fiberswagger.Config{
+		URL: "/swagger-ui/swagger.json",
+	}))
 	http.Use(r.Wired.Middleware.RequestLogger.LogRequest())
 
 	(&InternalRouteRegistry{

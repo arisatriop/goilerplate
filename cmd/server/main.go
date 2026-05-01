@@ -22,7 +22,6 @@ import (
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/delivery/http/router"
 	"goilerplate/internal/wire"
-	_ "goilerplate/docs"
 	"net"
 	"os/signal"
 	"syscall"

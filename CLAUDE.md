@@ -48,7 +48,7 @@ storage/        Uploaded file storage
 - Server reflection is **disabled** — clients must import the proto module
 - gRPC port: `50051` (configured in `config/config.yaml` under `grpc.port`)
 - When adding a new gRPC service: add proto to goilerplate-proto → tag new version → `go get github.com/arisatriop/goilerplate-proto@<version>` → write handler → register → wire
-- See [.docs/guides/grpc.md](.docs/guides/grpc.md) for full guide
+- See [docs/guides/grpc.md](docs/guides/grpc.md) for full guide
 
 ## Development
 ```bash
@@ -90,4 +90,4 @@ Project-level slash commands available:
 | `/fix-issue <topic>` | Guided workflow to investigate and fix an issue |
 
 ## MCP Setup
-See [.docs/reference/mcp-setup.md](.docs/reference/mcp-setup.md) for MCP server configuration guide.
+See [docs/reference/mcp-setup.md](docs/reference/mcp-setup.md) for MCP server configuration guide.

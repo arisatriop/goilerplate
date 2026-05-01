@@ -4,7 +4,7 @@
 
 A clean, scalable REST API template featuring JWT authentication, role-based access control (RBAC), Redis caching, and clean architecture patterns — with built-in gRPC support.
 
-> 📚 **[→ View Full Documentation](./.docs/README.md)** — Installation, deployment, architecture, and development guides
+> 📚 **[→ View Full Documentation](./docs/README.md)** — Installation, deployment, architecture, and development guides
 
 ---
 
@@ -65,18 +65,18 @@ go run cmd/server/main.go
 
 Server runs at `http://localhost:3000`
 
-**→ [Full setup guide](./.docs/README.md)**
+**→ [Full setup guide](./docs/README.md)**
 
 ---
 
 ## 📖 Documentation
 
-All detailed documentation is in the [`/.docs`](./.docs/README.md) folder:
+All detailed documentation is in the [`/docs`](./docs/README.md) folder:
 
-- **[Getting Started](./.docs/getting-started/)** — Installation, Docker, development setup
-- **[Guides](./.docs/guides/)** — CRUD operations, clean architecture
-- **[Deployment](./.docs/deployment/)** — Kubernetes, CI/CD, configuration
-- **[API Reference](./.docs/api/)** — Routes, authentication, permissions
+- **[Getting Started](./docs/getting-started/)** — Installation, Docker, development setup
+- **[Guides](./docs/guides/)** — CRUD operations, clean architecture
+- **[Deployment](./docs/deployment/)** — Kubernetes, CI/CD, configuration
+- **[API Reference](./docs/api/)** — Routes, authentication, permissions
 
 ---
 
@@ -108,7 +108,7 @@ This project is licensed under the MIT License.
 ## 📧 Support
 
 - **Questions?** Open an [issue on GitHub](https://github.com/arisatriop/goilerplate/issues)
-- **Full docs:** See [`/.docs`](./.docs/README.md)
+- **Full docs:** See [`/docs`](./docs/README.md)
 - **Examples:** Check example requests in the documentation
 
 ---

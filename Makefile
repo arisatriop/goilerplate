@@ -45,7 +45,7 @@ migrate-create:
 # Swagger docs
 swag:
 	@echo "Generating Swagger docs..."
-	swag init -g cmd/server/main.go -o docs/
+	swag init -g cmd/server/main.go -o .swagger/
 
 # Development helpers
 dev-setup:
