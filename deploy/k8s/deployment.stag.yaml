@@ -23,6 +23,8 @@ spec:
         version: "${COMMIT_SHA}"
     spec:
       serviceAccountName: goilerplate
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -53,7 +55,7 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 3
       - name: app
-        image: asia-southeast2-docker.pkg.dev/${PROJECT_ID}/goilerplate/goilerplate:${COMMIT_SHA}
+        image: ${IMAGE}
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
