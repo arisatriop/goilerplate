@@ -22,11 +22,36 @@ spec:
         app: goilerplate
         version: "${COMMIT_SHA}"
     spec:
+      serviceAccountName: goilerplate
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 2000
       containers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+        args:
+          - "--port=5432"
+          - "--private-ip"
+          - "${CLOUD_SQL_INSTANCE}"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          allowPrivilegeEscalation: false
+        resources:
+          requests:
+            cpu: 20m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          tcpSocket:
+            port: 5432
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
       - name: app
         image: asia-southeast2-docker.pkg.dev/${PROJECT_ID}/goilerplate/goilerplate:${COMMIT_SHA}
         imagePullPolicy: Always
