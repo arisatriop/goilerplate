@@ -8,9 +8,9 @@ import (
 // ToBarResponse converts a single bar entity to DTO
 func ToBarResponse(entity *bar.Bar) *dtoresponse.BarResponse {
 	return &dtoresponse.BarResponse{
-		ID:      entity.ID,
-		Code:    entity.Code,
-		Bar: entity.Bar,
+		ID:   entity.ID,
+		Code: entity.Code,
+		Bar:  entity.Bar,
 	}
 }
 

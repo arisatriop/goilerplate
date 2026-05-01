@@ -7,7 +7,7 @@ import (
 type Bar struct {
 	ID        string     `gorm:"primaryKey;default:gen_random_uuid()"`
 	Code      string     `gorm:"column:code"`
-	Bar   string     `gorm:"column:bar"`
+	Bar       string     `gorm:"column:bar"`
 	IsActive  bool       `gorm:"column:is_active"`
 	CreatedBy string     `gorm:"column:created_by"`
 	UpdatedBy string     `gorm:"column:updated_by"`

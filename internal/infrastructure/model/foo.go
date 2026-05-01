@@ -7,7 +7,7 @@ import (
 type Foo struct {
 	ID        string     `gorm:"primaryKey;default:gen_random_uuid()"`
 	Code      string     `gorm:"column:code"`
-	Foo  string     `gorm:"column:foo"`
+	Foo       string     `gorm:"column:foo"`
 	IsActive  bool       `gorm:"column:is_active"`
 	CreatedBy string     `gorm:"column:created_by"`
 	UpdatedBy string     `gorm:"column:updated_by"`
