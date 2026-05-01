@@ -29,5 +29,17 @@
       "Bash(DROP DATABASE:*)"
     ]
   },
-  "enabledMcpjsonServers": ["postgres", "github", "fetch"]
+  "enabledMcpjsonServers": ["postgres", "github", "fetch"],
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && go vet ./... 2>&1 | tail -20 || true"
+          }
+        ]
+      }
+    ]
+  }
 }
