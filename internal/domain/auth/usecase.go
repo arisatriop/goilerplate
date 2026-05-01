@@ -214,11 +214,11 @@ func (uc *authUseCase) LogoutAll(ctx context.Context, userID string) error {
 
 	// Step 4: Clean up cache entries
 	// Cache cleanup failures are not critical since DB is already updated
-	if err := uc.deleteUserTokensFromCache(ctx, userID); err != nil {
+	if err := uc.deleteUserTokensFromCache(ctx, userID); err != nil { //nolint:staticcheck
 		// Continue - cache will expire naturally, DB is source of truth
 	}
 
-	if err := uc.deleteUserSessionsFromCache(ctx, userID); err != nil {
+	if err := uc.deleteUserSessionsFromCache(ctx, userID); err != nil { //nolint:staticcheck
 		// Continue - cache will expire naturally, DB is source of truth
 	}
 

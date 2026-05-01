@@ -8,8 +8,8 @@ import (
 )
 
 func NewSlog(cfg *config.Config) *slog.Logger {
-	var logLevel slog.Level = slog.LevelInfo
-	var logSource bool = false
+	logLevel := slog.LevelInfo
+	logSource := false
 
 	if cfg != nil && cfg.Log != nil {
 		logLevel = getLogLevel(cfg.Log.Level)

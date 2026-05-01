@@ -62,13 +62,13 @@ func bindEnvs(v *viper.Viper, iface interface{}, parts ...string) {
 		path := append(parts, tv)
 		if field.Type.Kind() == reflect.Struct {
 			bindEnvs(v, reflect.New(field.Type).Elem().Interface(), path...)
-		} else if field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct {
+		} else if field.Type.Kind() == reflect.Pointer && field.Type.Elem().Kind() == reflect.Struct {
 			bindEnvs(v, reflect.New(field.Type.Elem()).Elem().Interface(), path...)
 		} else if field.Type.Kind() == reflect.Map {
 			// Scan environment variables for map keys
 			envPrefix := strings.ToUpper(strings.Join(path, "_")) + "_"
 			elemType := field.Type.Elem()
-			if elemType.Kind() == reflect.Ptr {
+			if elemType.Kind() == reflect.Pointer {
 				elemType = elemType.Elem()
 			}
 
