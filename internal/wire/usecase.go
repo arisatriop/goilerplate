@@ -10,8 +10,8 @@ import (
 
 // UseCases contains all use case implementations
 type UseCases struct {
-	AuthUC     auth.Usecase
-	FooUC foo.Usecase
+	AuthUC auth.Usecase
+	FooUC  foo.Usecase
 	BarUC  bar.Usecase
 	// Future use cases will be added here:
 	// UserUC    user.UseCase
@@ -35,8 +35,8 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 	cacheService := auth.NewCacheService(app.Redis)
 
 	return &UseCases{
-		AuthUC:     auth.NewUseCase(repos.AuthRepo, jwtService, cacheService),
-		FooUC: foo.NewUseCase(repos.FooRepo),
+		AuthUC: auth.NewUseCase(repos.AuthRepo, jwtService, cacheService),
+		FooUC:  foo.NewUseCase(repos.FooRepo),
 		BarUC:  bar.NewUseCase(repos.BarRepo),
 		// Future use cases will be added here:
 		// UserUC:    user.NewUseCase(repos.UserRepo),

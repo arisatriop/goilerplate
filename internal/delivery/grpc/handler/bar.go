@@ -5,8 +5,9 @@ import (
 
 	bardomain "goilerplate/internal/domain/bar"
 	"goilerplate/pkg/grpcresponse"
-	pb "github.com/arisatriop/goilerplate-proto/bar/v1"
 	"goilerplate/pkg/pagination"
+
+	pb "github.com/arisatriop/goilerplate-proto/bar/v1"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -83,7 +84,7 @@ func (b *Bar) UpdateBar(ctx context.Context, req *pb.UpdateBarRequest) (*pb.Bar,
 	}
 
 	entity := &bardomain.Bar{
-		ID:  req.Id,
+		ID:   req.Id,
 		Code: req.Code,
 		Bar:  req.Bar,
 	}

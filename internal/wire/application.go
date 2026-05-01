@@ -9,7 +9,7 @@ import (
 
 // ApplicationServices contains all application services for multi-domain orchestration
 type ApplicationServices struct {
-	BarSvc  bar.ApplicationService
+	BarSvc      bar.ApplicationService
 	RegisterSvc register.ApplicationService
 }
 
