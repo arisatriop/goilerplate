@@ -6,11 +6,14 @@ linters:
     - govet
     - staticcheck
     - ineffassign
-    - gofmt
-    - goimports
     - misspell
   exclusions:
     rules:
       - path: _test\.go
         linters:
           - errcheck
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
