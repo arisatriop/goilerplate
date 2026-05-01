@@ -92,21 +92,21 @@ func bindEnvs(v *viper.Viper, iface interface{}, parts ...string) {
 								mapKey := strings.ToLower(strings.TrimSuffix(strings.TrimPrefix(envVar, envPrefix), suffix))
 								fieldKey := strings.ToLower(strings.TrimPrefix(suffix, "_"))
 								viperKey := strings.Join(path, ".") + "." + mapKey + "." + fieldKey
-								v.BindEnv(viperKey, envVar)
+								_ = v.BindEnv(viperKey, envVar)
 							}
 						}
 					} else {
 						// Simple map (e.g. map[string]string)
 						keyPart := strings.ToLower(strings.TrimPrefix(envVar, envPrefix))
 						viperKey := strings.Join(path, ".") + "." + keyPart
-						v.BindEnv(viperKey, envVar)
+						_ = v.BindEnv(viperKey, envVar)
 					}
 				}
 			}
 		} else {
 			key := strings.Join(path, ".")
 			envVar := strings.ToUpper(strings.Join(path, "_"))
-			v.BindEnv(key, envVar)
+			_ = v.BindEnv(key, envVar)
 		}
 	}
 }

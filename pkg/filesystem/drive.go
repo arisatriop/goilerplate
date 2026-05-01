@@ -105,7 +105,7 @@ func (d *DriveStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	// Preserve original filename
 	originalName := file.Filename

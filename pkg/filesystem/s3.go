@@ -63,7 +63,7 @@ func (s *S3Storage) Upload(file *multipart.FileHeader, opts UploadOptions) (*Upl
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	filename := opts.Filename
 	if filename == "" {

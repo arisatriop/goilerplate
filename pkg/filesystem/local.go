@@ -34,7 +34,7 @@ func (l *LocalStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	// Preserve original filename
 	originalName := file.Filename
@@ -68,7 +68,7 @@ func (l *LocalStorage) UploadFromReader(reader io.Reader, filename string, opts 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)
 	}
-	defer dst.Close()
+	defer func() { _ = dst.Close() }()
 
 	size, err := io.Copy(dst, reader)
 	if err != nil {
