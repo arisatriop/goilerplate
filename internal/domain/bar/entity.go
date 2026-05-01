@@ -7,9 +7,9 @@ import (
 )
 
 type Bar struct {
-	ID      string
-	Code    string
-	Bar string
+	ID   string
+	Code string
+	Bar  string
 }
 
 func (e *Bar) validate() error {
@@ -28,8 +28,8 @@ func (e *Bar) validate() error {
 
 func (e *Bar) Clone() *Bar {
 	return &Bar{
-		ID:      e.ID,
-		Code:    e.Code,
-		Bar: e.Bar,
+		ID:   e.ID,
+		Code: e.Code,
+		Bar:  e.Bar,
 	}
 }
