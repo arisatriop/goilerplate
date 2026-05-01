@@ -5,6 +5,7 @@ import (
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/wire"
 	"goilerplate/pkg/utils"
+	"strings"
 	"time"
 
 	"github.com/gofiber/adaptor/v2"
@@ -127,10 +128,12 @@ func (r *RouteRegistry) Register() {
 	http.Get("/healthcheck", r.healthCheck)
 	http.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
 
-	http.Static("/swagger-ui", ".swagger")
-	http.Get("/swaggerui/*", fiberswagger.New(fiberswagger.Config{
-		URL: "/swagger-ui/swagger.json",
-	}))
+	if strings.ToLower(r.App.Config.App.Env) != "production" {
+		http.Static("/swagger-ui", ".swagger")
+		http.Get("/swaggerui/*", fiberswagger.New(fiberswagger.Config{
+			URL: "/swagger-ui/swagger.json",
+		}))
+	}
 	http.Use(r.Wired.Middleware.RequestLogger.LogRequest())
 
 	(&InternalRouteRegistry{
