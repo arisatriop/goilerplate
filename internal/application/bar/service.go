@@ -14,7 +14,7 @@ type ApplicationService interface {
 
 type applicationService struct {
 	txManager transaction.Transaction
-	barUC bar.Usecase
+	barUC     bar.Usecase
 
 	barRepo bar.Repository
 }
@@ -25,9 +25,9 @@ func NewApplicationService(
 	barRepo bar.Repository,
 ) ApplicationService {
 	return &applicationService{
-		txManager:   txManager,
-		barUC:   barUC,
-		barRepo: barRepo,
+		txManager: txManager,
+		barUC:     barUC,
+		barRepo:   barRepo,
 	}
 }
 

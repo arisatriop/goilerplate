@@ -1,192 +1,241 @@
 name: CI/CD Pipeline
 
 on:
-  # push:
-  #   branches:
-  #     - develop
-  #     - staging
-  #     - main
-
+  push:
+    branches:
+      - develop
+      - staging
+      - main
   workflow_dispatch:
-    
 
 env:
-  GO_VERSION: '1.24'
-  GAR_LOCATION: asia-southeast2
-  GAR_REPOSITORY: goilerplate
-  IMAGE_NAME: goilerplate
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/goilerplate
 
 jobs:
 
-# ==============================
-# TEST
-# ==============================
+  # ==============================
+  # TEST & LINT
+  # ==============================
   test:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
-      - run: |
-          go mod download
-          go test -v ./...
+      - name: Download dependencies
+        run: go mod download
 
-# ==============================
-# BUILD IMAGE
-# ==============================
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.0
+
+  # ==============================
+  # BUILD & PUSH TO GHCR
+  # Runs on push only — production deploy uses image built from previous push to main
+  # ==============================
   build:
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push'
-
     permissions:
       contents: read
-      id-token: write
-
+      packages: write
     outputs:
-      commit_sha: ${{ steps.vars.outputs.sha }}
-
+      sha: ${{ steps.vars.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
 
       - id: vars
         run: echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-      - uses: google-github-actions/auth@v2
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: google-github-actions/setup-gcloud@v2
-
-      - run: |
-          gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
-
-      - run: |
-          TAG=${GITHUB_SHA::7}
-
-          IMAGE="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${TAG}"
-
-          docker build -t $IMAGE .
-          docker push $IMAGE
-
-# ==============================
-# DEPLOY DEV (AUTO - push to develop)
-# ==============================
-  deploy-dev:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: google-github-actions/auth@v2
+      - uses: docker/build-push-action@v6
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: gke-gcloud-auth-plugin
+  # # ==============================
+  # # DEPLOY DEV (auto - push to develop)
+  # # ==============================
+  # deploy-dev:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+  #   permissions:
+  #     contents: read
+  #     id-token: write
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - run: |
-          gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_DEV }} \
-            --zone ${{ vars.GKE_ZONE }} \
-            --project ${{ vars.GCP_PROJECT_ID }}
+  #     - uses: google-github-actions/auth@v2
+  #       with:
+  #         workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+  #         service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
 
-      - run: |
-          export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-          export COMMIT_SHA=${GITHUB_SHA::7}
+  #     - uses: google-github-actions/setup-gcloud@v2
+  #       with:
+  #         install_components: gke-gcloud-auth-plugin
 
-          envsubst < deploy/k8s/deployment.dev.yaml | kubectl apply -f -
+  #     - name: Get GKE credentials
+  #       run: |
+  #         gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_DEV }} \
+  #           --zone ${{ vars.GKE_ZONE }} \
+  #           --project ${{ vars.GCP_PROJECT_ID }}
 
-      - run: |
-          kubectl rollout status deployment/goilerplate -n apps --timeout=300s
+  #     - name: Ensure namespace exists
+  #       run: kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
 
-# ==============================
-# DEPLOY STAGING (MANUAL - workflow_dispatch)
-# ==============================
-  deploy-staging:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+  #     - name: Create GHCR pull secret
+  #       run: |
+  #         kubectl create secret docker-registry ghcr-pull-secret \
+  #           --docker-server=ghcr.io \
+  #           --docker-username=${{ github.repository_owner }} \
+  #           --docker-password=${{ secrets.GHCR_TOKEN }} \
+  #           --namespace=apps \
+  #           --dry-run=client -o yaml | kubectl apply -f -
 
-    permissions:
-      contents: read
-      id-token: write
+  #     - name: Deploy
+  #       run: |
+  #         export IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
+  #         export COMMIT_SHA=${GITHUB_SHA::7}
+  #         export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
+  #         export CLOUD_SQL_INSTANCE=${{ vars.CLOUD_SQL_INSTANCE }}
+  #         export GSA_NAME=${{ vars.GSA_NAME }}
+  #         envsubst '${GSA_NAME} ${PROJECT_ID}' \
+  #           < deploy/k8s/serviceaccount.yaml | kubectl apply -f -
+  #         envsubst '${IMAGE} ${COMMIT_SHA} ${CLOUD_SQL_INSTANCE}' \
+  #           < deploy/k8s/deployment.dev.yaml | kubectl apply -f -
 
-    steps:
-      - uses: actions/checkout@v4
+  #     - name: Wait for rollout
+  #       run: kubectl rollout status deployment/goilerplate -n apps --timeout=300s
 
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+  # # ==============================
+  # # DEPLOY STAGING (auto - push to staging)
+  # # ==============================
+  # deploy-staging:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+  #   permissions:
+  #     contents: read
+  #     id-token: write
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: gke-gcloud-auth-plugin
+  #     - uses: google-github-actions/auth@v2
+  #       with:
+  #         workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+  #         service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
 
-      - run: |
-          gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_STAG }} \
-            --zone ${{ vars.GKE_ZONE }} \
-            --project ${{ vars.GCP_PROJECT_ID }}
+  #     - uses: google-github-actions/setup-gcloud@v2
+  #       with:
+  #         install_components: gke-gcloud-auth-plugin
 
-      - run: |
-          export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-          export COMMIT_SHA=${GITHUB_SHA::7}
+  #     - name: Get GKE credentials
+  #       run: |
+  #         gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_STAG }} \
+  #           --zone ${{ vars.GKE_ZONE }} \
+  #           --project ${{ vars.GCP_PROJECT_ID }}
 
-          envsubst < deploy/k8s/deployment.stag.yaml | kubectl apply -f -
+  #     - name: Ensure namespace exists
+  #       run: kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
 
-      - run: |
-          kubectl rollout status deployment/goilerplate -n apps --timeout=300s
+  #     - name: Create GHCR pull secret
+  #       run: |
+  #         kubectl create secret docker-registry ghcr-pull-secret \
+  #           --docker-server=ghcr.io \
+  #           --docker-username=${{ github.repository_owner }} \
+  #           --docker-password=${{ secrets.GHCR_TOKEN }} \
+  #           --namespace=apps \
+  #           --dry-run=client -o yaml | kubectl apply -f -
 
-# ==============================
-# DEPLOY PRODUCTION (MANUAL)
-# ==============================
-  deploy-production:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-    environment: production
+  #     - name: Deploy
+  #       run: |
+  #         export IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
+  #         export COMMIT_SHA=${GITHUB_SHA::7}
+  #         export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
+  #         export CLOUD_SQL_INSTANCE=${{ vars.CLOUD_SQL_INSTANCE }}
+  #         export GSA_NAME=${{ vars.GSA_NAME }}
+  #         envsubst '${GSA_NAME} ${PROJECT_ID}' \
+  #           < deploy/k8s/serviceaccount.yaml | kubectl apply -f -
+  #         envsubst '${IMAGE} ${COMMIT_SHA} ${CLOUD_SQL_INSTANCE}' \
+  #           < deploy/k8s/deployment.stag.yaml | kubectl apply -f -
 
-    permissions:
-      contents: read
-      id-token: write
+  #     - name: Wait for rollout
+  #       run: kubectl rollout status deployment/goilerplate -n apps --timeout=300s
 
-    steps:
+  # # ==============================
+  # # DEPLOY PRODUCTION (manual - workflow_dispatch on main)
+  # # Requires image to already exist from a previous push to main
+  # # ==============================
+  # deploy-production:
+  #   runs-on: ubuntu-latest
+  #   needs: test
+  #   if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+  #   environment: production
+  #   permissions:
+  #     contents: read
+  #     id-token: write
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: actions/checkout@v4
+  #     - uses: google-github-actions/auth@v2
+  #       with:
+  #         workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+  #         service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
 
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+  #     - uses: google-github-actions/setup-gcloud@v2
+  #       with:
+  #         install_components: gke-gcloud-auth-plugin
 
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: gke-gcloud-auth-plugin
+  #     - name: Get GKE credentials
+  #       run: |
+  #         gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_PROD }} \
+  #           --zone ${{ vars.GKE_ZONE }} \
+  #           --project ${{ vars.GCP_PROJECT_ID }}
 
-      - run: |
-          gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_PROD }} \
-            --zone ${{ vars.GKE_ZONE }} \
-            --project ${{ vars.GCP_PROJECT_ID }}
+  #     - name: Ensure namespace exists
+  #       run: kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
 
-      - run: |
-          export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-          export COMMIT_SHA=${GITHUB_SHA::7}
+  #     - name: Create GHCR pull secret
+  #       run: |
+  #         kubectl create secret docker-registry ghcr-pull-secret \
+  #           --docker-server=ghcr.io \
+  #           --docker-username=${{ github.repository_owner }} \
+  #           --docker-password=${{ secrets.GHCR_TOKEN }} \
+  #           --namespace=apps \
+  #           --dry-run=client -o yaml | kubectl apply -f -
 
-          envsubst < deploy/k8s/deployment.prod.yaml | kubectl apply -f -
+  #     - name: Deploy
+  #       run: |
+  #         export IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
+  #         export COMMIT_SHA=${GITHUB_SHA::7}
+  #         export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
+  #         export CLOUD_SQL_INSTANCE=${{ vars.CLOUD_SQL_INSTANCE }}
+  #         export GSA_NAME=${{ vars.GSA_NAME }}
+  #         envsubst '${GSA_NAME} ${PROJECT_ID}' \
+  #           < deploy/k8s/serviceaccount.yaml | kubectl apply -f -
+  #         envsubst '${IMAGE} ${COMMIT_SHA} ${CLOUD_SQL_INSTANCE}' \
+  #           < deploy/k8s/deployment.prod.yaml | kubectl apply -f -
 
-      - run: |
-          kubectl rollout status deployment/goilerplate -n apps --timeout=300s
+  #     - name: Wait for rollout
+  #       run: kubectl rollout status deployment/goilerplate -n apps --timeout=300s

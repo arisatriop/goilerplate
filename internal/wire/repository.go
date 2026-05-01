@@ -4,8 +4,8 @@ import (
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/bar"
-	"goilerplate/internal/domain/role"
 	"goilerplate/internal/domain/foo"
+	"goilerplate/internal/domain/role"
 	"goilerplate/internal/domain/user"
 	"goilerplate/internal/domain/userrole"
 
@@ -18,8 +18,8 @@ type Repositories struct {
 	RoleRepo     role.Repository
 	UserRepo     user.Repository
 	UserRoleRepo userrole.Repository
-	FooRepo foo.Repository
-	BarRepo  bar.Repository
+	FooRepo      foo.Repository
+	BarRepo      bar.Repository
 }
 
 // WireRepositories creates all repository implementations
@@ -30,7 +30,7 @@ func WireRepositories(app *bootstrap.App) *Repositories {
 		RoleRepo:     repository.NewRole(db),
 		UserRepo:     repository.NewUser(db),
 		UserRoleRepo: repository.NewUserRole(db),
-		FooRepo: repository.NewFoo(db),
-		BarRepo:  repository.NewBar(db),
+		FooRepo:      repository.NewFoo(db),
+		BarRepo:      repository.NewBar(db),
 	}
 }

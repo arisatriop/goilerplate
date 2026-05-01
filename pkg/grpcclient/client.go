@@ -158,6 +158,8 @@ func marshalProto(v any) any {
 		return nil
 	}
 	var m any
-	json.Unmarshal(b, &m)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil
+	}
 	return m
 }

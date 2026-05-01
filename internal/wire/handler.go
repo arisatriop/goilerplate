@@ -12,10 +12,10 @@ import (
 
 // Handlers contains all HTTP handlers
 type Handlers struct {
-	Auth     *handler.Auth
-	Foo *handler.Foo
-	Bar  *handler.Bar
-	Upload   *handler.Upload
+	Auth   *handler.Auth
+	Foo    *handler.Foo
+	Bar    *handler.Bar
+	Upload *handler.Upload
 	// Future handlers will be added here:
 	// UserHandler    *handler.UserHandler
 	// OrderHandler   *handler.OrderHandler
@@ -39,10 +39,10 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 	deviceService := auth.NewDeviceService()
 
 	return &Handlers{
-		Auth:     handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC),
-		Upload:   handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
-		Foo: handler.NewFoo(app.Validator, useCases.FooUC),
-		Bar:  handler.NewBar(app.Validator, useCases.BarUC),
+		Auth:   handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC),
+		Upload: handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
+		Foo:    handler.NewFoo(app.Validator, useCases.FooUC),
+		Bar:    handler.NewBar(app.Validator, useCases.BarUC),
 	}
 }
 

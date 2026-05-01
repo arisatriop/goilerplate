@@ -35,7 +35,7 @@ func Recover() fiber.Handler {
 				)
 
 				// Respond with standardized error response
-				response.InternalServerError(c, "An unexpected error occurred")
+				_ = response.InternalServerError(c, "An unexpected error occurred")
 			}
 		}()
 

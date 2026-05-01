@@ -1,0 +1,80 @@
+# Cloud Build pipeline — cost-efficient alternative to GitHub Actions for GCP-hosted workloads
+# Everything runs inside GCP: no egress cost, GAR pull from GKE is free (same network)
+#
+# Setup:
+#   1. Connect repo: https://cloud.google.com/build/docs/automating-builds/github/connect-repo-github
+#   2. Create triggers per branch (develop / staging / main) with the substitutions below
+#   3. Grant Cloud Build SA: roles/container.developer, roles/artifactregistry.writer
+#
+# Substitutions (configure per trigger in Cloud Build UI):
+#   _ENVIRONMENT       dev | stag | prod
+#   _GKE_CLUSTER       goilerplate-dev | goilerplate-stag | goilerplate-prod
+#   _GKE_ZONE          asia-southeast2-a
+#   _CLOUD_SQL_INSTANCE project:region:instance
+#   _GSA_NAME          goilerplate
+#   _GAR_LOCATION      asia-southeast2
+#   _GAR_REPOSITORY    goilerplate
+
+substitutions:
+  _ENVIRONMENT: dev
+  _GKE_CLUSTER: goilerplate-dev
+  _GKE_ZONE: asia-southeast2-a
+  _CLOUD_SQL_INSTANCE: project:region:instance
+  _GSA_NAME: goilerplate
+  _GAR_LOCATION: asia-southeast2
+  _GAR_REPOSITORY: goilerplate
+
+steps:
+  # ==============================
+  # TEST
+  # ==============================
+  - name: golang:1.24
+    id: test
+    entrypoint: go
+    args: [test, -v, ./...]
+
+  # ==============================
+  # BUILD & PUSH TO GAR
+  # ==============================
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args:
+      - build
+      - -t
+      - ${_GAR_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_GAR_REPOSITORY}/goilerplate:$SHORT_SHA
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    args:
+      - push
+      - ${_GAR_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_GAR_REPOSITORY}/goilerplate:$SHORT_SHA
+
+  # ==============================
+  # DEPLOY TO GKE
+  # ==============================
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud container clusters get-credentials ${_GKE_CLUSTER} \
+          --zone ${_GKE_ZONE} \
+          --project $PROJECT_ID
+
+        export IMAGE="${_GAR_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_GAR_REPOSITORY}/goilerplate:$SHORT_SHA"
+        export COMMIT_SHA=$SHORT_SHA
+        export PROJECT_ID=$PROJECT_ID
+        export CLOUD_SQL_INSTANCE=${_CLOUD_SQL_INSTANCE}
+        export GSA_NAME=${_GSA_NAME}
+
+        kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
+        envsubst '${GSA_NAME} ${PROJECT_ID}' \
+          < deploy/k8s/serviceaccount.yaml | kubectl apply -f -
+        envsubst '${IMAGE} ${COMMIT_SHA} ${CLOUD_SQL_INSTANCE}' \
+          < deploy/k8s/deployment.${_ENVIRONMENT}.yaml | kubectl apply -f -
+        kubectl rollout status deployment/goilerplate -n apps --timeout=300s
+
+images:
+  - ${_GAR_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_GAR_REPOSITORY}/goilerplate:$SHORT_SHA

@@ -48,8 +48,8 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 	}
 
 	entity := &bar.Bar{
-		Code:    req.Code,
-		Bar: req.Bar,
+		Code: req.Code,
+		Bar:  req.Bar,
 	}
 
 	_, err := h.Usecase.Create(ctx.UserContext(), entity)
@@ -87,9 +87,9 @@ func (h *Bar) Update(ctx *fiber.Ctx) error {
 	}
 
 	entity := &bar.Bar{
-		ID:      id,
-		Code:    req.Code,
-		Bar: req.Bar,
+		ID:   id,
+		Code: req.Code,
+		Bar:  req.Bar,
 	}
 
 	_, err := h.Usecase.Update(ctx.UserContext(), entity)
