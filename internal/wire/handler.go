@@ -1,11 +1,14 @@
 package wire
 
 import (
+	"time"
+
 	"goilerplate/config"
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/delivery/http/middleware"
 	"goilerplate/internal/domain/auth"
+	pkgcache "goilerplate/pkg/cache"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -28,6 +31,7 @@ type Middleware struct {
 	Recover       fiber.Handler
 	RequestLogger *middleware.RequestLogger
 	RateLimit     *middleware.RateLimiter
+	Idempotency   fiber.Handler
 	// Future middleware will be added here:
 	// CORS   *middleware.CORS
 	// Logger *middleware.Logger
@@ -55,7 +59,8 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, infrastructure.AuthCacheService, permissionService, cfg.Apikeys),
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(),
-		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit),
+		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit, pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "rl:")),
+		Idempotency:   middleware.NewIdempotency(pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "idem:"), 24*time.Hour),
 		// Future middleware wiring:
 		// CORS:   middleware.NewCORS(),
 		// Logger: middleware.NewLogger(),
