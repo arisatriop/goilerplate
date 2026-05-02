@@ -181,6 +181,49 @@ func registerUserRoutes(router fiber.Router, handler *handler.User, mw *middlewa
 
 ---
 
+## 🛡️ Rate Limiting
+
+Rate limiting is applied per route group via `RateLimit` middleware. Storage is Redis-backed when Redis is enabled — counters are shared across all instances. Falls back to in-memory when Redis is disabled (dev/local only).
+
+| Scope | Key | Config key |
+|---|---|---|
+| Auth routes | IP address | `rate_limit.auth` |
+| Public routes | Authenticated user ID | `rate_limit.user` |
+| Partner routes | API key | `rate_limit.partner` |
+
+```go
+// Applied at the group level in router
+auth := route.Group("api/v1/auth").Use(r.Wired.Middleware.RateLimit.Auth)
+api  := route.Group("api").Use(r.Wired.Middleware.RateLimit.User)
+```
+
+---
+
+## 🔁 Idempotency
+
+For sensitive `POST` endpoints (create order, payment, etc.), apply idempotency middleware to prevent duplicate processing on retries.
+
+**How it works:**
+1. Client sends `Idempotency-Key: <uuid>` header
+2. If key is new → process request, cache 2xx response for 24h
+3. If key is seen → return cached response + `Idempotency-Replayed: true` header
+4. If key is missing and `RequireIdempotencyKey` is applied → return `400`
+
+```go
+// Optional key — skip if not provided
+foo.Post("", r.Wired.Middleware.Idempotency, handler.Create)
+
+// Mandatory key — 400 if missing
+foo.Post("",
+    middleware.RequireIdempotencyKey(),
+    r.Wired.Middleware.Idempotency,
+    handler.Create)
+```
+
+> Only `POST` needs idempotency. `PUT` and `DELETE` are naturally idempotent by HTTP spec.
+
+---
+
 ## 📝 Best Practices
 
 ### ✅ DO
@@ -190,6 +233,7 @@ func registerUserRoutes(router fiber.Router, handler *handler.User, mw *middlewa
 3. **Set granular permissions** for public routes (RBAC)
 4. **Document auth requirements** in each route
 5. **Keep internal routes simple** without versioning
+6. **Apply idempotency** on sensitive POST endpoints (payments, orders)
 
 ### ❌ DON'T
 
@@ -198,6 +242,7 @@ func registerUserRoutes(router fiber.Router, handler *handler.User, mw *middlewa
 3. Deploy breaking API changes without new version
 4. Skip permission checks in public routes
 5. Expose internal routes publicly
+6. Apply idempotency on PUT/DELETE — they are already idempotent by HTTP spec
 
 ---
 
@@ -234,7 +279,14 @@ func (r *Router) setupRoutes() {
     productHandler := r.handler.Product
 
     products := r.Public.Group("/products")
-    products.Post("", middleware.RequiredPermission("products.create"), productHandler.Create)
+
+    // Sensitive POST — require idempotency key
+    products.Post("",
+        middleware.RequireIdempotencyKey(),
+        r.Wired.Middleware.Idempotency,
+        middleware.RequiredPermission("products.create"),
+        productHandler.Create)
+
     products.Get("", middleware.RequiredPermission("products.read"), productHandler.GetList)
     // ...
 }

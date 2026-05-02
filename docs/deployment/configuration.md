@@ -44,7 +44,7 @@ db:
   max_open_connections: 100
 
 redis:
-  enabled: true # Set false to disable Redis
+  enabled: true # Set false to disable Redis (falls back to in-memory for rate limiting & idempotency)
   host: localhost:6379
   password: ""
   db: 0
@@ -148,12 +148,14 @@ kubectl create secret generic goilerplate-secret -n <namespace> \
 - Use ConfigMap for non-sensitive config in K8s
 - Use Secret for sensitive values in K8s
 - Rotate JWT secrets periodically
+- Enable Redis in production — rate limiting and idempotency are in-memory only when Redis is disabled, which means limits are not shared across instances
 
 ❌ **DON'T:**
 - Don't commit `.env` file to git
 - Don't hardcode secrets in code
 - Don't expose database credentials in logs
 - Don't use default passwords in production
+- Don't disable Redis in multi-instance deployments — idempotency and rate limiting will not work correctly
 
 ---
 

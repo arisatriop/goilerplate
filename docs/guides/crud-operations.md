@@ -150,6 +150,19 @@ Register API route based on scope:
 2. **Partner API** (third-party) → `internal/delivery/http/router/partner.go`
 3. **Internal API** (service-to-service) → `internal/delivery/http/router/internal.go`
 
+For sensitive `POST` endpoints, apply idempotency middleware to prevent duplicate processing on client retries:
+
+```go
+// Mandatory Idempotency-Key header
+foo.Post("",
+    middleware.RequireIdempotencyKey(),
+    r.Wired.Middleware.Idempotency,
+    r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooCreate),
+    r.Wired.Handlers.Foo.Create)
+```
+
+> Only apply to `POST`. `PUT` and `DELETE` are naturally idempotent by HTTP spec.
+
 ---
 
 ## 9. Important Notes ⚠️
@@ -174,3 +187,4 @@ Example: If creating an order involving User + Product:
 - [ ] Wire bindings: wire/{repository,usecase,handler}.go
 - [ ] Permissions: pkg/constants/permission.go
 - [ ] Routes: router/{public,partner,internal}.go
+- [ ] Idempotency middleware on sensitive POST endpoints (if applicable)

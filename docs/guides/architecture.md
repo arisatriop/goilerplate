@@ -127,8 +127,9 @@ Responsible for handling HTTP requests and responses.
 
 5. **Middleware** - `middleware/`
    - Cross-cutting concerns
-   - Authentication, authorization, logging
-   - Request validation
+   - Authentication, authorization, logging, rate limiting
+   - **Rate limiting** — Redis-backed per scope (IP, user ID, API key); falls back to in-memory when Redis is disabled
+   - **Idempotency** — deduplicates sensitive POST requests using `Idempotency-Key` header; caches 2xx responses in Redis for 24h
 
 6. **Router** - `router/`
    - Define API routes
@@ -142,7 +143,11 @@ Responsible for handling HTTP requests and responses.
 ```
 HTTP Request arrives
      ↓
-Middleware validates (auth, permissions, CORS)
+Rate limiter checks quota (Redis-backed, per IP / user / API key)
+     ↓
+Idempotency check (return cached response if duplicate key, POST only)
+     ↓
+Middleware validates (auth, permissions)
      ↓
 Handler receives request
      ↓
