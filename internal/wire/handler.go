@@ -18,6 +18,7 @@ type Handlers struct {
 	Auth   *handler.Auth
 	Foo    *handler.Foo
 	Bar    *handler.Bar
+	Bazs   *handler.Bazs
 	Upload *handler.Upload
 	// Future handlers will be added here:
 	// UserHandler    *handler.UserHandler
@@ -47,6 +48,7 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 		Upload: handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
 		Foo:    handler.NewFoo(app.Validator, useCases.FooUC),
 		Bar:    handler.NewBar(app.Validator, useCases.BarUC),
+		Bazs:   handler.NewBazs(app.Validator, useCases.BazsUC),
 	}
 }
 

@@ -17,6 +17,7 @@ func (r *InternalRouteRegistry) register(route fiber.Router) {
 
 	r.foo(internal)
 	r.bar(internal)
+	r.bazs(internal)
 }
 
 func (r *InternalRouteRegistry) foo(internal fiber.Router) {
@@ -53,4 +54,22 @@ func (r *InternalRouteRegistry) bar(internal fiber.Router) {
 
 	bar.Get("/:id",
 		r.Wired.Handlers.Bar.Get)
+}
+
+func (r *InternalRouteRegistry) bazs(internal fiber.Router) {
+	bazs := internal.Group("bazss")
+	bazs.Post("",
+		r.Wired.Handlers.Bazs.Create)
+
+	bazs.Put("/:id",
+		r.Wired.Handlers.Bazs.Update)
+
+	bazs.Delete("/:id",
+		r.Wired.Handlers.Bazs.Delete)
+
+	bazs.Get("",
+		r.Wired.Handlers.Bazs.List)
+
+	bazs.Get("/:id",
+		r.Wired.Handlers.Bazs.Get)
 }
