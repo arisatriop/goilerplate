@@ -8,28 +8,13 @@ Usage:
 
 ---
 
-## Step 1 — Read credentials
+## Step 1 — Pick a ticket (if no TICKET_ID given)
 
-```bash
-grep -E "^JIRA_URL=" config/.env | cut -d= -f2-
-grep -E "^JIRA_EMAIL=" config/.env | cut -d= -f2-
-grep -E "^JIRA_API_TOKEN=" config/.env | cut -d= -f2-
+Use the `mcp__jira__search_jira_issues` tool with JQL:
 ```
-
-If any of the three are missing or empty, stop and tell the user which vars to add to `config/.env`.
-
----
-
-## Step 2 — Pick a ticket (if no TICKET_ID given)
-
-Fetch tickets assigned to the current user:
-```bash
-curl -s -G "$JIRA_URL/rest/api/3/search/jql" \
-  -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-  --data-urlencode "jql=assignee=currentUser() AND statusCategory != Done ORDER BY updated DESC" \
-  --data-urlencode "fields=summary,status,priority" \
-  --data-urlencode "maxResults=20"
+assignee=currentUser() AND statusCategory != Done ORDER BY updated DESC
 ```
+Request fields: `summary,status,priority`, maxResults: 20.
 
 Display as a numbered list:
 ```
@@ -42,61 +27,17 @@ Ask: "Which ticket do you want to implement? (enter number or ticket ID)". Wait 
 
 ---
 
-## Step 3 — Fetch and display ticket details
+## Step 2 — Fetch and display ticket details
 
-```bash
-curl -s "$JIRA_URL/rest/api/3/issue/$TICKET_ID?fields=summary,description,issuetype,priority,status" \
-  -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-  -o /tmp/jira_ticket.json
-```
+Use the `mcp__jira__read_jira_issue` tool with the TICKET_ID.
 
-Extract readable text from the ADF `description` field using Python:
-```python
-import json
+Display the ticket summary, type, status, and description to the user.
 
-def adf_to_text(node):
-    if not node:
-        return ""
-    t = node.get("type", "")
-    if t == "text":
-        return node.get("text", "")
-    if t in ("doc", "paragraph", "blockquote", "listItem"):
-        inner = "".join(adf_to_text(c) for c in node.get("content", []))
-        return inner + ("\n" if t in ("paragraph", "listItem") else "")
-    if t == "bulletList":
-        return "".join("• " + adf_to_text(c) for c in node.get("content", []))
-    if t == "orderedList":
-        return "".join(f"{i+1}. {adf_to_text(c)}" for i, c in enumerate(node.get("content", [])))
-    if t == "heading":
-        level = node.get("attrs", {}).get("level", 2)
-        text = "".join(adf_to_text(c) for c in node.get("content", []))
-        return "#" * level + " " + text + "\n"
-    if t == "codeBlock":
-        code = "".join(adf_to_text(c) for c in node.get("content", []))
-        return f"```\n{code}\n```\n"
-    if t == "hardBreak":
-        return "\n"
-    if t == "rule":
-        return "---\n"
-    return "".join(adf_to_text(c) for c in node.get("content", []))
-
-with open("/tmp/jira_ticket.json") as f:
-    data = json.load(f)
-
-fields = data.get("fields", {})
-print("SUMMARY:", fields.get("summary", ""))
-print("TYPE   :", fields.get("issuetype", {}).get("name", ""))
-print("STATUS :", fields.get("status", {}).get("name", ""))
-print()
-print("DESCRIPTION:")
-print(adf_to_text(fields.get("description") or {}))
-```
-
-Show the output to the user. **Stop and confirm**: "This is what I'll implement. Proceed? (yes/no)". Wait for confirmation before continuing.
+**Stop and confirm**: "This is what I'll implement. Proceed? (yes/no)". Wait for confirmation before continuing.
 
 ---
 
-## Step 4 — Create a feature branch
+## Step 3 — Create a feature branch
 
 Derive the branch name from the ticket ID:
 - Default: `feat/<ticket-id-lowercase>` (e.g. `feat/is-331`)
@@ -108,7 +49,7 @@ git checkout -b feat/<ticket-id-lowercase>
 
 ---
 
-## Step 5 — Analyze and implement
+## Step 4 — Analyze and implement
 
 Read the parsed description carefully and determine what needs to be done. Use the following decision tree:
 
@@ -142,7 +83,7 @@ Follow the `/add-domain` pattern exactly:
 
 ---
 
-## Step 6 — Verify
+## Step 5 — Verify
 
 ```bash
 go build ./...
@@ -152,18 +93,10 @@ Fix any compile errors before reporting. Do not run migrations — leave that to
 
 ---
 
-## Step 7 — Report
+## Step 6 — Report
 
 Summarize:
 - What was implemented (files created/modified with paths)
 - Branch name
 - Any assumptions made where the ticket description was ambiguous
 - Next steps for the user (e.g. run migrations, adjust field names, add tests)
-
----
-
-## Cleanup
-
-```bash
-rm -f /tmp/jira_ticket.json
-```
