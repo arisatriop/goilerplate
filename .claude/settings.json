@@ -19,7 +19,10 @@
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git checkout:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(curl *)",
+      "Bash(grep -E:*)",
+      "Bash(date:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",

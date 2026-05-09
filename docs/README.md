@@ -38,11 +38,34 @@ Guides for deploying to different environments.
 
 ---
 
+## 🤖 Claude Code Integration
+
+Slash commands for AI-assisted development workflows.
+
+- **[MCP Setup](./reference/mcp-setup.md)** — PostgreSQL, GitHub, fetch, and Jira MCP server configuration
+
+Key commands (defined in `.claude/commands/`):
+
+| Command | Description |
+|---|---|
+| `/ship [TICKET_ID]` | Full workflow: Jira → implement → commit → PR → done |
+| `/work-on [TICKET_ID]` | Fetch a Jira ticket and implement it |
+| `/commit` / `/commit-body` | Create conventional commits |
+| `/push` / `/pr` | Push branch and open a GitHub PR |
+| `/mark-as-start` / `/mark-as-done` | Post Jira comments |
+| `/next-transition [TICKET_ID]` | Move Jira ticket to next status |
+| `/add-domain <name>` | Scaffold a new Clean Architecture domain |
+| `/code-review` / `/pr-review` | Review code or a GitHub PR |
+
+See [CLAUDE.md](../CLAUDE.md#claude-commands) for the full command reference.
+
+---
+
 ## 🔧 Reference
 
 Technical documentation and special setup.
 
-- **[MCP Setup](./reference/mcp-setup.md)** - Model Context Protocol for database integration
+- **[MCP Setup](./reference/mcp-setup.md)** — PostgreSQL, GitHub, fetch, and Jira MCP server configuration
 
 ---
 

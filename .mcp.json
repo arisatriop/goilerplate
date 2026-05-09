@@ -11,6 +11,10 @@
     "fetch": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-fetch"]
+    },
+    "jira": {
+      "command": "sh",
+      "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && JIRA_URL=$JIRA_URL JIRA_USERNAME=$JIRA_EMAIL JIRA_API_TOKEN=$JIRA_API_TOKEN npx -y mcp-atlassian"]
     }
   }
 }
