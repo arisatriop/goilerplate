@@ -4,6 +4,7 @@ import (
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/bar"
+	"goilerplate/internal/domain/bas"
 	"goilerplate/internal/domain/foo"
 	"goilerplate/pkg/jwt"
 )
@@ -13,10 +14,7 @@ type UseCases struct {
 	AuthUC auth.Usecase
 	FooUC  foo.Usecase
 	BarUC  bar.Usecase
-	// Future use cases will be added here:
-	// UserUC    user.UseCase
-	// OrderUC   order.UseCase
-	// ProductUC product.UseCase
+	BasUC  bas.Usecase
 }
 
 // WireUseCases creates all use case implementations
@@ -38,9 +36,6 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 		AuthUC: auth.NewUseCase(repos.AuthRepo, jwtService, cacheService),
 		FooUC:  foo.NewUseCase(repos.FooRepo),
 		BarUC:  bar.NewUseCase(repos.BarRepo),
-		// Future use cases will be added here:
-		// UserUC:    user.NewUseCase(repos.UserRepo),
-		// OrderUC:   order.NewUseCase(repos.OrderRepo, repos.ProductRepo),
-		// ProductUC: product.NewUseCase(repos.ProductRepo),
+		BasUC:  bas.NewUseCase(repos.BasRepo),
 	}
 }

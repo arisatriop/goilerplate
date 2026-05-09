@@ -21,4 +21,9 @@ const (
 	PermissionBarDelete = "bar.delete"
 )
 
+// Bas Resource Permissions
+const (
+	PermissionBasCreate = "bas.create"
+)
+
 // Add more resource permissions here as needed

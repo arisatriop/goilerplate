@@ -18,6 +18,12 @@ func (r *PartnerRouteRegistry) register(route fiber.Router) {
 
 	r.foo(v1)
 	r.bar(v1)
+	r.bas(v1)
+}
+
+func (r *PartnerRouteRegistry) bas(v1 fiber.Router) {
+	bas := v1.Group("bass")
+	bas.Post("", r.Wired.Handlers.Bas.Create)
 }
 
 func (r *PartnerRouteRegistry) foo(v1 fiber.Router) {

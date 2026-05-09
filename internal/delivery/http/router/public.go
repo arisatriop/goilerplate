@@ -27,6 +27,7 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 
 	r.foo(v1)
 	r.bar(v1)
+	r.bas(v1)
 }
 
 func (r *PublicRouteRegistry) foo(v1 fiber.Router) {
@@ -50,6 +51,14 @@ func (r *PublicRouteRegistry) foo(v1 fiber.Router) {
 	foo.Get("/:id",
 		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooGet),
 		r.Wired.Handlers.Foo.Get)
+}
+
+func (r *PublicRouteRegistry) bas(v1 fiber.Router) {
+	bas := v1.Group("bass")
+	bas.Post("",
+		middleware.RequireIdempotencyKey(), r.Wired.Middleware.Idempotency,
+		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBasCreate),
+		r.Wired.Handlers.Bas.Create)
 }
 
 func (r *PublicRouteRegistry) bar(v1 fiber.Router) {
