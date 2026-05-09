@@ -17,6 +17,12 @@ func (r *InternalRouteRegistry) register(route fiber.Router) {
 
 	r.foo(internal)
 	r.bar(internal)
+	r.bas(internal)
+}
+
+func (r *InternalRouteRegistry) bas(internal fiber.Router) {
+	bas := internal.Group("bass")
+	bas.Post("", r.Wired.Handlers.Bas.Create)
 }
 
 func (r *InternalRouteRegistry) foo(internal fiber.Router) {
