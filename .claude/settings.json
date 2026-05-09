@@ -32,7 +32,8 @@
       "Bash(DROP DATABASE:*)"
     ]
   },
-  "enabledMcpjsonServers": ["postgres", "github", "fetch"],
+  "enableAllProjectMcpServers": true,
+  // "enabledMcpjsonServers": ["postgres", "github", "jira", "fetch"],
   "hooks": {
     "Stop": [
       {
