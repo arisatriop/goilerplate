@@ -33,7 +33,6 @@
     ]
   },
   "enableAllProjectMcpServers": true,
-  // "enabledMcpjsonServers": ["postgres", "github", "jira", "fetch"],
   "hooks": {
     "Stop": [
       {
