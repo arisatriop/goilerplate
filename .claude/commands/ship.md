@@ -45,8 +45,8 @@ date "+%Y-%m-%d %H:%M:%S"
 ```
 
 Post the comment using the `mcp__jira__add_jira_comment` tool with:
-- `issue_key`: TICKET_ID
-- `comment`:
+- `issueKey`: TICKET_ID
+- `body`:
   ```
   🚀 Starting work — [timestamp]
 
@@ -188,8 +188,8 @@ Use the PR URL from Phase 9.
 Infer QA test steps from the diff: what endpoints or features changed, what inputs/scenarios QA should verify, and what the expected outcome is. Be specific — reference actual route paths and request bodies. Aim for 3–5 actionable steps.
 
 Post the comment using the `mcp__jira__add_jira_comment` tool with:
-- `issue_key`: TICKET_ID
-- `comment`:
+- `issueKey`: TICKET_ID
+- `body`:
   ```
   ✅ Work completed at <timestamp> on <branch-name> (<branch-url>) — <one-sentence summary>
 

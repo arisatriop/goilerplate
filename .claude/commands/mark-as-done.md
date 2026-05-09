@@ -55,7 +55,7 @@ Usage:
    ```
 
 6. Post the comment using the `mcp__jira__add_jira_comment` tool with:
-   - `issue_key`: TICKET_ID
-   - `comment`: the composed text from step 5
+   - `issueKey`: TICKET_ID
+   - `body`: the composed text from step 5
 
 7. Confirm to the user: "Comment posted to $TICKET_ID."
