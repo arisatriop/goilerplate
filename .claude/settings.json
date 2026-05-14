@@ -28,7 +28,10 @@
       "Bash(git remote:*)",
       "Bash(git push:*)",
       "Bash(rm -f /tmp/jira_*)",
-      "mcp__github__*",
+      "Bash(rm -f /tmp/gh_*)",
+      "Bash(gh pr:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh api:*)",
       "mcp__jira__*"
     ],
     "deny": [

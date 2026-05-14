@@ -1,26 +1,57 @@
 # Review an open pull request on GitHub
 
-Review an open pull request on GitHub using the GitHub MCP server.
+Review an open pull request on GitHub using the gh CLI.
 
-1. Infer the GitHub repo owner and name from `git remote get-url origin`.
-2. Use the GitHub MCP tool to list all open PRs on the repo.
-3. If **no open PRs** are found, inform the user and stop.
-4. If **exactly one PR** is open, proceed to review it automatically.
-5. If **more than one PR** is open, list them (number, title, author, URL) and ask the user which one to review before proceeding.
-6. Fetch the PR details: description, changed files, and diff using the GitHub MCP tool.
-7. Review the PR thoroughly:
+1. List open PRs (only the fields needed):
+   ```bash
+   gh pr list --state open --json number,title,author,url \
+     --jq '.[] | "[\(.number)] \(.title) by \(.author.login) — \(.url)"'
+   ```
+2. If **no open PRs** are found, inform the user and stop.
+3. If **exactly one PR** is open, proceed to review it automatically.
+4. If **more than one PR** is open, display them and ask the user which one to review before proceeding.
+5. Fetch only the fields needed:
+   ```bash
+   gh pr view <number> --json number,title,body,state,headRefName
+   gh pr diff <number>
+   ```
+6. Review the PR thoroughly:
    - Understand the intent from the PR title and description
    - Read through all changed files and the diff
    - Check against the criteria below
-8. Post review comments using the GitHub MCP tool:
-   - Use **inline comments** on specific lines for targeted feedback
-   - Group related feedback to avoid noise
-   - Be constructive and specific — explain *why* something is an issue and suggest a fix when possible
-   - Distinguish between **blocking issues** (must fix) and **suggestions** (nice to have)
-9. Post a **summary review comment** that includes:
-   - Overall assessment (approve / request changes / comment)
-   - Short summary grouped by: **Critical**, **Warning**, **Suggestion**
-10. Output the PR URL and a brief recap of the review when done.
+7. Post inline comments and the summary in a single API call. Get the head commit SHA and repo name:
+   ```bash
+   COMMIT=$(gh pr view <number> --json headRefOid --jq '.headRefOid')
+   REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+   ```
+   Write the review payload to a file, then post:
+   ```bash
+   python3 -c "
+   import json, sys
+   payload = json.loads(sys.argv[1])
+   json.dump(payload, open('/tmp/gh_review_payload.json', 'w'))
+   " "$REVIEW_JSON"
+
+   gh api repos/$REPO/pulls/<number>/reviews \
+     --method POST --input /tmp/gh_review_payload.json
+   ```
+   Payload structure:
+   ```json
+   {
+     "commit_id": "<COMMIT>",
+     "body": "## Summary\n\n**Critical**: ...\n**Warning**: ...\n**Suggestion**: ...",
+     "event": "REQUEST_CHANGES",
+     "comments": [
+       {"path": "path/to/file.go", "line": 42, "body": "inline comment"}
+     ]
+   }
+   ```
+   - `event`: `"APPROVE"`, `"REQUEST_CHANGES"`, or `"COMMENT"`
+   - Omit `comments` if there are no inline remarks
+   - Be constructive — explain *why* something is an issue and suggest a fix
+   - Distinguish **blocking issues** (must fix) from **suggestions** (nice to have)
+8. Clean up: `rm -f /tmp/gh_review_payload.json`
+9. Output the PR URL and a brief recap of the review when done.
 
 ---
 

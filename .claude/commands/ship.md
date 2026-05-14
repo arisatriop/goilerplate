@@ -227,7 +227,6 @@ git push -u origin <branch-name>
 Run in parallel:
 - `git log main...HEAD --oneline` — commits on this branch
 - `git diff main...HEAD --stat` — files changed summary
-- `git remote get-url origin` — to infer repo owner and name
 
 Draft the PR:
 - **Title**: `<type>(<scope>): <short description>` — under 70 characters, imperative mood.
@@ -244,7 +243,10 @@ Draft the PR:
   🤖 Generated with [Claude Code](https://claude.com/claude-code)
   ```
 
-Use the GitHub MCP tool to create the PR targeting `main`. Save the PR URL for use in Phase 11.
+Create the PR and save the URL for Phase 11:
+```bash
+gh pr create --title "<title>" --body "<body>" --base main
+```
 
 ---
 

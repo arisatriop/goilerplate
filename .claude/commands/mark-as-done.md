@@ -38,7 +38,11 @@ Usage:
    - `git branch --show-current` — current branch name
    - `git remote get-url origin` — remote URL to construct the branch link (convert SSH `git@github.com:org/repo.git` → `https://github.com/org/repo`)
 
-4. Use the GitHub MCP tool to find the open PR for the current branch. Get its URL if found.
+4. Find the open PR for the current branch:
+   ```bash
+   gh pr list --head "$(git branch --show-current)" --state open --json url \
+     --jq 'if length > 0 then .[0].url else "No open PR found" end'
+   ```
 
 5. Based on the commits and changed files, infer QA test steps: what endpoints or features changed, what inputs/scenarios QA should verify, and what the expected outcome is. Be specific — reference actual route paths, request bodies, or UI flows if derivable from the diff. Aim for 3–5 actionable steps.
 

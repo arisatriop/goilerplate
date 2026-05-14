@@ -1,6 +1,6 @@
 # Create a GitHub pull request
 
-Create a pull request for the current branch using the GitHub MCP server.
+Create a pull request for the current branch using the gh CLI.
 
 1. Run these in parallel to understand the current state:
    - `git branch --show-current` to get the current branch name
@@ -10,8 +10,7 @@ Create a pull request for the current branch using the GitHub MCP server.
    - `git log main...HEAD --oneline` to see all commits on this branch
    - `git diff main...HEAD --stat` to see files changed
 4. If there are uncommitted changes, warn the user and proceed anyway.
-5. Infer the GitHub repo owner and name from `git remote get-url origin`.
-6. Draft the PR title and body:
+5. Draft the PR title and body:
    - **Title**: follow conventional commit format — `<type>(<scope>): <short description>` (e.g. `feat(auth): add refresh token rotation`). Keep it under 70 characters, imperative mood.
    - Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`
    - **Body**:
@@ -26,6 +25,9 @@ Create a pull request for the current branch using the GitHub MCP server.
 
      🤖 Generated with [Claude Code](https://claude.com/claude-code)
      ```
-7. Push the branch if it has no remote tracking branch yet: `git push -u origin <branch>`.
-8. Use the GitHub MCP tool to create the PR targeting `main`.
-9. Output the PR URL when done.
+6. Push the branch if it has no remote tracking branch yet: `git push -u origin <branch>`.
+7. Create the PR:
+   ```bash
+   gh pr create --title "<title>" --body "<body>" --base main
+   ```
+8. Output the PR URL when done.
