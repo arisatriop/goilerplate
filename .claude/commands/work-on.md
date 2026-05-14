@@ -31,11 +31,12 @@ curl -s -G "$JIRA_URL/rest/api/3/search/jql" \
   --data-urlencode "maxResults=20"
 ```
 
-Display as a numbered list:
+Display as a table:
 ```
-#   TICKET-ID  [Status]       Priority — Summary
-1.  PROJ-42    [To Do]        Medium   — Add user profile endpoint
-2.  PROJ-38    [In Progress]  High     — Fix auth token expiry
+| #  | Ticket ID | Status      | Priority | Summary                       |
+|----|-----------|-------------|----------|-------------------------------|
+| 1  | PROJ-42   | To Do       | Medium   | Add user profile endpoint     |
+| 2  | PROJ-38   | In Progress | High     | Fix auth token expiry         |
 ```
 
 Ask: "Which ticket do you want to implement? (enter number or ticket ID)". Wait for answer.
@@ -92,7 +93,7 @@ print("DESCRIPTION:")
 print(adf_to_text(fields.get("description") or {}))
 ```
 
-Show the output to the user. **Stop and confirm**: "This is what I'll implement. Proceed? (yes/no)". Wait for confirmation before continuing.
+Show the output to the user and proceed immediately to the next step.
 
 ---
 

@@ -3,8 +3,9 @@
 Move a Jira ticket to a new status by executing an available transition.
 
 Usage:
-- `/nex-transition TICKET_ID` — pick a transition for that ticket
-- `/nex-transition` — fetch tickets assigned to you, then pick one
+- `/next-transition TICKET_ID TRANSITION` — move directly to that transition (name or number)
+- `/next-transition TICKET_ID` — auto-select the first available transition
+- `/next-transition` — fetch tickets assigned to you, then auto-transition
 
 1. Read credentials from `config/.env` using grep:
    ```bash
@@ -23,12 +24,12 @@ Usage:
        --data-urlencode "fields=summary,status,priority" \
        --data-urlencode "maxResults=20"
      ```
-   - Display the results as a numbered list in this format:
+   - Display the results as a table:
      ```
-     #  TICKET-ID  [Status]       Priority — Summary
-     1. PROJ-42    [To Do]        Medium   — Add user profile endpoint
-     2. PROJ-38    [In Progress]  High     — Fix auth token expiry
-     ...
+     | #  | Ticket ID | Status      | Priority | Summary                       |
+     |----|-----------|-------------|----------|-------------------------------|
+     | 1  | PROJ-42   | To Do       | Medium   | Add user profile endpoint     |
+     | 2  | PROJ-38   | In Progress | High     | Fix auth token expiry         |
      ```
    - Ask the user: "Which ticket do you want to transition? (enter number or ticket ID)". Wait for their answer, then set TICKET_ID accordingly.
 
@@ -43,17 +44,10 @@ Usage:
      -u "$JIRA_EMAIL:$JIRA_API_TOKEN"
    ```
 
-4. Display the ticket's current status and available transitions as a numbered list:
-   ```
-   Ticket:  PROJ-42 — Add user profile endpoint
-   Current: In Progress
-
-   Available transitions:
-   1. In Review
-   2. Done
-   3. Back to To Do
-   ```
-   Ask the user: "Which status do you want to move this ticket to? (enter number or transition name)". Wait for their answer.
+4. Select the transition to execute:
+   - If a TRANSITION argument was given: match it against available transitions by name (case-insensitive) or by number. Stop with an error if no match is found.
+   - If no TRANSITION argument: auto-select the first available transition.
+   Print: "Transitioning $TICKET_ID to [transition name]."
 
 5. Execute the chosen transition:
    ```bash

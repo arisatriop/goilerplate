@@ -22,7 +22,14 @@
       "Bash(git branch:*)",
       "Bash(curl *)",
       "Bash(grep -E:*)",
-      "Bash(date:*)"
+      "Bash(grep *)",
+      "Bash(date:*)",
+      "Bash(python3:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(rm -f /tmp/jira_*)",
+      "mcp__github__*",
+      "mcp__jira__*"
     ],
     "deny": [
       "Bash(rm -rf:*)",

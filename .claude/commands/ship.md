@@ -31,11 +31,12 @@ curl -s -G "$JIRA_URL/rest/api/3/search/jql" \
   --data-urlencode "maxResults=20"
 ```
 
-Display as a numbered list:
+Display as a table:
 ```
-#   TICKET-ID  [Status]       Priority — Summary
-1.  PROJ-42    [To Do]        Medium   — Add user profile endpoint
-2.  PROJ-38    [In Progress]  High     — Fix auth token expiry
+| #  | Ticket ID | Status      | Priority | Summary                       |
+|----|-----------|-------------|----------|-------------------------------|
+| 1  | PROJ-42   | To Do       | Medium   | Add user profile endpoint     |
+| 2  | PROJ-38   | In Progress | High     | Fix auth token expiry         |
 ```
 
 Ask: "Which ticket do you want to ship? (enter number or ticket ID)". Wait for answer, then set TICKET_ID.
@@ -92,7 +93,7 @@ print("DESCRIPTION:")
 print(adf_to_text(fields.get("description") or {}))
 ```
 
-Show the output. **Stop and confirm**: "Ready to implement this ticket. Proceed? (yes/no)". Wait for confirmation before continuing.
+Show the output and proceed immediately to the next phase.
 
 ---
 
@@ -378,18 +379,21 @@ for i, t in enumerate(data.get('transitions', []), 1):
 "
 ```
 
-Display the current status and available transitions:
+Parse transitions and auto-select the first available one:
+```bash
+python3 -c "
+import json
+data = json.load(open('/tmp/jira_transitions.json'))
+transitions = data.get('transitions', [])
+if not transitions:
+    print('NO_TRANSITIONS')
+else:
+    t = transitions[0]
+    print(t['id'] + '|' + t['name'])
+"
 ```
-Ticket:  TICKET-ID — Summary
-Current: In Progress
 
-Available transitions:
-1. In Review
-2. Done
-3. Back to To Do
-```
-
-Ask: "Which status do you want to move this ticket to? (enter number or transition name)". Wait for answer.
+Use the selected transition ID and name. Print: "Auto-transitioning $TICKET_ID to [transition name]."
 
 Write the transition payload to file, then POST:
 ```bash

@@ -23,12 +23,12 @@ Usage:
        --data-urlencode "fields=summary,status,priority" \
        --data-urlencode "maxResults=20"
      ```
-   - Display the results as a numbered list in this format:
+   - Display the results as a table:
      ```
-     #  TICKET-ID  [Status] Priority — Summary
-     1. PROJ-42    [To Do]  Medium   — Add user profile endpoint
-     2. PROJ-38    [In Progress] High — Fix auth token expiry
-     ...
+     | #  | Ticket ID | Status      | Priority | Summary                       |
+     |----|-----------|-------------|----------|-------------------------------|
+     | 1  | PROJ-42   | To Do       | Medium   | Add user profile endpoint     |
+     | 2  | PROJ-38   | In Progress | High     | Fix auth token expiry         |
      ```
    - Ask the user: "Which ticket are you marking as done? (enter number or ticket ID)". Wait for their answer, then set TICKET_ID accordingly.
 
