@@ -17,6 +17,7 @@ func (r *InternalRouteRegistry) register(route fiber.Router) {
 
 	r.foo(internal)
 	r.bar(internal)
+	r.hello(internal)
 }
 
 func (r *InternalRouteRegistry) foo(internal fiber.Router) {
@@ -53,4 +54,8 @@ func (r *InternalRouteRegistry) bar(internal fiber.Router) {
 
 	bar.Get("/:id",
 		r.Wired.Handlers.Bar.Get)
+}
+
+func (r *InternalRouteRegistry) hello(internal fiber.Router) {
+	internal.Get("hello", r.Wired.Handlers.Hello.Hello)
 }
