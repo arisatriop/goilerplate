@@ -46,12 +46,12 @@ Ask: "Which ticket do you want to implement? (enter number or ticket ID)". Wait 
 ## Step 3 — Fetch and display ticket details
 
 ```bash
-curl -s "$JIRA_URL/rest/api/3/issue/$TICKET_ID?fields=summary,description,issuetype,priority,status" \
+curl -s "$JIRA_URL/rest/api/3/issue/$TICKET_ID?fields=*navigable&expand=names" \
   -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
   -o /tmp/jira_ticket.json
 ```
 
-Extract readable text from the ADF `description` field using Python:
+Extract readable text and custom fields using Python:
 ```python
 import json
 
@@ -85,15 +85,30 @@ with open("/tmp/jira_ticket.json") as f:
     data = json.load(f)
 
 fields = data.get("fields", {})
-print("SUMMARY:", fields.get("summary", ""))
-print("TYPE   :", fields.get("issuetype", {}).get("name", ""))
-print("STATUS :", fields.get("status", {}).get("name", ""))
+names = data.get("names", {})  # field_id -> display_name
+
+github_repo = ""
+base_branch = "main"
+for fid, fname in names.items():
+    val = fields.get(fid)
+    if not val or not isinstance(val, str):
+        continue
+    if fname.lower() == "github repo":
+        github_repo = val
+    elif fname.lower() == "base branch":
+        base_branch = val
+
+print("SUMMARY    :", fields.get("summary", ""))
+print("TYPE       :", fields.get("issuetype", {}).get("name", ""))
+print("STATUS     :", fields.get("status", {}).get("name", ""))
+print("GITHUB REPO:", github_repo or "(not set)")
+print("BASE BRANCH:", base_branch)
 print()
 print("DESCRIPTION:")
 print(adf_to_text(fields.get("description") or {}))
 ```
 
-Show the output to the user and proceed immediately to the next step.
+Show the output to the user and proceed immediately to the next step. Store the printed `GITHUB REPO` and `BASE BRANCH` values as `GITHUB_REPO` and `BASE_BRANCH` variables for use in later steps.
 
 ---
 
@@ -103,8 +118,10 @@ Derive the branch name from the ticket ID:
 - Default: `feat/<ticket-id-lowercase>` (e.g. `feat/is-331`)
 - Bug fix tickets (issuetype = Bug): `fix/<ticket-id-lowercase>`
 
+Checkout from `$BASE_BRANCH` (from Step 3), then create the feature branch:
 ```bash
-git checkout -b feat/<ticket-id-lowercase>
+git checkout $BASE_BRANCH && git pull origin $BASE_BRANCH
+git checkout -b <branch-name>
 ```
 
 ---
