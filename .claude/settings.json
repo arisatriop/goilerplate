@@ -27,11 +27,15 @@
       "Bash(python3:*)",
       "Bash(git remote:*)",
       "Bash(git push:*)",
-      "Bash(rm -f /tmp/jira_*)",
+      "Bash(git pull:*)",
       "Bash(rm -f /tmp/gh_*)",
       "Bash(gh pr:*)",
       "Bash(gh repo:*)",
       "Bash(gh api:*)",
+      "Bash(.claude/scripts/jira-tickets.sh:*)",
+      "Bash(.claude/scripts/jira-ticket.sh:*)",
+      "Bash(.claude/scripts/jira-transition.sh:*)",
+      "Bash(.claude/scripts/jira-comment.sh:*)",
       "mcp__jira__*"
     ],
     "deny": [
