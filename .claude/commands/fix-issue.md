@@ -1,3 +1,8 @@
+---
+description: Investigate and fix an issue, then verify the build and tests
+argument-hint: <topic or issue description>
+---
+
 # Fix Issue
 
 Topic/Issue: $ARGUMENTS

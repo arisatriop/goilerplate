@@ -1,67 +1,47 @@
+---
+description: Move a Jira ticket to its next workflow status
+argument-hint: [TICKET_ID] [TRANSITION]
+allowed-tools: Bash
+---
+
 # Jira Transition — Move Ticket to Next Status
 
 Move a Jira ticket to a new status by executing an available transition.
 
 Usage:
-- `/next-transition TICKET_ID TRANSITION` — move directly to that transition (name or number)
+- `/next-transition TICKET_ID TRANSITION` — move directly to that transition (name or list number)
 - `/next-transition TICKET_ID` — auto-select the first available transition
-- `/next-transition` — fetch tickets assigned to you, then auto-transition
+- `/next-transition` — list tickets assigned to you, then auto-transition the chosen one
 
-1. Read credentials from `config/.env` using grep:
-   ```bash
-   grep -E "^JIRA_URL=" config/.env | cut -d= -f2-
-   grep -E "^JIRA_EMAIL=" config/.env | cut -d= -f2-
-   grep -E "^JIRA_API_TOKEN=" config/.env | cut -d= -f2-
-   ```
-   If any of the three are missing or empty, stop and tell the user which vars to add to `config/.env`.
+Jira credentials (`JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`) are read from
+`config/.env` by the helper scripts in `.claude/scripts/`.
 
-2. If no TICKET_ID was given:
-   - Fetch tickets assigned to the current user:
-     ```bash
-     curl -s -G "$JIRA_URL/rest/api/3/search/jql" \
-       -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-       --data-urlencode "jql=assignee=currentUser() ORDER BY updated DESC" \
-       --data-urlencode "fields=summary,status,priority" \
-       --data-urlencode "maxResults=20"
-     ```
-   - Display the results as a table:
-     ```
-     | #  | Ticket ID | Status      | Priority | Summary                       |
-     |----|-----------|-------------|----------|-------------------------------|
-     | 1  | PROJ-42   | To Do       | Medium   | Add user profile endpoint     |
-     | 2  | PROJ-38   | In Progress | High     | Fix auth token expiry         |
-     ```
-   - Ask the user: "Which ticket do you want to transition? (enter number or ticket ID)". Wait for their answer, then set TICKET_ID accordingly.
+## 1. Resolve the ticket
 
-3. Fetch the current issue status and available transitions:
-   ```bash
-   # Get current status
-   curl -s "$JIRA_URL/rest/api/3/issue/$TICKET_ID?fields=summary,status" \
-     -u "$JIRA_EMAIL:$JIRA_API_TOKEN"
+If a TICKET_ID was given, use it. Otherwise list assigned tickets and ask which one:
+```bash
+.claude/scripts/jira-tickets.sh
+```
+Ask: "Which ticket do you want to transition? (enter number or ticket ID)".
 
-   # Get available transitions
-   curl -s "$JIRA_URL/rest/api/3/issue/$TICKET_ID/transitions" \
-     -u "$JIRA_EMAIL:$JIRA_API_TOKEN"
-   ```
+## 2. (Optional) Inspect available transitions
 
-4. Select the transition to execute:
-   - If a TRANSITION argument was given: match it against available transitions by name (case-insensitive) or by number. Stop with an error if no match is found.
-   - If no TRANSITION argument: auto-select the first available transition.
-   Print: "Transitioning $TICKET_ID to [transition name]."
+If you want to show the user the options first, or no TRANSITION was given and
+you want to confirm the target:
+```bash
+.claude/scripts/jira-transition.sh <TICKET_ID>
+```
+This lists each transition as `N. <name> -> <target status> (id <id>)`.
 
-5. Execute the chosen transition:
-   ```bash
-   curl -s -o /tmp/jira_response.json -w "%{http_code}" \
-     -X POST "$JIRA_URL/rest/api/3/issue/$TICKET_ID/transitions" \
-     -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d "{\"transition\": {\"id\": \"$TRANSITION_ID\"}}"
-   ```
+## 3. Execute the transition
 
-6. Check the HTTP status code:
-   - `204` — success. Confirm to the user: "Ticket $TICKET_ID moved to [new status]."
-   - `401` — credentials invalid. Tell the user to check `JIRA_EMAIL` and `JIRA_API_TOKEN` in `config/.env`.
-   - `404` — ticket not found or transition unavailable. Tell the user to verify the ticket ID.
-   - Other — show the response body from `/tmp/jira_response.json` for debugging.
+```bash
+# Specific transition (by name or list number):
+.claude/scripts/jira-transition.sh <TICKET_ID> "<TRANSITION>"
 
-7. Clean up: `rm -f /tmp/jira_response.json`
+# Or auto-select the first available transition:
+.claude/scripts/jira-transition.sh <TICKET_ID> first
+```
+
+The script prints `Ticket <TICKET_ID> moved to <new status>.` on success or a
+clear error otherwise — relay its output.

@@ -1,3 +1,8 @@
+---
+description: Scaffold a new Clean Architecture domain following the existing bar pattern
+argument-hint: <name>
+---
+
 Scaffold a new Clean Architecture domain following the existing `bar` pattern. The user will pass the domain name as an argument: `/add-domain <name>` (e.g. `/add-domain product`).
 
 Use the lowercase singular form for the package name (e.g. `product`) and PascalCase for type names (e.g. `Product`). Plural form is used only for the route group and table name (`/products`, `products`).

@@ -1,102 +1,68 @@
+---
+description: Post a work-summary comment to a Jira ticket when work is finished
+argument-hint: [TICKET_ID]
+allowed-tools: Bash
+---
+
 # Mark as Done — Post Jira Ticket Comment
 
-Post a work summary comment to a Jira ticket when you finish working on it.
+Post a work-summary comment to a Jira ticket when you finish working on it.
 
 Usage:
 - `/mark-as-done TICKET_ID` — post directly to that ticket
-- `/mark-as-done` — fetch tickets assigned to you, then pick one
+- `/mark-as-done` — list tickets assigned to you, then pick one
 
-1. Read credentials from `config/.env` using grep:
-   ```bash
-   grep -E "^JIRA_URL=" config/.env | cut -d= -f2-
-   grep -E "^JIRA_EMAIL=" config/.env | cut -d= -f2-
-   grep -E "^JIRA_API_TOKEN=" config/.env | cut -d= -f2-
-   ```
-   If any of the three are missing or empty, stop and tell the user which vars to add to `config/.env`.
+Jira credentials (`JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`) are read from
+`config/.env` by the helper scripts in `.claude/scripts/`.
 
-2. If no TICKET_ID was given:
-   - Fetch tickets assigned to the current user with curl:
-     ```bash
-     curl -s -G "$JIRA_URL/rest/api/3/search/jql" \
-       -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-       --data-urlencode "jql=assignee=currentUser() ORDER BY updated DESC" \
-       --data-urlencode "fields=summary,status,priority" \
-       --data-urlencode "maxResults=20"
-     ```
-   - Display the results as a table:
-     ```
-     | #  | Ticket ID | Status      | Priority | Summary                       |
-     |----|-----------|-------------|----------|-------------------------------|
-     | 1  | PROJ-42   | To Do       | Medium   | Add user profile endpoint     |
-     | 2  | PROJ-38   | In Progress | High     | Fix auth token expiry         |
-     ```
-   - Ask the user: "Which ticket are you marking as done? (enter number or ticket ID)". Wait for their answer, then set TICKET_ID accordingly.
+## 1. Resolve the ticket
 
-3. Run these in parallel to gather context:
-   - `git log main...HEAD --oneline` — commits on this branch
-   - `git diff main...HEAD --stat` — files changed summary
-   - `git branch --show-current` — current branch name
-   - `git remote get-url origin` — remote URL to construct the branch link (convert SSH `git@github.com:org/repo.git` → `https://github.com/org/repo`)
+If a TICKET_ID was given, use it. Otherwise list assigned tickets and ask which one:
+```bash
+.claude/scripts/jira-tickets.sh
+```
+Ask: "Which ticket are you marking as done? (enter number or ticket ID)".
 
-4. Find the open PR for the current branch:
-   ```bash
-   gh pr list --head "$(git branch --show-current)" --state open --json url \
-     --jq 'if length > 0 then .[0].url else "No open PR found" end'
-   ```
+## 2. Gather context
 
-5. Based on the commits and changed files, infer QA test steps: what endpoints or features changed, what inputs/scenarios QA should verify, and what the expected outcome is. Be specific — reference actual route paths, request bodies, or UI flows if derivable from the diff. Aim for 3–5 actionable steps.
+Run these in parallel:
+- `git log main...HEAD --oneline` — commits on this branch
+- `git diff main...HEAD --stat` — files changed summary
+- `git branch --show-current` — current branch name
+- `git remote get-url origin` — remote URL (convert SSH `git@github.com:org/repo.git` → `https://github.com/org/repo`)
+- `date "+%Y-%m-%d %H:%M:%S"` — completion timestamp
 
-6. Compose the comment text:
-   ```
-   ✅ Work completed at <current timestamp from `date "+%Y-%m-%d %H:%M:%S"`>
-   ✅ Work completed on *[branch-name|https://github.com/org/repo/tree/branch-name]* — <one-sentence summary of what was done, inferred from commits and changed files>
+Find the open PR for the current branch:
+```bash
+gh pr list --head "$(git branch --show-current)" --state open --json url \
+  --jq 'if length > 0 then .[0].url else "No open PR found" end'
+```
 
-   *Detail*
-   <2–4 sentences explaining what changed and why — what problem it solves, what was added/modified/removed, and any important implementation notes. Written in plain language for a non-technical reader.>
+## 3. Infer QA steps
 
-   *Commits*
-   - <each commit from step 3, one per line — format as [short-hash|https://github.com/org/repo/commit/full-hash] commit message>
+From the commits and changed files, infer 3–5 actionable QA test steps: what
+endpoints or features changed, what inputs/scenarios QA should verify, and the
+expected outcome. Be specific — reference actual route paths and request bodies.
 
-   *Pull Request*
-   <PR URL, or "No open PR found">
+## 4. Compose and post the comment
 
-   *How to test*
-   1. <QA step 1>
-   2. <QA step 2>
-   3. <QA step 3>
-   ...
+Build the comment as a single ADF `doc` JSON object and pipe it into
+`jira-comment.sh`. Use proper ADF nodes — `strong` marks for bold, `link` marks
+for URLs. Do NOT use wiki markup like `[text|url]` or `*bold*`.
 
-   ---
-   Generated by [Claude|https://claude.ai/code]
-   ```
+Comment structure:
+- Paragraph: `✅ Work completed at <timestamp>`
+- Paragraph: `✅ Work completed on ` + branch name (linked to the branch URL) + ` — <one-sentence summary>`
+- `Detail` (bold) + hardBreak + 2–4 sentences explaining what changed and why, in plain language
+- `Commits` (bold) + a `bulletList` — each item: short hash (linked to the commit URL) + commit message
+- `Pull Request` (bold) + hardBreak + the PR title linked to the PR URL (or "No open PR found")
+- `How to test` (bold) + an `orderedList` of the QA steps from step 3
+- A `rule`, then `Generated by ` + `Claude` linked to `https://claude.ai/code`
 
-7. Post the comment with curl — Jira API v3 requires Atlassian Document Format (ADF) for the body. Write the ADF payload to a file via python3, then POST with `@file`:
-   ```bash
-   python3 -c "
-   import json, sys
-   text = sys.argv[1]
-   payload = {'body': {'version': 1, 'type': 'doc', 'content': [
-     {'type': 'paragraph', 'content': [{'type': 'text', 'text': text}]},
-     {'type': 'rule'},
-     {'type': 'paragraph', 'content': [
-       {'type': 'text', 'text': 'Generated by '},
-       {'type': 'text', 'text': 'Claude', 'marks': [{'type': 'link', 'attrs': {'href': 'https://claude.ai/code'}}]}
-     ]}
-   ]}}
-   json.dump(payload, open('/tmp/jira_payload.json', 'w'))
-   " "$COMMENT_TEXT"
+Post it:
+```bash
+echo '<ADF_DOC_JSON>' | .claude/scripts/jira-comment.sh <TICKET_ID>
+```
 
-   curl -s -o /tmp/jira_response.json -w "%{http_code}" \
-     -X POST "$JIRA_URL/rest/api/3/issue/$TICKET_ID/comment" \
-     -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d @/tmp/jira_payload.json
-   ```
-
-8. Check the HTTP status code:
-   - `201` — success. Confirm to the user: "Comment posted to $TICKET_ID."
-   - `401` — credentials invalid. Tell the user to check `JIRA_EMAIL` and `JIRA_API_TOKEN` in `config/.env`.
-   - `404` — ticket not found. Tell the user to verify the ticket ID.
-   - Other — show the response body from `/tmp/jira_response.json` for debugging.
-
-9. Clean up: `rm -f /tmp/jira_response.json`
+The script reports success or a clear error — relay its output. Do not ask for
+confirmation before posting.

@@ -1,124 +1,51 @@
+---
+description: Fetch a Jira ticket and implement the work it describes end-to-end
+argument-hint: [TICKET_ID]
+---
+
 # Implement Ticket — Read and implement a Jira ticket's instructions
 
 Fetch a Jira ticket's description and implement the work it describes end-to-end.
 
 Usage:
-- `/implement-ticket TICKET_ID` — implement that ticket directly
-- `/implement-ticket` — fetch tickets assigned to you, then pick one
+- `/work-on TICKET_ID` — implement that ticket directly
+- `/work-on` — list tickets assigned to you, then pick one
+
+Jira credentials (`JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`) are read from
+`config/.env` by the helper scripts in `.claude/scripts/`. If a script reports
+missing credentials, stop and tell the user which vars to add to `config/.env`.
 
 ---
 
-## Step 1 — Read credentials
+## Step 1 — Pick a ticket (skip if TICKET_ID already given)
 
 ```bash
-grep -E "^JIRA_URL=" config/.env | cut -d= -f2-
-grep -E "^JIRA_EMAIL=" config/.env | cut -d= -f2-
-grep -E "^JIRA_API_TOKEN=" config/.env | cut -d= -f2-
+.claude/scripts/jira-tickets.sh
 ```
-
-If any of the three are missing or empty, stop and tell the user which vars to add to `config/.env`.
+Ask: "Which ticket do you want to implement? (enter number or ticket ID)". Wait
+for the answer, then set TICKET_ID.
 
 ---
 
-## Step 2 — Pick a ticket (if no TICKET_ID given)
-
-Fetch tickets assigned to the current user:
-```bash
-curl -s -G "$JIRA_URL/rest/api/3/search/jql" \
-  -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-  --data-urlencode "jql=assignee=currentUser() AND statusCategory != Done ORDER BY updated DESC" \
-  --data-urlencode "fields=summary,status,priority" \
-  --data-urlencode "maxResults=20"
-```
-
-Display as a table:
-```
-| #  | Ticket ID | Status      | Priority | Summary                       |
-|----|-----------|-------------|----------|-------------------------------|
-| 1  | PROJ-42   | To Do       | Medium   | Add user profile endpoint     |
-| 2  | PROJ-38   | In Progress | High     | Fix auth token expiry         |
-```
-
-Ask: "Which ticket do you want to implement? (enter number or ticket ID)". Wait for answer.
-
----
-
-## Step 3 — Fetch and display ticket details
+## Step 2 — Fetch ticket details
 
 ```bash
-curl -s "$JIRA_URL/rest/api/3/issue/$TICKET_ID?fields=*navigable&expand=names" \
-  -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-  -o /tmp/jira_ticket.json
+.claude/scripts/jira-ticket.sh <TICKET_ID>
 ```
-
-Extract readable text and custom fields using Python:
-```python
-import json
-
-def adf_to_text(node):
-    if not node:
-        return ""
-    t = node.get("type", "")
-    if t == "text":
-        return node.get("text", "")
-    if t in ("doc", "paragraph", "blockquote", "listItem"):
-        inner = "".join(adf_to_text(c) for c in node.get("content", []))
-        return inner + ("\n" if t in ("paragraph", "listItem") else "")
-    if t == "bulletList":
-        return "".join("• " + adf_to_text(c) for c in node.get("content", []))
-    if t == "orderedList":
-        return "".join(f"{i+1}. {adf_to_text(c)}" for i, c in enumerate(node.get("content", [])))
-    if t == "heading":
-        level = node.get("attrs", {}).get("level", 2)
-        text = "".join(adf_to_text(c) for c in node.get("content", []))
-        return "#" * level + " " + text + "\n"
-    if t == "codeBlock":
-        code = "".join(adf_to_text(c) for c in node.get("content", []))
-        return f"```\n{code}\n```\n"
-    if t == "hardBreak":
-        return "\n"
-    if t == "rule":
-        return "---\n"
-    return "".join(adf_to_text(c) for c in node.get("content", []))
-
-with open("/tmp/jira_ticket.json") as f:
-    data = json.load(f)
-
-fields = data.get("fields", {})
-names = data.get("names", {})  # field_id -> display_name
-
-github_repo = ""
-base_branch = "main"
-for fid, fname in names.items():
-    val = fields.get(fid)
-    if not val or not isinstance(val, str):
-        continue
-    if fname.lower() == "github repo":
-        github_repo = val
-    elif fname.lower() == "base branch":
-        base_branch = val
-
-print("SUMMARY    :", fields.get("summary", ""))
-print("TYPE       :", fields.get("issuetype", {}).get("name", ""))
-print("STATUS     :", fields.get("status", {}).get("name", ""))
-print("GITHUB REPO:", github_repo or "(not set)")
-print("BASE BRANCH:", base_branch)
-print()
-print("DESCRIPTION:")
-print(adf_to_text(fields.get("description") or {}))
-```
-
-Show the output to the user and proceed immediately to the next step. Store the printed `GITHUB REPO` and `BASE BRANCH` values as `GITHUB_REPO` and `BASE_BRANCH` variables for use in later steps.
+This prints `SUMMARY`, `TYPE`, `STATUS`, `GITHUB REPO`, `BASE BRANCH`, and the
+plain-text `DESCRIPTION`. Store the printed `GITHUB REPO` and `BASE BRANCH`
+values as `GITHUB_REPO` and `BASE_BRANCH` for later steps. Show the output and
+proceed immediately.
 
 ---
 
-## Step 4 — Create a feature branch
+## Step 3 — Create a feature branch
 
-Derive the branch name from the ticket ID:
+Derive the branch name from the ticket ID and issue type:
 - Default: `feat/<ticket-id-lowercase>` (e.g. `feat/is-331`)
-- Bug fix tickets (issuetype = Bug): `fix/<ticket-id-lowercase>`
+- Bug fix (TYPE = Bug): `fix/<ticket-id-lowercase>`
 
-Checkout from `$BASE_BRANCH` (from Step 3), then create the feature branch:
+Check out from `$BASE_BRANCH` (from Step 2):
 ```bash
 git checkout $BASE_BRANCH && git pull origin $BASE_BRANCH
 git checkout -b <branch-name>
@@ -126,29 +53,28 @@ git checkout -b <branch-name>
 
 ---
 
-## Step 5 — Analyze and implement
+## Step 4 — Analyze and implement
 
-Read the parsed description carefully and determine what needs to be done. Use the following decision tree:
+Read the parsed description and determine what needs to be done. Use this decision tree:
 
 ### New domain / new entity / new CRUD API
 Follow the `/add-domain` pattern exactly:
-- Read the `bar` reference files as defined in `add-domain.md` before writing anything.
+- Read the `bar` reference files listed in `add-domain.md` before writing anything.
 - Create all domain, infrastructure, delivery, and wire files.
 - Generate the migration with `make migrate-create name=create_<names>_table`.
-- Populate SQL up/down migration based on the fields described in the ticket.
+- Populate the SQL up/down migration based on the fields described in the ticket.
 
 ### New standalone API endpoint on an existing domain
 - Read the existing handler, usecase, and repository for that domain first.
-- Add the new method to the usecase interface, implement it in the usecase struct, add the repository method, and register the route.
+- Add the new method to the usecase interface, implement it, add the repository method, and register the route.
 
 ### Bug fix or adjustment
 - Locate the affected files across `domain/`, `application/`, `infrastructure/repository/`, and `delivery/http/handler/`.
-- Identify the root cause, not just the symptom.
-- Make the minimal change necessary.
+- Identify the root cause, not just the symptom. Make the minimal change necessary.
 
 ### Data migration / data ingestion
-- Create a SQL migration file using `make migrate-create name=<description>`.
-- Populate the migration with the exact SQL described or derived from the ticket.
+- Create a SQL migration file with `make migrate-create name=<description>`.
+- Populate it with the exact SQL described or derived from the ticket.
 
 ### General rules (always apply)
 - Follow Clean Architecture boundaries: `domain` ← `application` ← `delivery`; never import inward layers outward.
@@ -156,32 +82,23 @@ Follow the `/add-domain` pattern exactly:
 - All DB access through the repository interface — no GORM calls in handlers or use cases.
 - Use `go-playground/validator` for request validation in DTOs.
 - Follow the response envelope format via `pkg` response helpers.
-- Match HTTP status codes to API conventions (`201` for create, `200` for read/update, `400` for bad input, `404` for not found, etc.).
+- Match HTTP status codes to API conventions (`201` create, `200` read/update, `400` bad input, `404` not found).
 
 ---
 
-## Step 6 — Verify
+## Step 5 — Verify
 
 ```bash
 go build ./...
 ```
-
 Fix any compile errors before reporting. Do not run migrations — leave that to the user.
 
 ---
 
-## Step 7 — Report
+## Step 6 — Report
 
 Summarize:
 - What was implemented (files created/modified with paths)
 - Branch name
 - Any assumptions made where the ticket description was ambiguous
 - Next steps for the user (e.g. run migrations, adjust field names, add tests)
-
----
-
-## Cleanup
-
-```bash
-rm -f /tmp/jira_ticket.json
-```

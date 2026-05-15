@@ -1,3 +1,8 @@
+---
+description: Push the current branch to GitHub (refuses on main/master)
+allowed-tools: Bash
+---
+
 # Push — Push Current Branch to GitHub
 
 Push the current branch to the remote origin.

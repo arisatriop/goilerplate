@@ -90,12 +90,16 @@ Project-level slash commands available:
 | `/push` | Push the current branch to GitHub (refuses if on `main`) |
 | `/pr` | Create a GitHub pull request for the current branch |
 | `/code-review` | Review current git diff for correctness, security, and conventions |
-| `/pr-review` | Review an open GitHub PR using the GitHub MCP server |
+| `/pr-review` | Review an open GitHub PR using the `gh` CLI |
 | `/add-domain <name>` | Scaffold a new Clean Architecture domain following the `bar` pattern |
 | `/fix-issue <topic>` | Guided workflow to investigate and fix an issue |
 | `/mark-as-start [TICKET_ID]` | Post a "starting work" comment to a Jira ticket |
 | `/mark-as-done [TICKET_ID]` | Post a work-summary comment to a Jira ticket |
 | `/next-transition [TICKET_ID]` | Move a Jira ticket to the next status via transition |
+
+The Jira-aware commands share helper scripts in `.claude/scripts/` (`jira-lib.sh`,
+`jira-tickets.sh`, `jira-ticket.sh`, `jira-comment.sh`, `jira-transition.sh`) so
+credential handling and the Jira REST calls live in one place.
 
 ## MCP Setup
 See [docs/reference/mcp-setup.md](docs/reference/mcp-setup.md) for MCP server configuration guide.

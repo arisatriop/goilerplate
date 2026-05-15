@@ -1,3 +1,8 @@
+---
+description: Create a conventional single-line git commit for the current changes
+allowed-tools: Bash
+---
+
 Create a git commit for the current changes by following these steps:
 
 1. Run `git status` and `git diff` (staged and unstaged) in parallel with `git log --oneline -10` to understand the changes and match the repo's commit message style.
@@ -12,7 +17,7 @@ Create a git commit for the current changes by following these steps:
    - If there are **no staged changes**, stage all modified/untracked files with `git add -A`.
 4. Create the commit. Always append the co-author trailer:
    ```
-   Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+   Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
    ```
 5. Run `git status` to confirm the commit succeeded.
 

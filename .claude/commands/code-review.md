@@ -1,8 +1,13 @@
+---
+description: Review the current git diff for correctness, security, and project conventions
+allowed-tools: Bash, Read, Grep, Glob
+---
+
 # Code Review
 
 Review the current git diff (`git diff HEAD`) for the following:
 
-1. **Correctness** — Does the logic work as intended? Any off-by-one errors, nil pointer risks, or unhandled erroPlrs?
+1. **Correctness** — Does the logic work as intended? Any off-by-one errors, nil pointer risks, or unhandled errors?
 2. **Architecture** — Does the code respect Clean Architecture boundaries? No GORM/DB calls in use cases or handlers? No domain importing infrastructure?
 3. **Financial safety** — Are all monetary/financial values using `shopspring/decimal`, not `float64`?
 4. **Security** — Any hardcoded secrets, SQL injection risks, unvalidated input, or missing auth middleware on routes?

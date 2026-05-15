@@ -1,3 +1,8 @@
+---
+description: Review an open GitHub pull request and post the review via the gh CLI
+argument-hint: [PR_NUMBER]
+---
+
 # Review an open pull request on GitHub
 
 Review an open pull request on GitHub using the gh CLI.
