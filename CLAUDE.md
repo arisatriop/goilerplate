@@ -71,10 +71,9 @@ Secrets: `config/.env` (copy from `config/.env.example`)
 - Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`
 
 ## Important Rules
-- Never use `float64` for financial values — always use `shopspring/decimal`
+Detailed coding rules live in `.claude/rules/` (`code-style.md`, `api-conventions.md`, `testing.md`) and are always in effect — financial values, error handling, Clean Architecture boundaries, naming, and API conventions are defined there. Project-specific notes not covered by those rules:
+
 - Config secrets come from `config/.env`; never hardcode credentials
-- All DB access goes through the repository interface — no GORM calls in handlers or use cases
-- Follow Clean Architecture boundaries: domain ← application ← delivery; never import inward layers outward
 - When adding a new domain: create `domain/<name>/`, `application/<name>/`, `infrastructure/repository/<name>.go`, `delivery/http/handler/<name>.go`, then wire it up in `internal/wire/`
 - Migration files live in `internal/migrations/` — use `make migrate-create` to generate them
 

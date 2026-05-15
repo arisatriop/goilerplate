@@ -30,6 +30,7 @@
 - `infrastructure/` implements `domain/` interfaces — never imported by `application/` or `delivery/`
 - `delivery/` depends on `domain/` interfaces (Usecase) only
 - `wire/` is the only place that knows about all concrete implementations
+- All DB access goes through the repository interface — no GORM calls in handlers or use cases
 
 ## Structs & Models
 - Domain entities live in `domain/<name>/entity.go` — no GORM tags
