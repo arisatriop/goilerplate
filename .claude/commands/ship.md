@@ -17,6 +17,17 @@ missing credentials, stop and tell the user which vars to add to `config/.env`.
 
 ---
 
+## Phase 0 — Preflight
+
+Ensure the gh CLI is authenticated before doing any work — this fails early,
+before any Jira comment is posted. Non-interactive, reads the token from `config/.env`:
+```bash
+.claude/scripts/gh-login.sh
+```
+If it reports a missing or invalid token, stop and tell the user to set a valid `GITHUB_PERSONAL_ACCESS_TOKEN` (scopes `repo` + `read:org`) in `config/.env`.
+
+---
+
 ## Phase 1 — Pick a ticket (skip if TICKET_ID already given)
 
 ```bash

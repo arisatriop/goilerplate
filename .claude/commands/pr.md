@@ -7,6 +7,16 @@ allowed-tools: Bash
 
 Create a pull request for the current branch using the gh CLI.
 
+## Preflight — GitHub auth
+
+Ensure the gh CLI is authenticated (non-interactive — reads the token from `config/.env`):
+```bash
+.claude/scripts/gh-login.sh
+```
+If it reports a missing or invalid token, stop and tell the user to set a valid `GITHUB_PERSONAL_ACCESS_TOKEN` (scopes `repo` + `read:org`) in `config/.env`.
+
+## Steps
+
 1. Run these in parallel to understand the current state:
    - `git branch --show-current` to get the current branch name
    - `git log --oneline -10` to review recent commits

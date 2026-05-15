@@ -36,6 +36,7 @@
       "Bash(.claude/scripts/jira-ticket.sh:*)",
       "Bash(.claude/scripts/jira-transition.sh:*)",
       "Bash(.claude/scripts/jira-comment.sh:*)",
+      "Bash(.claude/scripts/gh-login.sh:*)",
       "mcp__jira__*"
     ],
     "deny": [
