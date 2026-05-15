@@ -147,7 +147,7 @@ Commit format:
 - For complex changes: add a blank line + body (explain *why*; lines under 72 characters).
 - Always append the co-author trailer:
   ```
-  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+  Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
   ```
 
 Run `git status` to confirm the commit succeeded.
