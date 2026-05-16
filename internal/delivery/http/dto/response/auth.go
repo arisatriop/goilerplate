@@ -5,6 +5,7 @@ import "time"
 // LoginResponse represents the login API response
 type LoginResponse struct {
 	User        UserResponse      `json:"user"`
+	Menus       []MenuResponse    `json:"menus"`
 	Permissions []string          `json:"permissions"`
 	Tokens      TokenPairResponse `json:"tokens"`
 	Session     SessionResponse   `json:"session"`
