@@ -1,13 +1,13 @@
 # Goilerplate — Claude Instructions
 
 ## Project Overview
-Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and multi-database support.
+Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and PostgreSQL.
 
 ## Tech Stack
 - **Language**: Go 1.24
 - **Router**: GoFiber v2
 - **gRPC**: google.golang.org/grpc, proto contract at [goilerplate-proto](https://github.com/arisatriop/goilerplate-proto)
-- **Database**: PostgreSQL via GORM + pgx, MySQL via GORM
+- **Database**: PostgreSQL only, via GORM + pgx
 - **Cache**: Redis (go-redis/v9)
 - **Config**: Viper (YAML — `config/config.yaml`) + `.env` for secrets
 - **Auth**: JWT (golang-jwt/jwt v5), access + refresh tokens

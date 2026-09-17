@@ -71,7 +71,6 @@ type CORS struct {
 }
 
 type DB struct {
-	Driver                string `mapstructure:"driver"`
 	Host                  string `mapstructure:"host"`
 	Port                  int    `mapstructure:"port"`
 	Name                  string `mapstructure:"name"`

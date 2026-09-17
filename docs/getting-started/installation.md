@@ -40,7 +40,6 @@ Edit `config/config.yaml` with your database credentials:
 
 ```yaml
 db:
-  driver: postgres
   host: localhost
   port: 5432
   name: goilerplate      # Adjust to your database name
@@ -224,25 +223,6 @@ sudo systemctl start postgresql
 createdb goilerplate
 ```
 
-### MySQL (Alternative)
-
-Edit `config/config.yaml`:
-
-```yaml
-db:
-  driver: mysql
-  host: localhost
-  port: 3306
-  name: goilerplate
-  username: root
-  password: your_password
-```
-
-Create database:
-```bash
-mysql -u root -p -e "CREATE DATABASE goilerplate;"
-```
-
 ---
 
 ## ⚙️ Configuration
@@ -253,7 +233,6 @@ For quick start, minimum config required:
 
 ```yaml
 db:
-  driver: postgres
   host: localhost
   port: 5432
   name: goilerplate

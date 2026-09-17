@@ -21,7 +21,7 @@ func validConfig() *Config {
 		App:    App{Env: "dev", Name: "goilerplate"},
 		Server: Server{Port: 3000},
 		DB: DB{
-			Driver: "postgres", Host: "localhost", Port: 5432,
+			Host: "localhost", Port: 5432,
 			Name: "goilerplate", Username: "postgres", Password: "postgres", MaxOpenConnections: 10,
 		},
 		JWT: JWT{
@@ -61,7 +61,6 @@ func TestConfig_Validate_Rules(t *testing.T) {
 		{"grpc disabled ignores port", func(c *Config) { c.GRPC.Port = 0 }, ""},
 		{"otel enabled without endpoint", func(c *Config) { c.OTel.Enabled = true }, "otel.endpoint is required"},
 		{"db placeholder", func(c *Config) { c.DB.Host = "<DB_HOST>" }, "db.host still contains the placeholder <DB_HOST>"},
-		{"db unsupported driver", func(c *Config) { c.DB.Driver = "sqlite" }, `db.driver must be postgres or mysql, got "sqlite"`},
 		{"access secret too short", func(c *Config) { c.JWT.AccessSecret = "short" }, "jwt.access_secret must be at least 32 bytes, got 5"},
 		{"refresh secret missing", func(c *Config) { c.JWT.RefreshSecret = "" }, "jwt.refresh_secret is required"},
 		{"secret placeholder", func(c *Config) { c.JWT.AccessSecret = "<JWT_ACCESS_SECRET_KEY>" }, "jwt.access_secret still contains a placeholder"},

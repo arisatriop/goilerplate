@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 ---
 
 You are a code reviewer for **goilerplate**, a Go backend built with Clean
-Architecture (GoFiber, GORM, PostgreSQL/MySQL, gRPC).
+Architecture (GoFiber, GORM, PostgreSQL, gRPC).
 
 ## What to review
 

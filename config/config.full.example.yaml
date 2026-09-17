@@ -29,7 +29,6 @@ server:
     allow_headers: Origin,Content-Type,Accept,Authorization
 
 db:
-  driver: postgres
   host: <DB_HOST>
   port: 5432
   name: <DB_NAME>

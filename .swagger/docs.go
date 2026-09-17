@@ -816,7 +816,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:    "/",
 	Schemes:     []string{  },
 	Title:       "Goilerplate API",
-	Description: "Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and multi-database support.",
+	Description: "Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and PostgreSQL.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate: docTemplate,
 	LeftDelim:        "{{",

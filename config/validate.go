@@ -58,10 +58,6 @@ func (c *Config) validateServer(v *validation) {
 }
 
 func (c *Config) validateDB(v *validation) {
-	driver := strings.ToLower(c.DB.Driver)
-	if driver != "postgres" && driver != "mysql" {
-		v.addf("db.driver must be postgres or mysql, got %q", c.DB.Driver)
-	}
 	v.required("db.host", c.DB.Host)
 	v.port("db.port", c.DB.Port)
 	v.required("db.name", c.DB.Name)

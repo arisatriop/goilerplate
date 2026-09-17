@@ -82,7 +82,7 @@ func Init() *App {
 // logComponents prints which optional components are enabled for this run.
 func logComponents(cfg *config.Config, log *slog.Logger) {
 	log.Info("components",
-		"database", strings.ToLower(cfg.DB.Driver),
+		"database", "postgres",
 		"redis", cfg.Redis.Enabled,
 		"grpc", cfg.GRPC.Enabled,
 		"otel", cfg.OTel.Enabled,
@@ -98,17 +98,11 @@ func PartnerRoutesEnabled(cfg *config.Config) bool {
 	return len(cfg.Apikeys) > 0
 }
 
-// initializeDatabase sets up your multi-database configuration
+// initializeDatabase opens the PostgreSQL connections (GORM and pgx)
 func initializeDatabase(cfg *config.Config, log *slog.Logger) *bootstrap.DB {
 	db := bootstrap.NewDB()
 	db.GDB = bootstrap.NewGorm(cfg, log)
-
-	switch strings.ToLower(cfg.DB.Driver) {
-	case bootstrap.Postgres:
-		db.PgxDB = bootstrap.NewPostgres(cfg, log)
-	case bootstrap.Mysql:
-		db.MysqlDB = bootstrap.NewMysql(cfg, log)
-	}
+	db.PgxDB = bootstrap.NewPostgres(cfg, log)
 
 	return db
 }
