@@ -5,6 +5,7 @@ import (
 	bootstrap "goilerplate/internal/bootstrap/database"
 	"goilerplate/pkg/logger"
 	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -31,6 +32,12 @@ type App struct {
 func Init() *App {
 	cfg := Load()
 	log := logger.NewSlog(cfg)
+
+	// Fail fast before any connection is opened
+	if err := cfg.Validate(); err != nil {
+		log.Error("invalid configuration", "errors", strings.Split(err.Error(), "\n"))
+		os.Exit(1)
+	}
 
 	tp, err := NewTracerProvider(cfg)
 	if err != nil {

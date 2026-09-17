@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — T1.7 done
+**Status:** in progress — T1.7, T1.1 done
 
 ---
 
@@ -193,19 +193,24 @@ jwt:
 
 ## Phase 1 — Optional-component foundation
 
-### T1.1 Startup config validation · M
-- [ ] Add `config.Validate()`, called in `bootstrap.Init()` before any connection is opened
-- [ ] Per-feature rules:
+### T1.1 Startup config validation · M — ✅ done
+- [x] Add `config.Validate()`, called in `bootstrap.Init()` before any connection is opened
+- [x] Per-feature rules:
   - `redis.enabled` → `host` required
   - `filesystem.driver=s3` → `bucket` and `region` required
-  - `grpc.enabled` → `port` required
-- [ ] JWT rules:
+  - `grpc.enabled` → `port` required (and different from `server.port`)
+  - `otel.enabled` → `endpoint` required; `filesystem.driver` must be `local | s3 | drive`
+- [x] JWT rules:
   - secrets at least 32 bytes
   - no `<...>` placeholders
   - `access_secret` ≠ `refresh_secret`
-- [ ] Production-only rules (`app.env=production`): reject weak secrets; log a warning when
-      `internal_auth.mode=none`
-- [ ] Collect all errors and report them together
+- [x] Production-only rules (`app.env=production`): reject weak secrets (example markers such as
+      `changeme` / `your_`, or fewer than 10 distinct characters) in JWT secrets, API keys, and
+      the S3 secret key
+- [ ] Log a warning when `internal_auth.mode=none` → moved to T4.1 (the config key does not exist yet)
+- [x] Collect all errors and report them together; secret values never appear in messages
+
+`jwt.secret_key` is only checked for presence and placeholders because T3.1 removes it.
 
 **Done when:** invalid config stops the app with a clear list of errors; each rule has a unit test.
 
@@ -474,6 +479,7 @@ logs out every other device.
 - [ ] Optional safety net: `internal_auth.mode: none | shared_secret` (default `none`);
       `X-Internal-Secret` compared in constant time. Recommended when the gateway is managed by
       another team or its config changes often
+- [ ] Startup warning in production when `internal_auth.mode=none` (moved from T1.1)
 - [ ] Optional caller identity: record `X-Service-Name` in context and logs instead of a fixed
       `system` user
 - [ ] `docs/deployment/kubernetes.md`: state the rule and a verification command
