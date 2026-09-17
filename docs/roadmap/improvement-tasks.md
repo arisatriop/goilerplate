@@ -100,8 +100,8 @@ auth:
   session_cache_ttl: 30s    # memory: max cross-instance lag; redis: bounds staleness if the DB is changed directly
   session_expiry: 168h      # absolute session lifetime
   remember_me_expiry: 720h  # absolute session lifetime when remember_me = true
-  refresh_rotation: true
   refresh_reuse_grace: 10s  # tolerate concurrent refreshes from multiple tabs
+  permission_cache_ttl: 15m # safety net; permission changes invalidate explicitly
 
 jwt:
   access_secret: ...
@@ -160,6 +160,9 @@ jwt:
 | JWT validation uses `ParseUnverified` to pick a secret, with a generic fallback secret; no `aud`/`iss` checks | T3.1 |
 | CORS config exists but the middleware is commented out; 100MB body limit hardcoded | T5.4 |
 | S3 driver: no path-style option, public-read only, extra `HeadObject` per upload | T5.3 |
+| Permission cache TTL is 7 days and is only refreshed on login/refresh; role or permission changes are not invalidated | T1.2 |
+| Idempotency middleware lets concurrent duplicates both execute and does not detect a reused key with a different payload | T1.4 |
+| `/auth/refresh` and `/auth/logout` share the per-IP login rate limit, so users behind one NAT throttle each other | T4.6 |
 | No tests for `domain/auth` or auth middleware | T6.1 |
 
 ---
@@ -169,7 +172,7 @@ jwt:
 | Phase | Tasks | Estimate |
 |---|---|---|
 | 0. Decision | T0.1 | ✅ decided |
-| 1. Optional-component foundation | T1.1 – T1.7 | ~7.5–9.5 days |
+| 1. Optional-component foundation | T1.1 – T1.7 | ~8–10 days |
 | 2. Schema & database | T2.1 – T2.4 | ~3–5 days |
 | 3. Token security | T3.1 – T3.7 | ~9–12 days |
 | 4. Other auth surfaces | T4.1 – T4.7 | ~6–8 days |
@@ -220,9 +223,12 @@ jwt:
 - [ ] Remove every `IsEnabled()` call from `internal/domain/**`
 - [ ] Add `auth.ErrNotFound` so the domain no longer imports GORM
 - [ ] Log a startup warning when `memory` is used (revocation lag across instances)
+- [ ] `PermissionCache` TTL from `auth.permission_cache_ttl` (default 15m, not the session lifetime)
+- [ ] Invalidate cached permissions on every change: role permissions, role menus, user roles,
+      user permission overrides (per user, or all users for role-level changes)
 
-**Done when:** `grep -r "IsEnabled\|gorm" internal/domain` returns nothing and the app works in
-all three cache modes.
+**Done when:** `grep -r "IsEnabled\|gorm" internal/domain` returns nothing, the app works in
+all three cache modes, and a revoked permission is denied on the next request.
 
 ### T1.3 Conditional wiring · M
 **Depends on:** T1.2
@@ -234,13 +240,18 @@ all three cache modes.
 
 **Done when:** with the minimal config, no gRPC port is opened and no Redis/OTel connection is attempted.
 
-### T1.4 Idempotency with memory fallback · S
+### T1.4 Idempotency: memory fallback and correctness · M
 **Depends on:** T1.2
-- [ ] Use Fiber memory storage when Redis is disabled instead of becoming a no-op
+- [ ] Use memory storage when Redis is disabled instead of becoming a no-op
 - [ ] Log a startup warning that memory storage only deduplicates within one instance
       (the app cannot detect how many instances run)
+- [ ] In-flight lock per key (`LockProvider`): a concurrent request with the same key gets
+      `409 Conflict` instead of executing twice
+- [ ] Store a fingerprint (method + path + body hash) with the key: same key with a different
+      payload gets `422 Unprocessable Entity`
 
-**Done when:** duplicate requests with the same `Idempotency-Key` are handled without Redis.
+**Done when:** without Redis, a replayed request returns the stored response, two simultaneous
+requests with the same key execute once, and a reused key with a different body is rejected.
 
 ### T1.5 Minimal example config · S
 - [ ] `config.example.yaml`: Redis, gRPC, OTel off; storage `local`; email/Google features off
@@ -266,6 +277,7 @@ all three cache modes.
 - [ ] Skip body logging entirely for `/auth/*` routes, or log bodies only at `debug` level
 - [ ] Redact query parameters with sensitive names (e.g. reset `token`)
 - [ ] Apply the same rules to the gRPC request logger (metadata)
+- [ ] OTel HTTP spans: strip sensitive query parameters from recorded URLs
 
 **Done when:** a login → refresh → logout run produces logs without any password, token, or API key
 (covered by a test that inspects captured log output).
@@ -289,6 +301,8 @@ Migrations are edited in place to form a clean baseline (D4).
 - [ ] Every time column is `TIMESTAMPTZ`
 - [ ] Merge `add_auth_fields_to_users` into `create_users_table`
 - [ ] Rename `001_create_bars_table` to the same timestamp naming as the other migrations
+- [ ] Primary keys: UUIDv7 generated in the application (`uuid.NewV7()`, already available in
+      `google/uuid`) for index locality; no reliance on DB-side `gen_random_uuid()` defaults
 - [ ] `time.Local = time.UTC` in `cmd/server` and `cmd/migrate`
 - [ ] GORM `NowFunc: utils.Now`; DSN `TimeZone=UTC`
 
@@ -300,6 +314,7 @@ database, and API timestamps always end in `Z` regardless of server timezone.
       `device_name`, `device_type`, `device_id`, `ip_address`, `user_agent`, `is_active`,
       `expires_at`, `last_used_at`, `revoked_at`, `revoked_reason`, `created_at`
 - [ ] No `refresh_token_hash` (replaced by `refresh_jti`)
+- [ ] `ip_address` as `INET`
 - [ ] Indexes: `(user_id, is_active)` and `expires_at` only
 - [ ] Align the GORM model with the schema
 
@@ -309,6 +324,7 @@ database, and API timestamps always end in `Z` regardless of server timezone.
 - [ ] Replace the `user_tokens` migration with `create_one_time_tokens_table`
 - [ ] `token_type` restricted by `CHECK` to `email_verification | password_reset | email_change`
 - [ ] Indexes: `token_hash` UNIQUE, `(user_id, token_type)`, `expires_at` — nothing else
+- [ ] `attempts` column (failed verification attempts, used by OTP limits in T5.1)
 - [ ] Accurate column/table comments; GORM model without MySQL-style `char(36)` / `datetime(3)` tags
 - [ ] Repository `ConsumeToken(hash, type)`:
       `UPDATE ... SET used_at = now WHERE token_hash = ? AND token_type = ? AND used_at IS NULL AND expires_at > now`,
@@ -327,8 +343,9 @@ database, and API timestamps always end in `Z` regardless of server timezone.
       `WithAudience`, small leeway
 - [ ] Key rotation: `kid` header on every token; config holds one active signing key plus
       optional previous verification keys, so secrets rotate without logging everyone out
-- [ ] Algorithm config `jwt.algorithm: HS256 | EdDSA` (default `HS256`); `EdDSA` lets other
-      services verify tokens with only the public key (Full profile)
+- [ ] Optional, may be deferred until a second service needs to verify tokens:
+      `jwt.algorithm: HS256 | EdDSA` (default `HS256`); `EdDSA` lets other services verify with
+      only the public key
 - [ ] `aud` claim from new `jwt.audience` config
 - [ ] `jti` on both access and refresh tokens
 - [ ] Remove `jwt.secret_key` and `jwt.refresh_token_expiry` from config (replaced by
@@ -360,7 +377,9 @@ and a token signed with a previous key still validates after rotating the active
       (**not** a reuse event — e.g. a refresh after logout)
 - [ ] Atomic rotation:
       `UPDATE user_sessions SET previous_refresh_jti = refresh_jti, refresh_jti = ?, rotated_at = now, last_used_at = now WHERE id = ? AND refresh_jti = ? AND is_active AND expires_at > now`
-- [ ] When `RowsAffected = 0` on an active session:
+- [ ] When `RowsAffected = 0` on an active session, **re-read the session after the failed
+      UPDATE** (the pre-loaded copy may predate a concurrent rotation; PostgreSQL row locking
+      makes the UPDATE wait for the concurrent commit), then:
   - jti equals `previous_refresh_jti` and `rotated_at` is within `auth.refresh_reuse_grace` →
     **idempotent success**: return a new access token and re-issue a refresh token carrying the
     session's current `refresh_jti` (no further rotation). Handles concurrent tabs and a lost
@@ -369,7 +388,8 @@ and a token signed with a previous key still validates after rotating the active
     and log a security event; other devices of the same user are unaffected
 - [ ] Refresh JWT `exp` = `session.expires_at`; rotation never extends the session
 - [ ] Session lifetime from `auth.session_expiry` / `auth.remember_me_expiry`
-- [ ] Config `auth.refresh_rotation` (default `true`)
+- [ ] Rotation is always on (no config switch): a non-rotating refresh token is the weaker
+      option under RFC 9700 and not worth supporting
 
 **Done when:**
 - reusing an old refresh token after the grace period revokes that session only
@@ -426,6 +446,8 @@ logs out every other device.
 - [ ] Max attempts and lock duration configurable via `auth.lockout.*`
 - [ ] Password policy on register, change, and reset (NIST 800-63B): minimum 8 characters,
       maximum 72 **bytes** (bcrypt limit) returned as a 400 validation error; no composition rules
+- [ ] Reject common passwords using an embedded list (e.g. top 10k), as NIST 800-63B requires
+      checking against commonly used or compromised passwords
 
 **Done when:**
 - the account locks exactly on attempt N
@@ -466,12 +488,17 @@ logs out every other device.
 
 ### T4.3 gRPC auth interceptor · M
 **Depends on:** T1.3, T3.2
-- [ ] Unary and stream interceptors reading `authorization` from metadata
-- [ ] Reuse the same validator and `SessionStore` as HTTP
-- [ ] Config allowlist for public methods
+- [ ] Config `grpc.auth.mode: token | shared_secret | none` (default `token`)
+  - `token`: unary and stream interceptors read `authorization` from metadata and reuse the same
+    validator and `SessionStore` as HTTP, so handlers get the same user context
+  - `shared_secret`: service-to-service calls without user context
+  - `none`: acceptable only when the gRPC port is reachable in-cluster only (same reasoning as D5)
+- [ ] Config allowlist for public methods (e.g. health)
 - [ ] Reflection controlled by `grpc.reflection` (default off), not by `app.env`
+- [ ] Optional `grpc.tls` for deployments where the port leaves the cluster
 
-**Done when:** gRPC calls without a token get `codes.Unauthenticated`.
+**Done when:** in `token` mode, gRPC calls without a valid token get `codes.Unauthenticated`,
+and allowlisted methods still work.
 
 ### T4.4 Cleanup job · M
 **Depends on:** T1.2, T2.3, T2.4
@@ -504,6 +531,8 @@ logs out every other device.
 - [ ] Security headers via Fiber `helmet` (`X-Content-Type-Options`, `X-Frame-Options`,
       `Referrer-Policy`; `Strict-Transport-Security` when `server.hsts` is on)
 - [ ] Partner rate-limit key uses a hash of the API key, not the raw key
+- [ ] Per-IP auth limiter applies only to unauthenticated endpoints (login, register, forgot
+      password, OTP); `/auth/refresh` and `/auth/logout` are limited per session instead
 
 **Done when:** a spoofed `X-Forwarded-For` from an untrusted source does not change the client IP,
 and security headers are present on every response.
@@ -537,10 +566,13 @@ and security headers are present on every response.
 - [ ] Invalidate previous tokens of the same type before issuing a new one
 - [ ] Store OTP hashes as HMAC-SHA256 with a server secret (a plain SHA-256 of a 6-digit code
       is trivially brute-forced if the database leaks); high-entropy reset tokens may use SHA-256
+- [ ] OTP verification looks up the latest active token by `(user_id, token_type)`, compares the
+      HMAC in constant time, and increments `attempts` on mismatch; the token is invalidated after
+      `auth.otp.max_attempts` (default 5). Looking up by hash alone cannot count wrong guesses.
 - [ ] Registration without enumeration: when the email is already registered, return the same
-      success response and send a "you already have an account" email instead
+      success response and send a "you already have an account" email instead. Without the email
+      module this is not possible; rely on the per-IP limit and document the trade-off.
 - [ ] All token consumption via atomic `ConsumeToken` (T2.4)
-- [ ] Per-user OTP attempt limit (in addition to per-IP rate limiting)
 - [ ] `ForgotPassword` always returns 200 (no enumeration)
 - [ ] Config `auth.require_email_verification` (default `false`); when on, login is rejected
       until verified, checked after the password
@@ -571,6 +603,7 @@ and security headers are present on every response.
 
 ### T5.4 CORS and body limit · S
 - [ ] Enable the CORS middleware from `server.enable_cors` (config already exists)
+- [ ] Config validation rejects `allow_origin: *` together with `allow_credentials: true`
 - [ ] `server.body_limit` configurable (default 10MB)
 
 **Done when:** CORS headers appear only when enabled, and oversized requests get 413.
@@ -586,8 +619,12 @@ and security headers are present on every response.
 ### T5.6 Refresh token via httpOnly cookie (web clients) · M
 **Depends on:** T3.3
 - [ ] Config `auth.refresh_transport: body | cookie` (default `body`)
-- [ ] `cookie`: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/auth`; refresh token omitted from JSON
-- [ ] CSRF protection for cookie mode (`SameSite=Strict` plus an `Origin` check)
+- [ ] `cookie`: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth`; refresh token
+      omitted from JSON
+- [ ] CSRF protection: `Origin` allowlist check on cookie-authenticated endpoints
+- [ ] `SameSite=Strict` requires the frontend and API to be same-site (e.g. `app.example.com` and
+      `api.example.com`); for cross-site frontends use `SameSite=None` plus a CSRF token
+- [ ] CORS `allow_credentials: true` with explicit origins (T5.4)
 
 **Done when:** in cookie mode, browser JavaScript cannot read the refresh token and refresh still works.
 
@@ -611,6 +648,9 @@ and security headers are present on every response.
   - lockout and anti-enumeration
   - locked account: correct password gets the same response as a wrong one
   - concurrent one-time token consumption
+  - OTP invalidated after max attempts
+  - revoking a role permission is enforced on the next request
+  - concurrent requests with the same `Idempotency-Key` execute once
   - gRPC call without a token
   - `/internal` with `internal_auth.mode=shared_secret` and no secret returns 401
   - startup config validation
