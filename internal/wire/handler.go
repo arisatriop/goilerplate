@@ -58,11 +58,18 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 	return &Middleware{
 		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, infrastructure.AuthCacheService, permissionService, cfg.Apikeys),
 		Recover:       middleware.Recover(),
-		RequestLogger: middleware.NewRequestLogger(),
+		RequestLogger: middleware.NewRequestLogger(omitBodyPaths(cfg)),
 		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit, pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "rl:")),
 		Idempotency:   middleware.NewIdempotency(pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "idem:"), 24*time.Hour),
 		// Future middleware wiring:
 		// CORS:   middleware.NewCORS(),
 		// Logger: middleware.NewLogger(),
 	}
+}
+
+func omitBodyPaths(cfg *config.Config) []string {
+	if cfg.Log == nil {
+		return nil
+	}
+	return cfg.Log.OmitBodyPaths
 }

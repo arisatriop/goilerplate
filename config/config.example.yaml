@@ -53,6 +53,8 @@ jwt:
 log:
   level: debug
   source: false
+  redact_fields: []                # extra JSON/query field names to mask (password, token, api_key, ... are always masked)
+  omit_body_paths: [/api/v1/auth]  # request/response bodies under these path prefixes are never logged
 
 otel:
   enabled: false

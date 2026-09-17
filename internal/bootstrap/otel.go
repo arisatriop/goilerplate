@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"goilerplate/config"
+	"goilerplate/pkg/redact"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/propagation"
@@ -48,7 +50,10 @@ func NewTracerProvider(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 	var tp *sdktrace.TracerProvider
 
 	if !cfg.OTel.Enabled {
-		tp = sdktrace.NewTracerProvider(sdktrace.WithResource(res))
+		tp = sdktrace.NewTracerProvider(
+			sdktrace.WithResource(res),
+			sdktrace.WithSpanProcessor(redactSpanProcessor{}),
+		)
 		otel.SetTracerProvider(tp)
 		return tp, nil
 	}
@@ -66,6 +71,7 @@ func NewTracerProvider(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 	}
 
 	tp = sdktrace.NewTracerProvider(
+		sdktrace.WithSpanProcessor(redactSpanProcessor{}),
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
@@ -79,3 +85,39 @@ func NewTracerProvider(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 
 	return tp, nil
 }
+
+// urlAttributeKeys are span attributes that may carry a query string (old and current HTTP semconv).
+var urlAttributeKeys = map[attribute.Key]struct{}{
+	"http.url":    {},
+	"http.target": {},
+	"url.full":    {},
+	"url.query":   {},
+}
+
+// redactSpanProcessor masks sensitive query parameters in URL attributes when a span starts,
+// before any exporter can read them. Attributes set later with the same key are not rewritten.
+type redactSpanProcessor struct{}
+
+func (redactSpanProcessor) OnStart(_ context.Context, span sdktrace.ReadWriteSpan) {
+	redactor := redact.Default()
+	for _, attr := range span.Attributes() {
+		if _, ok := urlAttributeKeys[attr.Key]; !ok || attr.Value.Type() != attribute.STRING {
+			continue
+		}
+
+		value := attr.Value.AsString()
+		redacted := redactor.URL(value)
+		if attr.Key == "url.query" {
+			redacted = redactor.EncodedQuery(value)
+		}
+		if redacted != value {
+			span.SetAttributes(attr.Key.String(redacted))
+		}
+	}
+}
+
+func (redactSpanProcessor) OnEnd(sdktrace.ReadOnlySpan) {}
+
+func (redactSpanProcessor) Shutdown(context.Context) error { return nil }
+
+func (redactSpanProcessor) ForceFlush(context.Context) error { return nil }

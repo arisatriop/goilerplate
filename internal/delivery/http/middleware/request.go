@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"goilerplate/pkg/constants"
+	"goilerplate/pkg/redact"
 	"goilerplate/pkg/utils"
 	"log/slog"
 	"mime"
@@ -19,13 +20,47 @@ const (
 	LogLabel = "incoming-request-log"
 )
 
+// DefaultOmitBodyPaths is used when no omit-body paths are configured.
+var DefaultOmitBodyPaths = []string{"/api/v1/auth"}
+
 // RequestLogger provides incoming request logging functionality
 type RequestLogger struct {
+	omitBodyPaths []string
 }
 
-// NewRequestLogger creates a new request logger middleware
-func NewRequestLogger() *RequestLogger {
-	return &RequestLogger{}
+// NewRequestLogger creates a new request logger middleware.
+// Request and response bodies under omitBodyPaths (path prefixes) are never logged;
+// all other logged headers, query parameters, and JSON bodies are redacted.
+func NewRequestLogger(omitBodyPaths []string) *RequestLogger {
+	if len(omitBodyPaths) == 0 {
+		omitBodyPaths = DefaultOmitBodyPaths
+	}
+
+	normalized := make([]string, 0, len(omitBodyPaths))
+	for _, prefix := range omitBodyPaths {
+		prefix = strings.ToLower(strings.TrimRight(strings.TrimSpace(prefix), "/"))
+		if prefix == "" {
+			continue
+		}
+		if !strings.HasPrefix(prefix, "/") {
+			prefix = "/" + prefix
+		}
+		normalized = append(normalized, prefix)
+	}
+
+	return &RequestLogger{omitBodyPaths: normalized}
+}
+
+// shouldOmitBody reports whether bodies for path must not be logged.
+// Matching is case-insensitive because Fiber routes are case-insensitive by default.
+func (rl *RequestLogger) shouldOmitBody(path string) bool {
+	path = strings.ToLower(path)
+	for _, prefix := range rl.omitBodyPaths {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // LogRequest returns a Fiber middleware for logging incoming requests
@@ -75,10 +110,16 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 			}
 		}
 
+		redactor := redact.Default()
+		omitBody := rl.shouldOmitBody(path)
+
 		// Capture request body
 		var requestPayload interface{}
 		if body := ctx.Body(); len(body) > 0 {
-			requestPayload = parseBody(body, contentType)
+			requestPayload = redact.Omitted
+			if !omitBody {
+				requestPayload = parseBody(body, contentType)
+			}
 		}
 
 		// Variables for defer
@@ -122,26 +163,29 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 						}
 					}
 				}
+				if omitBody {
+					responseBody = redact.Omitted
+				}
 			}
 
-			// Simple log attributes - no filtering
+			// Headers, query parameters, and bodies are redacted (see pkg/redact)
 			logAttrs := []slog.Attr{
 				slog.String("label", LogLabel),
 				slog.String("request_id", requestID),
 				slog.String("method", method),
-				slog.String("url", url),
+				slog.String("url", redactor.URL(url)),
 				slog.String("path", path),
 				slog.String("user_agent", userAgent),
 				slog.String("content_type", contentType),
 				slog.String("remote_ip", remoteIP),
 				slog.String("protocol", protocol),
 				slog.String("hostname", hostname),
-				slog.Any("query_params", queryParams),
+				slog.Any("query_params", redactor.Query(queryParams)),
 				slog.Any("route_params", routeParams),
-				slog.Any("request_headers", headers),
+				slog.Any("request_headers", redactor.Headers(headers)),
 				slog.Any("request_payload", requestPayload),
 				slog.Int("status", statusCode),
-				slog.Any("response_headers", responseHeaders),
+				slog.Any("response_headers", redactor.Headers(responseHeaders)),
 				slog.Int("response_size", responseSize),
 				slog.Any("response_body", responseBody),
 				slog.String("response_message", responseMessage),
@@ -183,11 +227,15 @@ func parseBody(body []byte, contentType string) interface{} {
 	switch {
 	case mediaType == "application/json":
 		var jsonData interface{}
-		if err := json.Unmarshal(body, &jsonData); err == nil {
-			return jsonData
+		if err := json.Unmarshal(body, &jsonData); err != nil {
+			// Unparseable JSON cannot be redacted, so it is not logged
+			return map[string]interface{}{
+				"content_type": contentType,
+				"message":      "invalid JSON not logged",
+				"size_bytes":   len(body),
+			}
 		}
-		// If JSON parsing fails, return as string
-		return string(body)
+		return redact.Default().Value(jsonData)
 
 	case mediaType == "multipart/form-data":
 		// For multipart/form-data (file uploads), don't log the binary content
@@ -216,8 +264,7 @@ func parseBody(body []byte, contentType string) interface{} {
 		}
 
 	case mediaType == "application/x-www-form-urlencoded":
-		// Form data is usually safe to log
-		return string(body)
+		return redact.Default().EncodedQuery(string(body))
 
 	default:
 		// For text-based content types or unknown types

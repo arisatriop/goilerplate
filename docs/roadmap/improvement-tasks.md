@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** planned — decisions made, execution not started
+**Status:** in progress — T1.7 done
 
 ---
 
@@ -268,16 +268,20 @@ requests with the same key execute once, and a reused key with a different body 
 
 **Done when:** `grep -r "gofiber" internal/domain` returns nothing.
 
-### T1.7 Redact secrets from logs · S — **do first**
-- [ ] HTTP request logger: redact `Authorization`, `Cookie`, `Set-Cookie`, `x-api-key`,
+### T1.7 Redact secrets from logs · S — ✅ done
+- [x] HTTP request logger: redact `Authorization`, `Cookie`, `Set-Cookie`, `x-api-key`,
       `X-Internal-Secret` headers
-- [ ] Redact sensitive JSON fields in request and response bodies at any depth
+- [x] Redact sensitive JSON fields in request and response bodies at any depth
       (`password`, `current_password`, `new_password`, `access_token`, `refresh_token`,
       `token`, `otp`, `secret`, `api_key`), configurable via `log.redact_fields`
-- [ ] Skip body logging entirely for `/auth/*` routes, or log bodies only at `debug` level
-- [ ] Redact query parameters with sensitive names (e.g. reset `token`)
-- [ ] Apply the same rules to the gRPC request logger (metadata)
-- [ ] OTel HTTP spans: strip sensitive query parameters from recorded URLs
+- [x] Skip body logging entirely for `/auth/*` routes (`log.omit_body_paths`, default `/api/v1/auth`)
+- [x] Redact query parameters with sensitive names (e.g. reset `token`)
+- [x] Apply the same rules to the gRPC request logger (request/response payloads; metadata is not logged)
+- [x] OTel HTTP spans: strip sensitive query parameters from recorded URLs
+- [x] Same rules for outgoing `pkg/httpclient` and `pkg/grpcclient` logs
+
+Implemented in `pkg/redact`. Field names match case-insensitively ignoring `_` / `-`, so
+protojson `accessToken` is covered. Unparseable JSON bodies are not logged.
 
 **Done when:** a login → refresh → logout run produces logs without any password, token, or API key
 (covered by a test that inspects captured log output).
