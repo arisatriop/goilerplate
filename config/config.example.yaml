@@ -1,121 +1,75 @@
+# Minimal configuration: PostgreSQL only, every optional component off.
+# Copy to config/config.yaml, point `db` at your database, and run.
+# For every available option (Redis, gRPC, OTel, S3, ...) see config.full.example.yaml.
+#
+# Any key can be overridden by an environment variable: dots become underscores,
+# e.g. db.password -> DB_PASSWORD, jwt.access_secret -> JWT_ACCESS_SECRET.
+
 app:
-  env: dev
+  env: dev # dev | production (production enables stricter config validation)
   name: Goilerplate
   version: 1.0.0
-  description: This is a sample application configuration file.
-
-grpc:
-  enabled: true
-  port: 50051
 
 server:
   host: 0.0.0.0
   port: 3000
-  prefork: false
   read_timeout: 5s
   write_timeout: 5s
   idle_timeout: 120s
-  enable_cors: false
 
 db:
   driver: postgres
-  host: <DB_HOST>
-  port: <DB_PORT>
-  name: <DB_NAME>
+  host: localhost
+  port: 5432
+  name: goilerplate
   sslmode: disable
-  username: <DB_USERNAME>
-  password: <DB_PASSWORD>
-  min_open_connections: 10
-  max_open_connections: 100
-  connection_max_lifetime: 300
-  connection_max_idle_time: 60
-  health_check_period: 30
+  username: postgres
+  password: postgres
+  min_open_connections: 2
+  max_open_connections: 20 # must be at least 1
+  connection_max_lifetime: 300 # seconds
+  connection_max_idle_time: 60 # seconds
+  health_check_period: 30 # seconds
 
-redis:
-  enabled: false
-  host: <REDIS_HOST> # localhost:6379
-  password: <REDIS_PASSWORD>
-  db: <REDIS_DB>
-  dial_timeout: 5s
-  read_timeout: 5s
-  write_timeout: 5s
-  pool_size: 10
-  pool_timeout: 6s
-
+# Development-only secrets. Startup validation rejects them when app.env=production;
+# generate real ones with: openssl rand -base64 48
 jwt:
-  secret_key: <JWT_SECRET_KEY>
-  access_secret: <JWT_ACCESS_SECRET_KEY>
-  refresh_secret: <JWT_REFRESH_SECRET_KEY>
+  secret_key: dev-only-changeme-secret-key-0000000000
+  access_secret: dev-only-changeme-access-secret-000000000
+  refresh_secret: dev-only-changeme-refresh-secret-00000000
   access_token_expiry: 15m
-  refresh_token_expiry: 168h # 1 week
+  refresh_token_expiry: 168h
   issuer: goilerplate
 
 log:
   level: debug
-  source: false
-  redact_fields: []                # extra JSON/query field names to mask (password, token, api_key, ... are always masked)
-  omit_body_paths: [/api/v1/auth]  # request/response bodies under these path prefixes are never logged
+
+redis:
+  enabled: false
+
+grpc:
+  enabled: false
 
 otel:
   enabled: false
-  endpoint: localhost:4317   # Jaeger OTLP gRPC endpoint
-  insecure: true             # disable TLS for local dev
 
 rate_limit:
-  auth:             # per IP — login, register (brute force protection)
+  auth: # per IP: login, register
     max: 10
     expiration: 1m
-  user:             # per user ID — authenticated routes
+  user: # per user ID: authenticated routes
     max: 100
     expiration: 1m
-  partner:          # per API key — partner routes
+  partner: # per API key: partner routes
     max: 1000
     expiration: 1m
 
 filesystem:
-  driver: s3  # Options: local, s3, drive
-  max_file_size: 204800  # Maximum file size in bytes (200KB)
-
-  # Local storage configuration
+  driver: local
+  max_file_size: 204800 # bytes (200KB)
   local:
     base_path: ./storage
     base_url: http://localhost:3000/storage
 
-  # AWS S3 configuration
-  s3:
-    access_key_id: YOUR_AWS_ACCESS_KEY_ID
-    secret_access_key: YOUR_AWS_SECRET_ACCESS_KEY
-    region: us-east-1
-    bucket: your-bucket-name
-    endpoint: ""  # Optional: for MinIO or S3-compatible services (e.g., http://localhost:9000)
-
-  # Google Drive configuration
-  drive:
-    # Service Account: credentials_file
-    # OAuth2: client_id, client_secret, refresh_token
-    credentials_file: ./credentials/gdrive-sa-credentials.json
-    client_id: ""
-    client_secret: ""
-    refresh_token: ""
-    folder_id: ""
-
-crypto:
-  encryption_key: <CRYPTO_ENCRYPTION_KEY>
-
-service:
-  xendit:
-    name: "XENDIT"
-    base_url: "https://api.xendit.co"
-    api_key: <SERVICE_XENDIT_API_KEY>
-  midtrans:
-    name: "MIDTRANS"
-    base_url: "https://api.midtrans.com"
-    api_key: <SERVICE_MIDTRANS_API_KEY>
-  doku:
-    name: "DOKU"
-    base_url: "https://api.doku.com"
-    api_key: <SERVICE_DOKU_API_KEY>
-
-api_key:
-  default: <API_KEY_DEFAULT>
-  partner1: <API_KEY_PARTNER1>
+# Partner API keys (name: key). Empty = no partner can authenticate.
+api_key: {}

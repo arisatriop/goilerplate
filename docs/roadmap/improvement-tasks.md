@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — T1.7, T1.1 done
+**Status:** in progress — T1.7, T1.1, T1.5 done
 
 ---
 
@@ -164,6 +164,8 @@ jwt:
 | Idempotency middleware lets concurrent duplicates both execute and does not detect a reused key with a different payload | T1.4 |
 | `/auth/refresh` and `/auth/logout` share the per-IP login rate limit, so users behind one NAT throttle each other | T4.6 |
 | No tests for `domain/auth` or auth middleware | T6.1 |
+| Redis timeouts are multiplied by `time.Second` twice (`5s` config → ~158 years), so dial/read/write/pool timeouts never fire | T1.2 |
+| Wrong email or password returns `400` (`utils.ClientErr(http.StatusBadRequest, MsgInvalidCredential)` in `domain/auth/user_validator.go`); API conventions require `401` | T3.7 |
 
 ---
 
@@ -231,6 +233,9 @@ jwt:
 - [ ] `PermissionCache` TTL from `auth.permission_cache_ttl` (default 15m, not the session lifetime)
 - [ ] Invalidate cached permissions on every change: role permissions, role menus, user roles,
       user permission overrides (per user, or all users for role-level changes)
+- [ ] Fix Redis client timeouts in `internal/bootstrap/redis.go`: `dial_timeout`, `read_timeout`,
+      `write_timeout`, and `pool_timeout` are already `time.Duration`; pass them directly instead of
+      `time.Second * time.Duration(...)`
 
 **Done when:** `grep -r "IsEnabled\|gorm" internal/domain` returns nothing, the app works in
 all three cache modes, and a revoked permission is denied on the next request.
@@ -258,10 +263,13 @@ all three cache modes, and a revoked permission is denied on the next request.
 **Done when:** without Redis, a replayed request returns the stored response, two simultaneous
 requests with the same key execute once, and a reused key with a different body is rejected.
 
-### T1.5 Minimal example config · S
-- [ ] `config.example.yaml`: Redis, gRPC, OTel off; storage `local`; email/Google features off
-- [ ] Remove the `service.xendit/midtrans/doku` block
-- [ ] Add `config.full.example.yaml` documenting every option
+### T1.5 Minimal example config · S — ✅ done
+- [x] `config.example.yaml`: Redis, gRPC, OTel off; storage `local`; email/Google features off
+      (email/Google config does not exist yet; T5.1/T5.2 add it disabled by default)
+- [x] Remove the `service.xendit/midtrans/doku` block
+- [x] Add `config.full.example.yaml` documenting every option (a test fails when a config key is missing from it)
+- [x] Development-only JWT secrets in the minimal example, rejected by T1.1 validation in production
+- [x] Tests: both examples decode strictly (no unknown keys) and the minimal example passes validation
 
 **Done when:** copying `config.example.yaml` plus a database is enough to run the app.
 
@@ -452,6 +460,8 @@ logs out every other device.
   3. Wrong password → increment attempts → "invalid credentials"
   4. Disabled → "account disabled" (only revealed to someone who knows the password)
 - [ ] Locked response message is generic ("too many attempts, try again later")
+- [ ] Invalid credentials return `401 Unauthorized` instead of `400` (API conventions); `400` stays
+      for request validation errors only
 - [ ] Max attempts and lock duration configurable via `auth.lockout.*`
 - [ ] Password policy on register, change, and reset (NIST 800-63B): minimum 8 characters,
       maximum 72 **bytes** (bcrypt limit) returned as a 400 validation error; no composition rules
@@ -461,7 +471,7 @@ logs out every other device.
 **Done when:**
 - the account locks exactly on attempt N
 - while locked, the correct password gets the same response as a wrong one
-- the response for an unregistered email is identical to a wrong password
+- the response for an unregistered email is identical to a wrong password (both `401`)
 - a concurrency test covers the increment
 
 ---

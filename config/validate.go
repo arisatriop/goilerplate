@@ -66,6 +66,9 @@ func (c *Config) validateDB(v *validation) {
 	v.required("db.name", c.DB.Name)
 	v.required("db.username", c.DB.Username)
 	v.notPlaceholder("db.password", c.DB.Password)
+	if c.DB.MaxOpenConnections < 1 {
+		v.addf("db.max_open_connections must be at least 1, got %d", c.DB.MaxOpenConnections)
+	}
 }
 
 func (c *Config) validateRedis(v *validation) {
