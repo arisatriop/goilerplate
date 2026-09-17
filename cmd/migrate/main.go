@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"goilerplate/internal/bootstrap"
 	"goilerplate/pkg/migration"
 )
 
 func main() {
+	// All times are UTC regardless of the host time zone
+	time.Local = time.UTC
+
 	var (
 		action        = flag.String("action", "", "Migration action: up, down, status, create")
 		migrationName = flag.String("name", "", "Migration name (required for create action)")

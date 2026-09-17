@@ -38,7 +38,7 @@ func (m *Migrator) CreateMigrationsTable() error {
 	CREATE TABLE IF NOT EXISTS migrations (
 		id VARCHAR(255) PRIMARY KEY,
 		name VARCHAR(255) NOT NULL,
-		executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		executed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 	)`
 
 	return m.db.Exec(query).Error

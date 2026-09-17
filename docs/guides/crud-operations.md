@@ -40,7 +40,7 @@ Create file `foo.go` in `internal/infrastructure/model` with the following struc
 
 ```go
 type Foo struct {
-    ID        string     `gorm:"primaryKey;default:gen_random_uuid()"`
+    ID        string     `gorm:"primaryKey"` // set by the repository with utils.GenerateUUID() (UUIDv7)
     Code      string     `gorm:"column:code"`
     Name      string     `gorm:"column:name"`
     IsActive  bool       `gorm:"column:is_active"`

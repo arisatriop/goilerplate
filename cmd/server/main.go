@@ -29,6 +29,9 @@ import (
 )
 
 func main() {
+	// All times are UTC regardless of the host time zone
+	time.Local = time.UTC
+
 	app := bootstrap.Init()
 
 	// 2. Wire all dependencies in dedicated wire package

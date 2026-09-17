@@ -32,6 +32,8 @@ func TestPostgresDSN_ParsesSpecialCharacters(t *testing.T) {
 	assert.Equal(t, "app_user", parsed.User)
 	assert.Equal(t, `p@ss w'rd\with=sign`, parsed.Password)
 	assert.Nil(t, parsed.TLSConfig, "sslmode=disable turns TLS off")
+	assert.Equal(t, "UTC", parsed.RuntimeParams["timezone"], "session time zone is always UTC")
+	assert.Contains(t, PostgresDSN(db), " timezone=UTC", "gorm.io/driver/postgres rejects a quoted time zone")
 }
 
 func TestPostgresDSN_UsesConfiguredSSLMode(t *testing.T) {

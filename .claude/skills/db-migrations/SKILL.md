@@ -34,18 +34,18 @@ Header comment, then `CREATE TABLE`. A standard CRUD table:
 
 ```sql
 -- Migration: create_products_table
--- Created at: 2026-05-15T10:00:00+07:00
+-- Created at: 2026-05-15T03:00:00Z
 
 CREATE TABLE products (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id          UUID PRIMARY KEY,
     code        VARCHAR(255) NOT NULL UNIQUE,
     name        TEXT NOT NULL,
     is_active   BOOLEAN NOT NULL DEFAULT true,
-    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by  VARCHAR(255) NOT NULL,
-    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_by  VARCHAR(255) NOT NULL,
-    deleted_at  TIMESTAMP NULL DEFAULT NULL,
+    deleted_at  TIMESTAMPTZ NULL DEFAULT NULL,
     deleted_by  VARCHAR(255) DEFAULT NULL
 );
 
@@ -61,7 +61,11 @@ CREATE INDEX idx_products_deleted_at ON products(deleted_at);
 ```
 
 Rules:
-- Primary key is always `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`.
+- Primary key is always `id UUID PRIMARY KEY` with **no DB default**: the repository sets it
+  with `utils.GenerateUUID()` (UUIDv7, time-ordered for index locality). An insert that
+  forgets the ID fails loudly instead of silently getting a random UUIDv4.
+- Every time column is `TIMESTAMPTZ` (never `TIMESTAMP`); the app and DB session run in UTC.
+- PostgreSQL only.
 - Every table has the full audit column set: `created_at` / `created_by` /
   `updated_at` / `updated_by` (all `NOT NULL`) and `deleted_at` / `deleted_by`
   (both nullable — soft delete).
@@ -77,7 +81,7 @@ Header comment, then the reverse operation. For a `CREATE TABLE`:
 
 ```sql
 -- Rollback: create_products_table
--- Created at: 2026-05-15T10:00:00+07:00
+-- Created at: 2026-05-15T03:00:00Z
 
 DROP TABLE IF EXISTS products;
 ```

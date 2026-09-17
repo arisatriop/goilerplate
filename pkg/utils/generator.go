@@ -19,9 +19,10 @@ const (
 	TokenLength = 32
 )
 
-// GenerateUUID generates a simple UUID-like string
+// GenerateUUID generates a time-ordered UUIDv7 string, used for primary keys so new rows
+// stay close together in B-tree indexes.
 func GenerateUUID() string {
-	return uuid.New().String()
+	return uuid.Must(uuid.NewV7()).String()
 }
 
 // HashPassword hashes a password using bcrypt
