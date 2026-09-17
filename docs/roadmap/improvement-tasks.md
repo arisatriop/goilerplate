@@ -17,6 +17,7 @@ auth middleware, bootstrap, and wiring).
 | D2 | `auth.revocation` defaults to `strict` (secure by default). Simple projects may opt into `refresh_only`. | ✅ Decided |
 | D3 | PostgreSQL only; MySQL support removed (T0.1, T2.1) | ✅ Decided |
 | D4 | Fresh baseline: no backward compatibility with existing data, deployments, or other repositories. Migrations, config keys, and API contracts may be rewritten freely. | ✅ Decided |
+| D5 | `/internal` stays on the same port as public routes and is intended for pod-to-pod traffic only. Exposure is controlled at the API gateway / Ingress, not by a separate listener. | ✅ Decided |
 
 **Rationale for D1/D2:** revocable login (real logout, per-device logout, password reset
 kicking out other devices, admin deactivation) requires server-side state, and nearly every
@@ -35,6 +36,11 @@ are touched only on login, refresh, and logout, so simple projects pay almost no
 **Rationale for D3:** existing migrations already run only on PostgreSQL, so MySQL support is
 effectively broken today. Maintaining two dialects doubles the work of every schema change,
 and PostgreSQL features (`TIMESTAMPTZ`, partial indexes, `CHECK`, `RETURNING`) keep the design simpler.
+
+**Rationale for D5:** a second listener, extra Service, and NetworkPolicy add operational
+complexity most projects do not need. The trade-off is that isolation depends on gateway
+configuration, so the gateway must never forward `/internal`, and an optional shared secret
+(T4.1) provides a safety net against misconfiguration.
 
 **Rationale for D4:** the boilerplate is the starting point for future projects, so the cleanest
 design wins over migration paths. Existing migration files are edited in place to form a clean
@@ -142,7 +148,7 @@ jwt:
 | Redis-enabled validation reads cache only; expiry check skipped | T3.2 |
 | Logout errors printed with `fmt.Printf` and swallowed | T3.5, T4.5 |
 | Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber | T1.2, T1.6 |
-| `InternalAuthenticate` performs no authentication | T4.1 |
+| `/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule | T4.1 |
 | Partner API key compared with `==` (not constant time); raw key stored in context | T4.2 |
 | gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
 | Idempotency middleware becomes a no-op without Redis | T1.4 |
@@ -194,7 +200,8 @@ jwt:
   - secrets at least 32 bytes
   - no `<...>` placeholders
   - `access_secret` ≠ `refresh_secret`
-- [ ] Production-only rules (`app.env=production`): reject weak secrets and `internal_auth.mode=none`
+- [ ] Production-only rules (`app.env=production`): reject weak secrets; log a warning when
+      `internal_auth.mode=none`
 - [ ] Collect all errors and report them together
 
 **Done when:** invalid config stops the app with a clear list of errors; each rule has a unit test.
@@ -430,13 +437,25 @@ logs out every other device.
 
 ## Phase 4 — Other auth surfaces
 
-### T4.1 Authenticate `/internal` routes · S
+### T4.1 Gateway-controlled `/internal` routes · S
 **Depends on:** T1.1
-- [ ] Config `internal_auth.mode: shared_secret | none` and `internal_auth.secret`
-- [ ] `X-Internal-Secret` header, constant-time comparison
-- [ ] `none` rejected in production (via T1.1)
 
-**Done when:** requests to `/internal` without the secret get 401.
+`/internal` stays on the public port and is reachable only through in-cluster traffic (D5).
+
+- [ ] Gateway / Ingress rule documented and enforced: forward only an explicit allowlist
+      (`/api`, `/partner`, `/health`); never a catch-all `/`. Where the gateway supports it, add
+      an explicit deny for `/internal`
+- [ ] Optional safety net: `internal_auth.mode: none | shared_secret` (default `none`);
+      `X-Internal-Secret` compared in constant time. Recommended when the gateway is managed by
+      another team or its config changes often
+- [ ] Optional caller identity: record `X-Service-Name` in context and logs instead of a fixed
+      `system` user
+- [ ] `docs/deployment/kubernetes.md`: state the rule and a verification command
+      (`curl -i https://<public-host>/internal/...` must not reach the app)
+
+**Done when:**
+- a request to `/internal/*` through the public gateway does not reach the app
+- with `shared_secret` enabled, requests without the secret get 401
 
 ### T4.2 Harden partner API keys · S
 - [ ] `subtle.ConstantTimeCompare`
@@ -593,7 +612,7 @@ and security headers are present on every response.
   - locked account: correct password gets the same response as a wrong one
   - concurrent one-time token consumption
   - gRPC call without a token
-  - `/internal` without the secret
+  - `/internal` with `internal_auth.mode=shared_secret` and no secret returns 401
   - startup config validation
 - [ ] CI (GitHub Actions) runs the full matrix
 
