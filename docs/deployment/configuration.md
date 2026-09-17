@@ -65,7 +65,7 @@ db:
   max_open_connections: 100
 
 redis:
-  enabled: true # Set false to disable Redis (falls back to in-memory for rate limiting & idempotency)
+  enabled: true # Set false to disable Redis (rate limiting and idempotency fall back to per-instance memory)
   host: localhost:6379
   password: ""
   db: 0

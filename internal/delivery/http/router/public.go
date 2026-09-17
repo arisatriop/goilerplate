@@ -55,8 +55,8 @@ func (r *PublicRouteRegistry) foo(v1 fiber.Router) {
 func (r *PublicRouteRegistry) bar(v1 fiber.Router) {
 	bar := v1.Group("bars")
 	bar.Post("",
-		middleware.RequireIdempotencyKey(), r.Wired.Middleware.Idempotency,
 		r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionBarCreate),
+		middleware.RequireIdempotencyKey(), r.Wired.Middleware.Idempotency,
 		r.Wired.Handlers.Bar.Create)
 
 	bar.Put("/:id",

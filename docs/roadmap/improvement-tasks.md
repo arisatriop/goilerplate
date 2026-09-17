@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — T1.7, T1.1, T1.5, T1.2 done
+**Status:** in progress — T1.7, T1.1, T1.5, T1.2, T1.4 done
 
 ---
 
@@ -151,7 +151,7 @@ jwt:
 | `/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule | T4.1 |
 | Partner API key compared with `==` (not constant time); raw key stored in context | T4.2 |
 | gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
-| Idempotency middleware becomes a no-op without Redis | T1.4 |
+| ~~Idempotency middleware becomes a no-op without Redis~~ | T1.4 ✅ |
 | Migrations are PostgreSQL-only although MySQL is a supported driver | T2.1 |
 | Time columns use `TIMESTAMP` without timezone | T2.2 |
 | GORM models use MySQL column types; redundant/unused indexes | T2.3, T2.4 |
@@ -161,7 +161,7 @@ jwt:
 | CORS config exists but the middleware is commented out; 100MB body limit hardcoded | T5.4 |
 | S3 driver: no path-style option, public-read only, extra `HeadObject` per upload | T5.3 |
 | Permission cache TTL is 7 days and is only refreshed on login/refresh; role or permission changes are not invalidated (TTL fixed; invalidation hooks await role-management endpoints) | T1.2 |
-| Idempotency middleware lets concurrent duplicates both execute and does not detect a reused key with a different payload | T1.4 |
+| ~~Idempotency middleware lets concurrent duplicates both execute and does not detect a reused key with a different payload~~ | T1.4 ✅ |
 | `/auth/refresh` and `/auth/logout` share the per-IP login rate limit, so users behind one NAT throttle each other | T4.6 |
 | No tests for `domain/auth` or auth middleware | T6.1 |
 | ~~Redis timeouts are multiplied by `time.Second` twice (`5s` config → ~158 years), so dial/read/write/pool timeouts never fire~~ | T1.2 ✅ |
@@ -265,15 +265,19 @@ session, other devices keep working, and logout-all rejects every device.
 
 **Done when:** with the minimal config, no gRPC port is opened and no Redis/OTel connection is attempted.
 
-### T1.4 Idempotency: memory fallback and correctness · M
+### T1.4 Idempotency: memory fallback and correctness · M — ✅ done
 **Depends on:** T1.2
-- [ ] Use memory storage when Redis is disabled instead of becoming a no-op
-- [ ] Log a startup warning that memory storage only deduplicates within one instance
+- [x] Use memory storage when Redis is disabled instead of becoming a no-op (`pkg/cache.MemoryStorage`)
+- [x] Log a startup warning that memory storage only deduplicates within one instance
       (the app cannot detect how many instances run)
-- [ ] In-flight lock per key (`LockProvider`): a concurrent request with the same key gets
+- [x] In-flight lock per key (`LockProvider`): a concurrent request with the same key gets
       `409 Conflict` instead of executing twice
-- [ ] Store a fingerprint (method + path + body hash) with the key: same key with a different
+- [x] Store a fingerprint (method + URL with query + body hash) with the key: same key with a different
       payload gets `422 Unprocessable Entity`
+- [x] Replay the stored `Content-Type`; keys scoped per user and limited to 255 characters
+- [x] Storage or lock failures return `500` without executing the request (fail closed)
+- [x] Example route applies idempotency after the permission check, so rejected requests are
+      neither stored nor locked
 
 **Done when:** without Redis, a replayed request returns the stored response, two simultaneous
 requests with the same key execute once, and a reused key with a different body is rejected.

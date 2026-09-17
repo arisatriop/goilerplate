@@ -155,9 +155,9 @@ For sensitive `POST` endpoints, apply idempotency middleware to prevent duplicat
 ```go
 // Mandatory Idempotency-Key header
 foo.Post("",
+    r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooCreate),
     middleware.RequireIdempotencyKey(),
     r.Wired.Middleware.Idempotency,
-    r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooCreate),
     r.Wired.Handlers.Foo.Create)
 ```
 

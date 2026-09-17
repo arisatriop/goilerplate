@@ -129,7 +129,7 @@ Responsible for handling HTTP requests and responses.
    - Cross-cutting concerns
    - Authentication, authorization, logging, rate limiting
    - **Rate limiting** — Redis-backed per scope (IP, user ID, API key); falls back to in-memory when Redis is disabled
-   - **Idempotency** — deduplicates sensitive POST requests using `Idempotency-Key` header; caches 2xx responses in Redis for 24h
+   - **Idempotency** — deduplicates sensitive POST requests using `Idempotency-Key` header; stores 2xx responses for 24h (Redis, or in memory per instance without Redis), returns `409` for a duplicate still in flight and `422` for a key reused with a different request
 
 6. **Router** - `router/`
    - Define API routes
