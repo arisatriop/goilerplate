@@ -2,6 +2,7 @@ package logger
 
 import (
 	"goilerplate/config"
+	"goilerplate/pkg/redact"
 	"log/slog"
 	"os"
 	"strings"
@@ -16,6 +17,7 @@ func NewSlog(cfg *config.Config) *slog.Logger {
 	}
 	if cfg != nil && cfg.Log != nil {
 		logSource = cfg.Log.Source
+		redact.SetDefault(redact.New(cfg.Log.RedactFields...))
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{

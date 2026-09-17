@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"goilerplate/pkg/constants"
+	"goilerplate/pkg/redact"
 	"goilerplate/pkg/utils"
 	"io"
 	"log/slog"
@@ -104,18 +105,19 @@ func (lrt *LoggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 	}
 
 	// Log attributes
+	redactor := redact.Default()
 	logAttrs := []slog.Attr{
 		slog.String("label", LogLabel),
 		slog.String("request_id", requestID),
 		slog.String("method", req.Method),
-		slog.String("url", req.URL.String()),
+		slog.String("url", redactor.URL(req.URL.String())),
 		slog.String("path", req.URL.Path),
 		slog.String("host", req.URL.Host),
-		slog.Any("query_params", queryParams),
-		slog.Any("request_headers", requestHeaders),
+		slog.Any("query_params", redactor.Query(queryParams)),
+		slog.Any("request_headers", redactor.Headers(requestHeaders)),
 		slog.Any("request_payload", requestPayload),
 		slog.Int("status", statusCode),
-		slog.Any("response_headers", responseHeaders),
+		slog.Any("response_headers", redactor.Headers(responseHeaders)),
 		slog.Int("response_size", responseSize),
 		slog.Any("response_body", responseBody),
 		slog.String("response_message", responseMessage),
@@ -161,10 +163,14 @@ func parseBody(body []byte, contentType string) interface{} {
 	switch {
 	case mediaType == "application/json":
 		var jsonData interface{}
-		if err := json.Unmarshal(body, &jsonData); err == nil {
-			return jsonData
+		if err := json.Unmarshal(body, &jsonData); err != nil {
+			return map[string]interface{}{
+				"content_type": contentType,
+				"message":      "invalid JSON not logged",
+				"size_bytes":   len(body),
+			}
 		}
-		return string(body)
+		return redact.Default().Value(jsonData)
 
 	case mediaType == "multipart/form-data":
 		return map[string]interface{}{
@@ -184,7 +190,7 @@ func parseBody(body []byte, contentType string) interface{} {
 		}
 
 	case mediaType == "application/x-www-form-urlencoded":
-		return string(body)
+		return redact.Default().EncodedQuery(string(body))
 
 	default:
 		if len(body) > 1000 {

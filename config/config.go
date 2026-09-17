@@ -105,8 +105,10 @@ type JWT struct {
 }
 
 type Logger struct {
-	Level  string `mapstructure:"level"`
-	Source bool   `mapstructure:"source"`
+	Level         string   `mapstructure:"level"`
+	Source        bool     `mapstructure:"source"`
+	RedactFields  []string `mapstructure:"redact_fields"`   // extra field names masked in logs, on top of pkg/redact defaults
+	OmitBodyPaths []string `mapstructure:"omit_body_paths"` // path prefixes whose request/response bodies are never logged
 }
 
 type FileSystem struct {

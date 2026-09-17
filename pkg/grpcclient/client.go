@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"goilerplate/pkg/constants"
+	"goilerplate/pkg/redact"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -69,8 +70,8 @@ func loggingUnaryInterceptor(defaultTimeout time.Duration) grpc.UnaryClientInter
 			slog.String("request_id", requestID),
 			slog.String("method", method),
 			slog.String("target", cc.Target()),
-			slog.Any("request", marshalProto(req)),
-			slog.Any("response", marshalProto(reply)),
+			slog.Any("request", redact.Default().Value(marshalProto(req))),
+			slog.Any("response", redact.Default().Value(marshalProto(reply))),
 			slog.String("status_code", st.Code().String()),
 			slog.String("status_message", st.Message()),
 			slog.Float64("latency_ms", float64(duration.Nanoseconds())/1e6),

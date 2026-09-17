@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"goilerplate/pkg/constants"
+	"goilerplate/pkg/redact"
 	"goilerplate/pkg/utils"
 
 	"github.com/google/uuid"
@@ -49,8 +50,8 @@ func RequestLogger() grpc.UnaryServerInterceptor {
 			slog.String("request_id", requestID),
 			slog.String("method", info.FullMethod),
 			slog.String("peer_address", peerAddr),
-			slog.Any("request", marshalProto(req)),
-			slog.Any("response", marshalProto(resp)),
+			slog.Any("request", redact.Default().Value(marshalProto(req))),
+			slog.Any("response", redact.Default().Value(marshalProto(resp))),
 			slog.String("status_code", st.Code().String()),
 			slog.String("status_message", st.Message()),
 			slog.String("start_time", startTime),
