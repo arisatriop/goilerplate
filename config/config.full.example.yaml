@@ -63,6 +63,11 @@ jwt:
   refresh_token_expiry: 168h # must be longer than access_token_expiry
   issuer: goilerplate
 
+auth:
+  session_cache: auto # auto (redis when enabled, else none) | none | memory | redis; also used for the permission cache
+  session_cache_ttl: 30s # memory: max revocation lag across instances; redis: bounds staleness after direct DB edits
+  permission_cache_ttl: 15m # safety net; permission changes invalidate the cache explicitly
+
 log:
   level: info # debug | info | warn | error
   source: false # include file:line in every log entry

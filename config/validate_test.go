@@ -71,6 +71,11 @@ func TestConfig_Validate_Rules(t *testing.T) {
 		{"refresh expiry not longer", func(c *Config) { c.JWT.RefreshTokenExpiry = time.Minute }, "jwt.refresh_token_expiry must be greater than jwt.access_token_expiry"},
 		{"api key placeholder", func(c *Config) { c.Apikeys["partner1"] = "<API_KEY_PARTNER1>" }, "api_key.partner1 still contains the placeholder"},
 		{"db pool size zero", func(c *Config) { c.DB.MaxOpenConnections = 0 }, "db.max_open_connections must be at least 1, got 0"},
+		{"unknown session cache", func(c *Config) { c.Auth.SessionCache = "memcached" }, `auth.session_cache must be auto, none, memory, or redis, got "memcached"`},
+		{"redis session cache without redis", func(c *Config) { c.Auth.SessionCache = "redis" }, "auth.session_cache=redis requires redis.enabled=true"},
+		{"memory session cache", func(c *Config) { c.Auth.SessionCache = "memory" }, ""},
+		{"negative session cache ttl", func(c *Config) { c.Auth.SessionCacheTTL = -time.Second }, "auth.session_cache_ttl must not be negative"},
+		{"negative permission cache ttl", func(c *Config) { c.Auth.PermissionCacheTTL = -time.Second }, "auth.permission_cache_ttl must not be negative"},
 		{"max file size zero", func(c *Config) { c.FileSystem.MaxFileSize = 0 }, "filesystem.max_file_size must be greater than 0"},
 	}
 
@@ -154,4 +159,34 @@ func TestConfig_Validate_ReportsAllErrorsWithoutSecrets(t *testing.T) {
 	assert.Contains(t, msg, "must be different")
 	assert.NotContains(t, msg, "tooshort-secret")
 	assert.NotContains(t, msg, "Lg7-legacy-secret-Q2x")
+}
+
+func TestAuth_CacheMode(t *testing.T) {
+	tests := []struct {
+		configured   string
+		redisEnabled bool
+		want         string
+	}{
+		{"", false, CacheModeNone},
+		{"", true, CacheModeRedis},
+		{"auto", false, CacheModeNone},
+		{" AUTO ", true, CacheModeRedis},
+		{"none", true, CacheModeNone},
+		{"memory", true, CacheModeMemory},
+		{"redis", true, CacheModeRedis},
+	}
+
+	for _, tt := range tests {
+		got := Auth{SessionCache: tt.configured}.CacheMode(tt.redisEnabled)
+		assert.Equal(t, tt.want, got, "session_cache=%q redis=%v", tt.configured, tt.redisEnabled)
+	}
+}
+
+func TestAuth_TTLDefaults(t *testing.T) {
+	assert.Equal(t, DefaultSessionCacheTTL, Auth{}.SessionCacheTTLOrDefault())
+	assert.Equal(t, DefaultPermissionCacheTTL, Auth{}.PermissionCacheTTLOrDefault())
+
+	custom := Auth{SessionCacheTTL: 5 * time.Second, PermissionCacheTTL: time.Minute}
+	assert.Equal(t, 5*time.Second, custom.SessionCacheTTLOrDefault())
+	assert.Equal(t, time.Minute, custom.PermissionCacheTTLOrDefault())
 }

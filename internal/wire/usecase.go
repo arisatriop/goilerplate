@@ -31,11 +31,11 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 		app.Config.JWT.RefreshTokenExpiry,
 	)
 
-	// Create cache service for auth (will be nil if Redis is disabled)
-	cacheService := auth.NewCacheService(app.Redis)
+	sessionService := auth.NewSessionService(repos.AuthRepo, infra.SessionStore)
+	permissionService := auth.NewPermissionService(repos.AuthRepo, infra.PermissionCache)
 
 	return &UseCases{
-		AuthUC: auth.NewUseCase(repos.AuthRepo, jwtService, cacheService),
+		AuthUC: auth.NewUseCase(repos.AuthRepo, jwtService, sessionService, permissionService),
 		FooUC:  foo.NewUseCase(repos.FooRepo),
 		BarUC:  bar.NewUseCase(repos.BarRepo),
 		// Future use cases will be added here:

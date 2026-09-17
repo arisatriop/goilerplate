@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — T1.7, T1.1, T1.5 done
+**Status:** in progress — T1.7, T1.1, T1.5, T1.2 done
 
 ---
 
@@ -137,17 +137,17 @@ jwt:
 | No change-password endpoint; no maximum password length (bcrypt rejects > 72 bytes, surfacing as a 500) | T3.6, T3.7 |
 | Registration reveals whether an email is already registered | T5.1 |
 | No security audit events (login failures, lockouts, token reuse, password resets) | T4.7 |
-| Logout does not revoke access tokens issued by earlier refreshes | T3.2 |
+| ~~Logout does not revoke access tokens issued by earlier refreshes~~ (fixed by the session check) | T1.2 ✅ |
 | Refresh tokens are reusable until expiry; no rotation or reuse detection | T3.3 |
 | `user_sessions.is_active` / `expires_at` never checked; `RememberMe` has no effect | T3.2, T3.3 |
 | `user_tokens` grows unbounded (row per login and per refresh, no cleanup) | T3.2, T4.4 |
 | DB `UPDATE used_at` on every authenticated request | T3.2 |
 | `user_tokens` mixes session tokens with one-time tokens; `LogoutAll` would wipe pending reset/OTP tokens | T2.4, T3.5 |
 | Login writes (session, tokens, cache) are not transactional | T3.4 |
-| `LogoutAll` scans every `token:*` / `session:*` key in Redis | T1.2, T3.5 |
-| Redis-enabled validation reads cache only; expiry check skipped | T3.2 |
+| ~~`LogoutAll` scans every `token:*` / `session:*` key in Redis~~ | T1.2 ✅ |
+| ~~Redis-enabled validation reads cache only; expiry check skipped~~ | T1.2 ✅ |
 | Logout errors printed with `fmt.Printf` and swallowed | T3.5, T4.5 |
-| Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber | T1.2, T1.6 |
+| Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber (cache and GORM fixed; Fiber remains) | T1.2 ✅, T1.6 |
 | `/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule | T4.1 |
 | Partner API key compared with `==` (not constant time); raw key stored in context | T4.2 |
 | gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
@@ -160,11 +160,11 @@ jwt:
 | JWT validation uses `ParseUnverified` to pick a secret, with a generic fallback secret; no `aud`/`iss` checks | T3.1 |
 | CORS config exists but the middleware is commented out; 100MB body limit hardcoded | T5.4 |
 | S3 driver: no path-style option, public-read only, extra `HeadObject` per upload | T5.3 |
-| Permission cache TTL is 7 days and is only refreshed on login/refresh; role or permission changes are not invalidated | T1.2 |
+| Permission cache TTL is 7 days and is only refreshed on login/refresh; role or permission changes are not invalidated (TTL fixed; invalidation hooks await role-management endpoints) | T1.2 |
 | Idempotency middleware lets concurrent duplicates both execute and does not detect a reused key with a different payload | T1.4 |
 | `/auth/refresh` and `/auth/logout` share the per-IP login rate limit, so users behind one NAT throttle each other | T4.6 |
 | No tests for `domain/auth` or auth middleware | T6.1 |
-| Redis timeouts are multiplied by `time.Second` twice (`5s` config → ~158 years), so dial/read/write/pool timeouts never fire | T1.2 |
+| ~~Redis timeouts are multiplied by `time.Second` twice (`5s` config → ~158 years), so dial/read/write/pool timeouts never fire~~ | T1.2 ✅ |
 | Wrong email or password returns `400` (`utils.ClientErr(http.StatusBadRequest, MsgInvalidCredential)` in `domain/auth/user_validator.go`); API conventions require `401` | T3.7 |
 
 ---
@@ -216,7 +216,7 @@ jwt:
 
 **Done when:** invalid config stops the app with a clear list of errors; each rule has a unit test.
 
-### T1.2 Cache abstraction: interfaces + Null Object · L — 🚧 in progress (foundation merged)
+### T1.2 Cache abstraction: interfaces + Null Object · L — ✅ done
 - [x] Domain interfaces:
   - `SessionStore` (Get / Set / Delete / DeleteByUser) in `domain/auth/cache.go`
   - `PermissionCache` (Get / Set / Invalidate / InvalidateAll) in `domain/auth/cache.go`
@@ -228,20 +228,32 @@ jwt:
     `SET NX` + owner token for locks, released by a compare-and-delete script
 - [x] Shared contract tests run against memory and a real Redis (`REDIS_TEST_ADDR`, database 15);
       CI starts a Redis service for them
-- [ ] Move the Redis implementation out of `domain/auth/cache_service.go`
-- [ ] Config `auth.session_cache: auto|none|memory|redis`
-- [ ] Remove every `IsEnabled()` call from `internal/domain/**`
-- [ ] Add `auth.ErrNotFound` so the domain no longer imports GORM
-- [ ] Log a startup warning when `memory` is used (revocation lag across instances)
-- [ ] `PermissionCache` TTL from `auth.permission_cache_ttl` (default 15m, not the session lifetime)
+- [x] Move the Redis implementation out of `domain/auth/cache_service.go` (file deleted)
+- [x] Config `auth.session_cache: auto|none|memory|redis` (also selects the permission cache),
+      `auth.session_cache_ttl` (default 30s), validated at startup; `redis` requires `redis.enabled`
+- [x] Remove every `IsEnabled()` call from `internal/domain/**`
+- [x] Add `auth.ErrNotFound` so the domain no longer imports GORM
+- [x] Log a startup warning when `memory` is used (revocation lag across instances)
+- [x] `PermissionCache` TTL from `auth.permission_cache_ttl` (default 15m, not the session lifetime)
 - [ ] Invalidate cached permissions on every change: role permissions, role menus, user roles,
       user permission overrides (per user, or all users for role-level changes)
+      → no endpoint changes roles or permissions yet; `PermissionService.InvalidateUserPermissions` /
+      `InvalidateAllPermissions` exist and must be called by those endpoints when they are added.
+      Login and refresh already invalidate the user's cache.
+- [x] Access tokens are validated against the database instead of a Redis-only lookup; the token
+      cache and blacklist are removed (they only existed because the cache was trusted)
+- [x] `SessionService.GetActive` checks the session through `SessionStore` on every authenticated
+      request; cache failures fall back to the database
 - [x] Fix Redis client timeouts in `internal/bootstrap/redis.go`: `dial_timeout`, `read_timeout`,
       `write_timeout`, and `pool_timeout` are already `time.Duration`; pass them directly instead of
       `time.Second * time.Duration(...)`
 
 **Done when:** `grep -r "IsEnabled\|gorm" internal/domain` returns nothing, the app works in
 all three cache modes, and a revoked permission is denied on the next request.
+
+Verified end to end in `none`, `memory`, and `redis` against an isolated database: permission
+revocation is denied once the cache is invalidated, logout rejects older access tokens of the same
+session, other devices keep working, and logout-all rejects every device.
 
 ### T1.3 Conditional wiring · M
 **Depends on:** T1.2
@@ -377,12 +389,13 @@ and a token signed with a previous key still validates after rotating the active
 
 ### T3.2 Stateless access token + session check · L
 **Depends on:** T1.2, T2.3, T3.1
-- [ ] `Authenticate` middleware: verify signature → `SessionStore.Get(claims.SessionID)` →
-      require active and unexpired
-- [ ] Cache miss → read DB → populate cache
+- [x] `Authenticate` middleware: verify signature → `SessionStore.Get(claims.SessionID)` →
+      require active and unexpired (done in T1.2 via `SessionService.GetActive`, still alongside
+      the access-token lookup)
+- [x] Cache miss → read DB → populate cache (T1.2)
 - [ ] Config `auth.revocation: strict | refresh_only`
-- [ ] Remove `TokenStorage`, access-token persistence, blacklist, `CacheToken` / `GetToken`,
-      and `MarkTokenAsUsed`
+- [ ] Remove `TokenStorage`, access-token persistence, and `MarkTokenAsUsed`
+      (blacklist and `CacheToken` / `GetToken` already removed in T1.2)
 - [ ] Put `session_id` in context instead of `token_hash`
 
 **Done when:**
@@ -539,8 +552,8 @@ and allowlisted methods still work.
 - [ ] Remove duplicated `extractBearerToken` / validation between middleware and `TokenService`
 - [ ] Extract the shared "menus + permissions" builder used by Login and Refresh
 - [ ] Remove dead code: commented-out entities, `IsAdmin()`, `UserToken.IsRevoked`,
-      `Repository.DeleteUserSessions`, `TokenService.ValidateAndGetClaims`,
-      `TokenService.ValidateRefreshTokenAndGetUser`, `TokenStorage.MarkTokenAsUsedAsync`,
+      `Repository.DeleteUserSessions`, `TokenStorage.MarkTokenAsUsedAsync`
+      (`TokenService.ValidateAndGetClaims` / `ValidateRefreshTokenAndGetUser` removed in T1.2),
       unused expiry constants in `domain/auth/error.go`
 - [ ] All logging through the structured logger
 

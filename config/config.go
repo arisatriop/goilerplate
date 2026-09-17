@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"goilerplate/pkg/filesystem"
@@ -13,6 +14,7 @@ type Config struct {
 	DB         DB                 `mapstructure:"db"`
 	Redis      Redis              `mapstructure:"redis"`
 	JWT        JWT                `mapstructure:"jwt"`
+	Auth       Auth               `mapstructure:"auth"`
 	Log        *Logger            `mapstructure:"log"`
 	OTel       OTel               `mapstructure:"otel"`
 	RateLimit  RateLimit          `mapstructure:"rate_limit"`
@@ -102,6 +104,54 @@ type JWT struct {
 	AccessTokenExpiry  time.Duration `mapstructure:"access_token_expiry"`
 	RefreshTokenExpiry time.Duration `mapstructure:"refresh_token_expiry"`
 	Issuer             string        `mapstructure:"issuer"`
+}
+
+// Cache modes for auth.session_cache.
+const (
+	CacheModeAuto   = "auto"   // redis when redis.enabled, otherwise none
+	CacheModeNone   = "none"   // no caching; every check reads the database
+	CacheModeMemory = "memory" // in-process; revocation may lag across instances by session_cache_ttl
+	CacheModeRedis  = "redis"  // shared by every instance
+)
+
+// Defaults applied when the corresponding auth settings are zero.
+const (
+	DefaultSessionCacheTTL    = 30 * time.Second
+	DefaultPermissionCacheTTL = 15 * time.Minute
+)
+
+type Auth struct {
+	SessionCache       string        `mapstructure:"session_cache"`        // auto | none | memory | redis (also used for the permission cache)
+	SessionCacheTTL    time.Duration `mapstructure:"session_cache_ttl"`    // memory: max cross-instance revocation lag; redis: bounds staleness after direct DB edits
+	PermissionCacheTTL time.Duration `mapstructure:"permission_cache_ttl"` // safety net; permission changes invalidate explicitly
+}
+
+// CacheMode resolves auth.session_cache, turning "auto" (or empty) into redis or none.
+func (a Auth) CacheMode(redisEnabled bool) string {
+	mode := strings.ToLower(strings.TrimSpace(a.SessionCache))
+	if mode != "" && mode != CacheModeAuto {
+		return mode
+	}
+	if redisEnabled {
+		return CacheModeRedis
+	}
+	return CacheModeNone
+}
+
+// SessionCacheTTLOrDefault returns session_cache_ttl, or DefaultSessionCacheTTL when unset.
+func (a Auth) SessionCacheTTLOrDefault() time.Duration {
+	if a.SessionCacheTTL > 0 {
+		return a.SessionCacheTTL
+	}
+	return DefaultSessionCacheTTL
+}
+
+// PermissionCacheTTLOrDefault returns permission_cache_ttl, or DefaultPermissionCacheTTL when unset.
+func (a Auth) PermissionCacheTTLOrDefault() time.Duration {
+	if a.PermissionCacheTTL > 0 {
+		return a.PermissionCacheTTL
+	}
+	return DefaultPermissionCacheTTL
 }
 
 type Logger struct {

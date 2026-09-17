@@ -75,7 +75,7 @@ func (r *authRepository) IncrementFailedLoginAttempts(ctx context.Context, userI
 	}
 
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return auth.ErrNotFound
 	}
 
 	return nil
@@ -97,7 +97,7 @@ func (r *authRepository) LockUser(ctx context.Context, userID string, lockedUnti
 	}
 
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return auth.ErrNotFound
 	}
 
 	return nil
@@ -125,7 +125,7 @@ func (r *authRepository) UpdateUserLoginInfo(ctx context.Context, userID string,
 	}
 
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return auth.ErrNotFound
 	}
 
 	return nil
@@ -148,7 +148,7 @@ func (r *authRepository) ResetExpiredLock(ctx context.Context, userID string) er
 	}
 
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return auth.ErrNotFound
 	}
 
 	return nil
@@ -275,7 +275,7 @@ func (r *authRepository) DeleteTokenByHash(ctx context.Context, tokenHash string
 
 	// Check if any rows were actually deleted
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return auth.ErrNotFound
 	}
 
 	return nil
@@ -321,7 +321,7 @@ func (r *authRepository) DeleteTokensBySession(ctx context.Context, userID, sess
 
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return gorm.ErrRecordNotFound // Return not found instead of nil
+			return auth.ErrNotFound
 		}
 		return err
 	}
@@ -348,7 +348,7 @@ func (r *authRepository) DeleteTokensBySession(ctx context.Context, userID, sess
 			return err
 		}
 
-		return gorm.ErrRecordNotFound // No tokens were deleted
+		return auth.ErrNotFound
 	}
 
 	// Deactivate the session
@@ -387,7 +387,7 @@ func (r *authRepository) MarkTokenAsUsed(ctx context.Context, token string) erro
 	}
 
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return auth.ErrNotFound
 	}
 
 	return nil

@@ -52,11 +52,11 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 
 // WireMiddleware creates all middleware components
 func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Infrastructure) *Middleware {
-	// Create permission service for permission checking (with caching support)
-	permissionService := auth.NewPermissionService(repos.AuthRepo, infrastructure.AuthCacheService)
+	sessionService := auth.NewSessionService(repos.AuthRepo, infrastructure.SessionStore)
+	permissionService := auth.NewPermissionService(repos.AuthRepo, infrastructure.PermissionCache)
 
 	return &Middleware{
-		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, infrastructure.AuthCacheService, permissionService, cfg.Apikeys),
+		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, sessionService, permissionService, cfg.Apikeys),
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(omitBodyPaths(cfg)),
 		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit, pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "rl:")),

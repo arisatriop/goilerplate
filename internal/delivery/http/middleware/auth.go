@@ -21,16 +21,16 @@ import (
 type Auth struct {
 	jwtService        *jwtService.JWTService
 	authRepository    auth.Repository
-	cacheService      *auth.CacheService
+	sessionService    *auth.SessionService
 	permissionService *auth.PermissionService
 	apikeys           map[string]string
 }
 
-func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, cacheService *auth.CacheService, permissionService *auth.PermissionService, apikeys map[string]string) *Auth {
+func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, sessionService *auth.SessionService, permissionService *auth.PermissionService, apikeys map[string]string) *Auth {
 	return &Auth{
 		jwtService:        jwtService,
 		authRepository:    authRepository,
-		cacheService:      cacheService,
+		sessionService:    sessionService,
 		permissionService: permissionService,
 		apikeys:           apikeys,
 	}
@@ -45,9 +45,9 @@ func (m *Auth) Authenticate() fiber.Handler {
 			return response.HandleError(ctx, err)
 		}
 
-		// Verify token is not blacklisted and exists in storage
+		// Verify token exists in storage and its session is still active
 		tokenHash := m.hashToken(token)
-		_, err = m.verifyTokenValidity(ctx, tokenHash)
+		_, err = m.verifyTokenValidity(ctx, tokenHash, claims.SessionID)
 		if err != nil {
 			return response.HandleError(ctx, err)
 		}
@@ -93,8 +93,8 @@ func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 		// Hash token for storage lookup
 		tokenHash := m.hashToken(token)
 
-		// Verify token exists in storage and is not blacklisted
-		userToken, err := m.verifyTokenValidity(ctx, tokenHash)
+		// Verify token exists in storage and its session is still active
+		userToken, err := m.verifyTokenValidity(ctx, tokenHash, claims.SessionID)
 		if err != nil {
 			if errors.As(err, &clientError) {
 				return response.CustomError(ctx, clientError.Code, clientError.Error(), nil)
@@ -116,9 +116,8 @@ func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 // RequiredPermission checks if the authenticated user has the specified permission
 // This middleware should be used after Authenticate() middleware
 //
-// Cache Strategy (like previous implementation):
-// - If Redis is ENABLED: Check individual permission cache first
-// - If not found in cache or Redis disabled: Use GetUserFinalPermissions (which checks cache for full list)
+// Permissions are read through the permission cache (auth.session_cache mode) and fall back
+// to the database on a miss.
 //
 // Permission check priority:
 // 1. User-specific permission override (user_permissions)
@@ -135,8 +134,6 @@ func (m *Auth) RequiredPermission(permission string) fiber.Handler {
 			return response.Unauthorized(ctx, constants.MsgUnauthorized)
 		}
 
-		// Use PermissionService to check permission (handles cache + database fallback automatically)
-		// This will try cache first, then fallback to database if cache miss
 		hasPermission, err := m.permissionService.HasPermission(ctx.UserContext(), userIDStr, permission)
 		if err != nil {
 			logger.Error(ctx.UserContext(), err)
@@ -229,40 +226,21 @@ func (m *Auth) validateAuthHeader(ctx *fiber.Ctx) (string, *jwtService.Claims, e
 	return token, claims, nil
 }
 
-// verifyTokenValidity checks if token is blacklisted and exists in storage
-func (m *Auth) verifyTokenValidity(ctx *fiber.Ctx, tokenHash string) (*auth.UserToken, error) {
-	// Check blacklist first to prevent race conditions
-	if m.cacheService.IsEnabled() {
-		isBlacklisted, err := m.cacheService.IsTokenBlacklisted(ctx.UserContext(), tokenHash)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check token blacklist: %w", err)
-		}
-		if isBlacklisted {
-			return nil, utils.ClientErr(http.StatusUnauthorized, "Unauthorized")
-		}
-	}
-
-	// Get token from cache or database
-	var userToken *auth.UserToken
-	var err error
-
-	if m.cacheService.IsEnabled() {
-		userToken, err = m.cacheService.GetToken(ctx.UserContext(), tokenHash)
-	} else {
-		userToken, err = m.authRepository.GetTokenByHash(ctx.UserContext(), tokenHash)
-	}
-
+// verifyTokenValidity checks that the token exists and has not expired, and that its
+// session is still active. The database is the source of truth for tokens; sessions are
+// read through the session cache.
+func (m *Auth) verifyTokenValidity(ctx *fiber.Ctx, tokenHash, sessionID string) (*auth.UserToken, error) {
+	userToken, err := m.authRepository.GetTokenByHash(ctx.UserContext(), tokenHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get token: %v", err)
+		return nil, fmt.Errorf("failed to get token: %w", err)
 	}
 
-	if userToken == nil {
+	if userToken == nil || userToken.IsExpired() {
 		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
-	// Check expiration if not using Redis cache
-	if !m.cacheService.IsEnabled() && userToken.IsExpired() {
-		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+	if _, err := m.sessionService.GetActive(ctx.UserContext(), sessionID); err != nil {
+		return nil, err
 	}
 
 	return userToken, nil
