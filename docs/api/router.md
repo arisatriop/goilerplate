@@ -46,6 +46,7 @@ GET    /internal/stats
 - **Auth:** `PartnerAuthenticate()` — validates partner credentials (API key, OAuth, etc)
 - **Versioning:** ✅ Yes (`v1`) — allows evolving partner API without breaking integrations
 - **Permissions:** ❌ None — after authentication, partners have full access to scoped routes
+- **Registered only when** at least one key is configured under `api_key`; otherwise `/partner/*` returns `404`
 
 ### Use Cases
 - Third-party integrations (payment processors, shipping providers)

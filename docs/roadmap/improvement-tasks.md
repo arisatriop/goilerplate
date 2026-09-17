@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — T1.7, T1.1, T1.5, T1.2, T1.4 done
+**Status:** in progress — T1.7, T1.1, T1.5, T1.2, T1.4, T1.3 done
 
 ---
 
@@ -255,15 +255,21 @@ Verified end to end in `none`, `memory`, and `redis` against an isolated databas
 revocation is denied once the cache is invalidated, logout rejects older access tokens of the same
 session, other devices keep working, and logout-all rejects every device.
 
-### T1.3 Conditional wiring · M
+### T1.3 Conditional wiring · M — ✅ done
 **Depends on:** T1.2
-- [ ] `grpc.enabled=false` → gRPC server not constructed, services not registered
-- [ ] `otel.enabled=false` → no OTel handlers attached
-- [ ] Partner routes registered only when `api_key` is non-empty
-- [ ] Background jobs start only when `jobs.*.enabled`
-- [ ] Startup log prints a summary of enabled components
+- [x] `grpc.enabled=false` → gRPC server not constructed, services not registered (`App.GrpcServer` is nil)
+- [x] `otel.enabled=false` → no OTel handlers attached: no tracer/meter provider, no Fiber, gRPC,
+      or GORM instrumentation, and `/metrics` is not registered
+- [x] Partner routes registered only when `api_key` is non-empty
+- [ ] Background jobs start only when `jobs.*.enabled` → no background jobs exist yet; T4.4 adds
+      the first one (`jobs.cleanup.enabled`) and must follow this rule
+- [x] Startup log prints a summary of enabled components (`"msg":"components"`)
 
 **Done when:** with the minimal config, no gRPC port is opened and no Redis/OTel connection is attempted.
+
+Verified by running the server with the minimal and a full configuration and inspecting its sockets:
+minimal listens only on the HTTP port and connects only to PostgreSQL; full also opens the gRPC
+port, connects to Redis, serves `/metrics`, and registers partner routes.
 
 ### T1.4 Idempotency: memory fallback and correctness · M — ✅ done
 **Depends on:** T1.2

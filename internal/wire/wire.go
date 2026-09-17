@@ -11,7 +11,7 @@ type ApplicationContainer struct {
 	UseCases            *UseCases
 	ApplicationServices *ApplicationServices
 	Handlers            *Handlers
-	GrpcHandlers        *GrpcHandlers
+	GrpcHandlers        *GrpcHandlers // nil when grpc.enabled is false
 	Middleware          *Middleware
 }
 
@@ -31,7 +31,11 @@ func Init(app *bootstrap.App) *ApplicationContainer {
 
 	// Layer 5: Handler Layer (Delivery/Presentation)
 	handlers := WireHandlers(app, useCases, applicationServices, infrastructure)
-	grpcHandlers := WireGrpcHandlers(useCases)
+
+	var grpcHandlers *GrpcHandlers
+	if app.GrpcServer != nil {
+		grpcHandlers = WireGrpcHandlers(useCases)
+	}
 
 	// Layer 5: Middleware Layer
 	middleware := WireMiddleware(app.Config, repositories, infrastructure)
