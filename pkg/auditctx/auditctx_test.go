@@ -1,10 +1,10 @@
-package context_test
+package auditctx_test
 
 import (
 	"context"
 	"testing"
 
-	auditctx "goilerplate/internal/infrastructure/context"
+	"goilerplate/pkg/auditctx"
 	"goilerplate/pkg/constants"
 )
 

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 // DeviceInfo represents device information
@@ -20,9 +18,20 @@ type DeviceInfo struct {
 	Location   string
 }
 
+// DeviceRequest carries the request attributes used to identify a device.
+// Delivery layers (HTTP, gRPC) build it from their own request types.
+type DeviceRequest struct {
+	UserAgent      string
+	AcceptLanguage string
+	AcceptEncoding string
+	ForwardedFor   string // X-Forwarded-For header
+	RealIP         string // X-Real-IP header
+	RemoteIP       string // peer address as seen by the server
+}
+
 // DeviceService handles device detection and fingerprinting
 type DeviceService interface {
-	ExtractDeviceInfo(ctx *fiber.Ctx) *DeviceInfo
+	ExtractDeviceInfo(req DeviceRequest) *DeviceInfo
 }
 
 type deviceService struct{}
@@ -32,26 +41,25 @@ func NewDeviceService() DeviceService {
 	return &deviceService{}
 }
 
-// ExtractDeviceInfo extracts and generates device information from the request context
-func (s *deviceService) ExtractDeviceInfo(ctx *fiber.Ctx) *DeviceInfo {
-	userAgent := ctx.Get("User-Agent")
-	ipAddress := s.getClientIP(ctx)
-	deviceType := s.detectDeviceType(userAgent)
+// ExtractDeviceInfo extracts and generates device information from the request attributes
+func (s *deviceService) ExtractDeviceInfo(req DeviceRequest) *DeviceInfo {
+	ipAddress := s.getClientIP(req)
+	deviceType := s.detectDeviceType(req.UserAgent)
 
 	return &DeviceInfo{
-		DeviceID:   s.generateDeviceFingerprint(ctx),
+		DeviceID:   s.generateDeviceFingerprint(req, ipAddress),
 		DeviceType: deviceType,
-		DeviceName: s.generateDeviceName(deviceType, userAgent),
+		DeviceName: s.generateDeviceName(deviceType, req.UserAgent),
 		IPAddress:  ipAddress,
-		UserAgent:  userAgent,
+		UserAgent:  req.UserAgent,
 		Location:   "", // TODO: Implement geolocation if needed
 	}
 }
 
-// getClientIP extracts the real client IP from various headers
-func (s *deviceService) getClientIP(ctx *fiber.Ctx) string {
-	if xForwardedFor := ctx.Get("X-Forwarded-For"); xForwardedFor != "" {
-		ips := strings.Split(xForwardedFor, ",")
+// getClientIP extracts the real client IP from forwarding headers, falling back to the peer address
+func (s *deviceService) getClientIP(req DeviceRequest) string {
+	if req.ForwardedFor != "" {
+		ips := strings.Split(req.ForwardedFor, ",")
 		if len(ips) > 0 {
 			ip := strings.TrimSpace(ips[0])
 			if net.ParseIP(ip) != nil {
@@ -60,13 +68,13 @@ func (s *deviceService) getClientIP(ctx *fiber.Ctx) string {
 		}
 	}
 
-	if xRealIP := ctx.Get("X-Real-IP"); xRealIP != "" {
-		if net.ParseIP(xRealIP) != nil {
-			return xRealIP
+	if req.RealIP != "" {
+		if net.ParseIP(req.RealIP) != nil {
+			return req.RealIP
 		}
 	}
 
-	return ctx.IP()
+	return req.RemoteIP
 }
 
 // detectDeviceType determines the device type from user agent
@@ -87,13 +95,8 @@ func (s *deviceService) detectDeviceType(userAgent string) string {
 }
 
 // generateDeviceFingerprint creates a unique device identifier
-func (s *deviceService) generateDeviceFingerprint(ctx *fiber.Ctx) string {
-	userAgent := ctx.Get("User-Agent")
-	acceptLanguage := ctx.Get("Accept-Language")
-	acceptEncoding := ctx.Get("Accept-Encoding")
-	ip := s.getClientIP(ctx)
-
-	fingerprint := fmt.Sprintf("%s|%s|%s|%s", userAgent, acceptLanguage, acceptEncoding, ip)
+func (s *deviceService) generateDeviceFingerprint(req DeviceRequest, ip string) string {
+	fingerprint := fmt.Sprintf("%s|%s|%s|%s", req.UserAgent, req.AcceptLanguage, req.AcceptEncoding, ip)
 	hash := md5.Sum([]byte(fingerprint))
 	return fmt.Sprintf("fp_%x", hash)[:16]
 }
