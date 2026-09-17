@@ -216,15 +216,18 @@ jwt:
 
 **Done when:** invalid config stops the app with a clear list of errors; each rule has a unit test.
 
-### T1.2 Cache abstraction: interfaces + Null Object · L
-- [ ] Domain interfaces:
-  - `SessionStore` (Get / Set / Delete / DeleteByUser)
-  - `PermissionCache`
-  - `LockProvider` (`TryLock(key, ttl)`)
-- [ ] Implementations in `infrastructure/cache/`:
-  - `noop` — pass-through, no caching
-  - `memory` — TTL map with per-user index, concurrency-safe, no new dependency
-  - `redis` — per-user index via set `user:{uid}:sessions` (no SCAN); `SET NX` for locks
+### T1.2 Cache abstraction: interfaces + Null Object · L — 🚧 in progress (foundation merged)
+- [x] Domain interfaces:
+  - `SessionStore` (Get / Set / Delete / DeleteByUser) in `domain/auth/cache.go`
+  - `PermissionCache` (Get / Set / Invalidate / InvalidateAll) in `domain/auth/cache.go`
+  - `LockProvider` (`TryLock(key, ttl)` returning a release func) as `lock.Provider` in `domain/lock`
+- [x] Implementations in `infrastructure/cache/`:
+  - `noop` — pass-through, no caching (sessions and permissions; no noop lock)
+  - `memory` — TTL map with per-user index, concurrency-safe, no new dependency; real in-process lock
+  - `redis` — per-user index set `auth:user_sessions:{uid}` and `auth:permission_users` (no SCAN);
+    `SET NX` + owner token for locks, released by a compare-and-delete script
+- [x] Shared contract tests run against memory and a real Redis (`REDIS_TEST_ADDR`, database 15);
+      CI starts a Redis service for them
 - [ ] Move the Redis implementation out of `domain/auth/cache_service.go`
 - [ ] Config `auth.session_cache: auto|none|memory|redis`
 - [ ] Remove every `IsEnabled()` call from `internal/domain/**`
@@ -233,7 +236,7 @@ jwt:
 - [ ] `PermissionCache` TTL from `auth.permission_cache_ttl` (default 15m, not the session lifetime)
 - [ ] Invalidate cached permissions on every change: role permissions, role menus, user roles,
       user permission overrides (per user, or all users for role-level changes)
-- [ ] Fix Redis client timeouts in `internal/bootstrap/redis.go`: `dial_timeout`, `read_timeout`,
+- [x] Fix Redis client timeouts in `internal/bootstrap/redis.go`: `dial_timeout`, `read_timeout`,
       `write_timeout`, and `pool_timeout` are already `time.Duration`; pass them directly instead of
       `time.Second * time.Duration(...)`
 
