@@ -204,17 +204,31 @@ api  := route.Group("api").Use(r.Wired.Middleware.RateLimit.User)
 For sensitive `POST` endpoints (create order, payment, etc.), apply idempotency middleware to prevent duplicate processing on retries.
 
 **How it works:**
-1. Client sends `Idempotency-Key: <uuid>` header
-2. If key is new → process request, cache 2xx response for 24h
-3. If key is seen → return cached response + `Idempotency-Replayed: true` header
-4. If key is missing and `RequireIdempotencyKey` is applied → return `400`
+1. Client sends `Idempotency-Key: <uuid>` header (at most 255 characters); keys are scoped per user
+2. If key is new → process request, store the 2xx response for 24h
+3. If key is seen with the same method, URL, and body → return the stored response + `Idempotency-Replayed: true` header
+4. If key is seen with a different method, URL, or body → `422`
+5. If a request with the same key is still being processed → `409` (the client retries later)
+6. Non-2xx responses are not stored, so a failed request can be retried with the same key
+7. If key is missing and `RequireIdempotencyKey` is applied → `400`
+
+With Redis enabled, stored responses and in-flight locks are shared by every instance. Without
+Redis they are kept in memory, so deduplication only works within one instance (a startup warning
+is logged).
+
+Place it **after** authentication and permission checks, so rejected requests are neither stored
+nor locked:
 
 ```go
 // Optional key — skip if not provided
-foo.Post("", r.Wired.Middleware.Idempotency, handler.Create)
+foo.Post("",
+    r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooCreate),
+    r.Wired.Middleware.Idempotency,
+    handler.Create)
 
 // Mandatory key — 400 if missing
 foo.Post("",
+    r.Wired.Middleware.Auth.RequiredPermission(constants.PermissionFooCreate),
     middleware.RequireIdempotencyKey(),
     r.Wired.Middleware.Idempotency,
     handler.Create)

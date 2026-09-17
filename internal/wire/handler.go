@@ -60,7 +60,7 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(omitBodyPaths(cfg)),
 		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit, pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "rl:")),
-		Idempotency:   middleware.NewIdempotency(pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "idem:"), 24*time.Hour),
+		Idempotency:   middleware.NewIdempotency(infrastructure.IdempotencyStore, infrastructure.Locker, 24*time.Hour),
 		// Future middleware wiring:
 		// CORS:   middleware.NewCORS(),
 		// Logger: middleware.NewLogger(),

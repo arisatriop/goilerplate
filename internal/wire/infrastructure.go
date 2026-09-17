@@ -9,8 +9,11 @@ import (
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/lock"
 	"goilerplate/internal/infrastructure/cache"
+	pkgcache "goilerplate/pkg/cache"
 	"goilerplate/pkg/filesystem"
 	"goilerplate/pkg/jwt"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 // Infrastructure contains all infrastructure dependencies
@@ -20,6 +23,7 @@ type Infrastructure struct {
 	SessionStore      auth.SessionStore
 	PermissionCache   auth.PermissionCache
 	Locker            lock.Provider
+	IdempotencyStore  fiber.Storage
 	CacheService      *cache.RedisService
 	// Future infrastructure dependencies:
 	// EmailService    email.Service
@@ -58,6 +62,7 @@ func WireInfrastructure(app *bootstrap.App) *Infrastructure {
 		SessionStore:      sessionStore,
 		PermissionCache:   permissionCache,
 		Locker:            locker,
+		IdempotencyStore:  wireIdempotencyStore(app),
 		FilesystemManager: filesystemMgr,
 		// Future infrastructure wiring:
 		// EmailService: email.NewService(...),
@@ -100,4 +105,15 @@ func wireAuthCaches(app *bootstrap.App) (auth.SessionStore, auth.PermissionCache
 	default:
 		return cache.NoopSessionStore{}, cache.NoopPermissionCache{}, locker
 	}
+}
+
+// wireIdempotencyStore stores idempotent responses in Redis when enabled, otherwise in memory.
+func wireIdempotencyStore(app *bootstrap.App) fiber.Storage {
+	if app.Redis != nil {
+		return pkgcache.NewFiberStorage(app.Redis, "idem:")
+	}
+
+	app.Log.Warn("redis is disabled: Idempotency-Key deduplication is per instance; " +
+		"with more than one instance, duplicates that reach different instances are processed again")
+	return pkgcache.NewMemoryStorage()
 }
