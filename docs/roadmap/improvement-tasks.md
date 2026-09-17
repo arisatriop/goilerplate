@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7)
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2: T2.1 done
 
 ---
 
@@ -152,7 +152,7 @@ jwt:
 | Partner API key compared with `==` (not constant time); raw key stored in context | T4.2 |
 | gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
 | ~~Idempotency middleware becomes a no-op without Redis~~ | T1.4 ✅ |
-| Migrations are PostgreSQL-only although MySQL is a supported driver | T2.1 |
+| ~~Migrations are PostgreSQL-only although MySQL is a supported driver~~ | T2.1 ✅ |
 | Time columns use `TIMESTAMP` without timezone | T2.2 |
 | GORM models use MySQL column types; redundant/unused indexes | T2.3, T2.4 |
 | Lockout off-by-one (uses pre-increment attempt count) | T3.7 |
@@ -187,7 +187,7 @@ jwt:
 
 ### T0.1 Decide database support
 - [x] Choose database support → **PostgreSQL only** (see D3)
-- [ ] Record the decision in the README (done together with T2.1)
+- [x] Record the decision in the README (done together with T2.1)
 
 **Done when:** the decision is documented in the README.
 
@@ -332,12 +332,15 @@ protojson `accessToken` is covered. Unparseable JSON bodies are not logged.
 
 Migrations are edited in place to form a clean baseline (D4).
 
-### T2.1 Remove MySQL support · S
+### T2.1 Remove MySQL support · S — ✅ done
 **Depends on:** T0.1
-- [ ] Delete `internal/bootstrap/database/mysql.go` and the MySQL branch in `gorm.go` / `app.go`
-- [ ] Remove `db.driver` from config (or accept only `postgres` and fail fast otherwise)
-- [ ] Remove the `go-sql-driver/mysql` and `gorm.io/driver/mysql` dependencies (`go mod tidy`)
-- [ ] Document "PostgreSQL only" in the README, `CLAUDE.md`, and `docs/`
+- [x] Delete `internal/bootstrap/database/mysql.go` and the MySQL branch in `gorm.go` / `app.go`
+- [x] Remove `db.driver` from config (removed; an existing `driver: postgres` line is ignored)
+- [x] Remove the `go-sql-driver/mysql` and `gorm.io/driver/mysql` dependencies (`go mod tidy`) — no longer
+      direct; they remain indirect because `gorm.io/plugin/opentelemetry` imports the MySQL driver
+- [x] Document "PostgreSQL only" in the README, `CLAUDE.md`, and `docs/`
+- [x] GORM honors `db.sslmode` (it was hardcoded to `disable`); pgx and GORM share one quoted DSN
+      (`PostgresDSN`), so passwords with spaces or quotes work
 
 **Done when:** the project builds without MySQL dependencies and `make migrate-up` succeeds on PostgreSQL.
 

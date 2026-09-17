@@ -1,27 +1,49 @@
 package bootstrap
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
+
+	"goilerplate/config"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/gorm"
 )
 
-const (
-	Postgres = "postgres"
-	Mysql    = "mysql"
-)
-
+// DB holds the PostgreSQL connections: a pgx pool and a GORM handle.
 type DB struct {
-	PgxDB   *pgxpool.Pool
-	MysqlDB *sql.DB
-	GDB     *gorm.DB
+	PgxDB *pgxpool.Pool
+	GDB   *gorm.DB
 }
 
 func NewDB() *DB {
 	return &DB{}
+}
+
+// PostgresDSN builds a libpq key/value connection string shared by pgx and GORM.
+// Values are quoted, so passwords may contain spaces, quotes, or backslashes.
+func PostgresDSN(db config.DB) string {
+	return strings.Join([]string{
+		"host=" + quoteDSNValue(db.Host),
+		fmt.Sprintf("port=%d", db.Port),
+		"user=" + quoteDSNValue(db.Username),
+		"password=" + quoteDSNValue(db.Password),
+		"dbname=" + quoteDSNValue(db.Name),
+		"sslmode=" + quoteDSNValue(sslModeOrDefault(db.SSLMode)),
+	}, " ")
+}
+
+func quoteDSNValue(value string) string {
+	return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(value) + "'"
+}
+
+// sslModeOrDefault keeps libpq's own default ("prefer") when db.sslmode is unset.
+func sslModeOrDefault(mode string) string {
+	if mode == "" {
+		return "prefer"
+	}
+	return mode
 }
 
 type slogWriter struct {

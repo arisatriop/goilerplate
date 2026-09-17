@@ -1,6 +1,6 @@
 // @title           Goilerplate API
 // @version         1.0
-// @description     Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and multi-database support.
+// @description     Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and PostgreSQL.
 // @host            localhost:3000
 // @BasePath        /
 
@@ -129,14 +129,6 @@ func gracefulShutdown(ctx context.Context, app *bootstrap.App) {
 	if app.DB.PgxDB != nil {
 		app.DB.PgxDB.Close()
 		fmt.Printf("PostgreSQL connection pool closed successfully\n")
-	}
-
-	if app.DB.MysqlDB != nil {
-		if err := app.DB.MysqlDB.Close(); err != nil {
-			app.Log.Error("Error closing MysqlDB", "error", err)
-		} else {
-			fmt.Printf("MysqlDB connection closed successfully\n")
-		}
 	}
 
 	if app.Redis != nil {

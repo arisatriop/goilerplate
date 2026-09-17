@@ -165,7 +165,7 @@ host: localhost:3000
 info:
   contact: {}
   description: Go backend boilerplate using Clean Architecture. Provides a ready-to-use
-    foundation for REST APIs with auth, RBAC, file uploads, and multi-database support.
+    foundation for REST APIs with auth, RBAC, file uploads, and PostgreSQL.
   title: Goilerplate API
   version: "1.0"
 paths:

@@ -54,10 +54,10 @@ server:
   idle_timeout: 120s
   enable_cors: true
 
-db:
-  driver: postgres # postgres or mysql
+db: # PostgreSQL only
   host: localhost
   port: 5432
+  sslmode: disable # disable | require | verify-ca | verify-full (applies to both GORM and pgx)
   name: postgres
   username: postgres
   password: postgres

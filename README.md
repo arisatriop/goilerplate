@@ -13,7 +13,7 @@ A clean, scalable REST API template featuring JWT authentication, role-based acc
 - **🔐 Authentication & Authorization** — JWT tokens, RBAC, multi-device sessions
 - **🏗️ Clean Architecture** — Layered structure with clear separation of concerns
 - **⚡ Performance** — Redis caching, connection pooling, optimized queries
-- **📦 Database Agnostic** — PostgreSQL or MySQL support
+- **🐘 PostgreSQL** — GORM and pgx on PostgreSQL (the only supported database)
 - **📡 gRPC Support** — Proto-first gRPC server with buf toolchain, AIP conventions, and reflection
 - **🔭 Observability** — OpenTelemetry distributed tracing across HTTP, gRPC, and DB layers
 - **☁️ Cloud Ready** — S3, Google Drive, Kubernetes deployment
@@ -27,7 +27,7 @@ A clean, scalable REST API template featuring JWT authentication, role-based acc
 - **Fiber v2** — Fast HTTP framework
 - **gRPC** — Proto-first RPC with buf toolchain and Google AIP conventions
 - **GORM** — Type-safe ORM
-- **PostgreSQL/MySQL** — Relational database
+- **PostgreSQL** — Relational database
 - **Redis** — Caching & sessions
 - **JWT** — Stateless authentication
 - **OpenTelemetry** — Distributed tracing via OTLP/gRPC
@@ -38,7 +38,7 @@ A clean, scalable REST API template featuring JWT authentication, role-based acc
 
 ### Prerequisites
 - Go 1.24+
-- PostgreSQL or MySQL
+- PostgreSQL
 - Redis (optional)
 
 ### Setup

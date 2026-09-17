@@ -46,7 +46,6 @@ data:
       host: 0.0.0.0
       port: 3000
     db:
-      driver: postgres
       host: your-db-host
       port: 5432
     redis:
