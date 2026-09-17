@@ -28,7 +28,7 @@ This repo is the single source of truth for all service contracts. Both the serv
 
 ## Configuration
 
-The `grpc` block is already present in `config/config.example.yaml`. Copy it to your local `config/config.yaml` if it's missing:
+`config/config.example.yaml` (minimal profile) ships with gRPC disabled. Enable it in your local `config/config.yaml` (all options are documented in `config/config.full.example.yaml`):
 
 ```yaml
 grpc:
@@ -36,7 +36,7 @@ grpc:
   port: 50051
 ```
 
-The gRPC server only starts when `enabled: true`. The HTTP server always starts regardless.
+The gRPC server only starts when `enabled: true`, and `port` must differ from `server.port` (checked at startup). The HTTP server always starts regardless.
 
 ---
 

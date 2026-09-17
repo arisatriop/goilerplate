@@ -8,11 +8,20 @@ Guide for setting up environment variables and configuration for development and
 
 ### Quick Setup
 
-Simply copy `config.example.yaml` to `config.yaml` and edit as needed:
+Copy `config.example.yaml` to `config.yaml` and point `db` at your database:
 
 ```bash
 cp config/config.example.yaml config/config.yaml
 ```
+
+`config.example.yaml` is the **minimal profile**: PostgreSQL only, with Redis, gRPC, OTel off and
+`local` storage. Every available option is documented in `config/config.full.example.yaml`; copy
+the sections you need from there.
+
+The config is validated at startup (`config/validate.go`). The app exits with a list of every
+problem, such as missing settings for an enabled feature, `<...>` placeholders, or JWT secrets
+shorter than 32 bytes. With `app.env: production`, example or low-entropy secrets (including the
+development secrets in `config.example.yaml`) are rejected too.
 
 You don't need a `.env` file for local development, everything is in `config.yaml`.
 

@@ -52,6 +52,7 @@ go mod download
 # 2. Configure
 cp config/config.example.yaml config/config.yaml
 # Edit config/config.yaml with your database credentials
+# (minimal profile; all options: config/config.full.example.yaml)
 
 # 3. Create database
 createdb goilerplate

@@ -1,0 +1,131 @@
+# Full configuration reference: every available option with its purpose.
+# Start from config.example.yaml (minimal profile) and copy the sections you need from here.
+#
+# Any key can be overridden by an environment variable: dots become underscores,
+# e.g. db.password -> DB_PASSWORD, redis.host -> REDIS_HOST, api_key.partner1 -> API_KEY_PARTNER1.
+# Keep real secrets in environment variables or a secret store, not in this file.
+#
+# Startup validation (config/validate.go) stops the app with a list of every problem:
+# missing settings for enabled features, <...> placeholders, JWT secrets shorter than
+# 32 bytes, and, when app.env=production, example or low-entropy secrets.
+
+app:
+  env: production # dev | production (production enables stricter config validation)
+  name: Goilerplate
+  version: 1.0.0
+  description: Go backend boilerplate
+
+server:
+  host: 0.0.0.0
+  port: 3000
+  prefork: false # Fiber prefork (multiple processes on one port)
+  read_timeout: 5s
+  write_timeout: 5s
+  idle_timeout: 120s
+  enable_cors: false
+  cors:
+    allow_origin: https://app.example.com
+    allow_methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allow_headers: Origin,Content-Type,Accept,Authorization
+
+db:
+  driver: postgres
+  host: <DB_HOST>
+  port: 5432
+  name: <DB_NAME>
+  sslmode: require # disable | require | verify-ca | verify-full
+  username: <DB_USERNAME>
+  password: <DB_PASSWORD>
+  min_open_connections: 10
+  max_open_connections: 100 # must be at least 1
+  connection_max_lifetime: 300 # seconds
+  connection_max_idle_time: 60 # seconds
+  health_check_period: 30 # seconds
+
+# Optional. When disabled, rate limiting falls back to in-memory storage.
+redis:
+  enabled: true
+  host: <REDIS_HOST> # host:port, e.g. localhost:6379
+  password: <REDIS_PASSWORD>
+  db: 0
+  dial_timeout: 5s
+  read_timeout: 5s
+  write_timeout: 5s
+  pool_size: 10
+  pool_timeout: 6s
+
+# Generate each secret with: openssl rand -base64 48
+jwt:
+  secret_key: <JWT_SECRET_KEY> # legacy fallback, removed in roadmap T3.1
+  access_secret: <JWT_ACCESS_SECRET> # at least 32 bytes
+  refresh_secret: <JWT_REFRESH_SECRET> # at least 32 bytes, different from access_secret
+  access_token_expiry: 15m
+  refresh_token_expiry: 168h # must be longer than access_token_expiry
+  issuer: goilerplate
+
+log:
+  level: info # debug | info | warn | error
+  source: false # include file:line in every log entry
+  redact_fields: [] # extra JSON/query field names to mask (password, token, api_key, ... are always masked)
+  omit_body_paths: [/api/v1/auth] # request/response bodies under these path prefixes are never logged
+
+# Optional. Proto contract: github.com/arisatriop/goilerplate-proto
+grpc:
+  enabled: true
+  port: 50051 # must differ from server.port
+
+# Optional. Traces are exported over OTLP gRPC; Prometheus metrics are served at /metrics.
+otel:
+  enabled: true
+  endpoint: localhost:4317
+  insecure: false # true disables TLS (local collectors only)
+
+rate_limit:
+  auth: # per IP: login, register
+    max: 10
+    expiration: 1m
+  user: # per user ID: authenticated routes
+    max: 100
+    expiration: 1m
+  partner: # per API key: partner routes
+    max: 1000
+    expiration: 1m
+
+filesystem:
+  driver: s3 # local | s3 | drive
+  max_file_size: 204800 # bytes (200KB)
+
+  local:
+    base_path: ./storage
+    base_url: http://localhost:3000/storage
+
+  # Leave access_key_id / secret_access_key empty to use the default AWS credential chain (e.g. IAM role).
+  s3:
+    access_key_id: <S3_ACCESS_KEY_ID>
+    secret_access_key: <S3_SECRET_ACCESS_KEY>
+    region: us-east-1 # required
+    bucket: <S3_BUCKET> # required
+    endpoint: "" # S3-compatible services, e.g. http://localhost:9000 for MinIO
+
+  # Either credentials_file (service account) or client_id + client_secret + refresh_token (OAuth2).
+  drive:
+    credentials_file: ./credentials/gdrive-sa-credentials.json
+    client_id: ""
+    client_secret: ""
+    refresh_token: ""
+    folder_id: ""
+
+# AES encryption key for pkg/crypto (derived to 32 bytes with SHA-256).
+crypto:
+  encryption_key: <CRYPTO_ENCRYPTION_KEY>
+
+# Partner API keys (name: key), checked by partner routes via the x-api-key header.
+api_key:
+  partner1: <API_KEY_PARTNER1>
+
+# External HTTP services (name: settings), available as config.Services.
+service:
+  payment_gateway:
+    name: PAYMENT_GATEWAY
+    base_url: https://api.payment-gateway.example
+    api_key: <SERVICE_PAYMENT_GATEWAY_API_KEY>

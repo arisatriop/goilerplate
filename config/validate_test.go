@@ -22,7 +22,7 @@ func validConfig() *Config {
 		Server: Server{Port: 3000},
 		DB: DB{
 			Driver: "postgres", Host: "localhost", Port: 5432,
-			Name: "goilerplate", Username: "postgres", Password: "postgres",
+			Name: "goilerplate", Username: "postgres", Password: "postgres", MaxOpenConnections: 10,
 		},
 		JWT: JWT{
 			SecretKey:          "Lg7-legacy-secret-Q2x",
@@ -70,6 +70,7 @@ func TestConfig_Validate_Rules(t *testing.T) {
 		{"access expiry zero", func(c *Config) { c.JWT.AccessTokenExpiry = 0 }, "jwt.access_token_expiry must be greater than 0"},
 		{"refresh expiry not longer", func(c *Config) { c.JWT.RefreshTokenExpiry = time.Minute }, "jwt.refresh_token_expiry must be greater than jwt.access_token_expiry"},
 		{"api key placeholder", func(c *Config) { c.Apikeys["partner1"] = "<API_KEY_PARTNER1>" }, "api_key.partner1 still contains the placeholder"},
+		{"db pool size zero", func(c *Config) { c.DB.MaxOpenConnections = 0 }, "db.max_open_connections must be at least 1, got 0"},
 		{"max file size zero", func(c *Config) { c.FileSystem.MaxFileSize = 0 }, "filesystem.max_file_size must be greater than 0"},
 	}
 
