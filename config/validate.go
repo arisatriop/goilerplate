@@ -36,6 +36,7 @@ func (c *Config) Validate() error {
 	c.validateGRPC(v)
 	c.validateOTel(v)
 	c.validateJWT(v)
+	c.validateAuth(v)
 	c.validateFileSystem(v)
 	c.validateAPIKeys(v)
 
@@ -112,6 +113,25 @@ func (c *Config) validateJWT(v *validation) {
 	}
 	if jwt.RefreshTokenExpiry <= jwt.AccessTokenExpiry {
 		v.addf("jwt.refresh_token_expiry must be greater than jwt.access_token_expiry")
+	}
+}
+
+func (c *Config) validateAuth(v *validation) {
+	switch strings.ToLower(strings.TrimSpace(c.Auth.SessionCache)) {
+	case "", CacheModeAuto, CacheModeNone, CacheModeMemory:
+	case CacheModeRedis:
+		if !c.Redis.Enabled {
+			v.addf("auth.session_cache=redis requires redis.enabled=true")
+		}
+	default:
+		v.addf("auth.session_cache must be auto, none, memory, or redis, got %q", c.Auth.SessionCache)
+	}
+
+	if c.Auth.SessionCacheTTL < 0 {
+		v.addf("auth.session_cache_ttl must not be negative")
+	}
+	if c.Auth.PermissionCacheTTL < 0 {
+		v.addf("auth.permission_cache_ttl must not be negative")
 	}
 }
 

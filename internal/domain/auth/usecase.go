@@ -24,7 +24,7 @@ type authUseCase struct {
 	userValidator     *UserValidator
 	tokenStorage      *TokenStorage
 	menuService       *MenuService
-	cacheService      *CacheService
+	sessionService    *SessionService
 	permissionService *PermissionService
 }
 
@@ -37,12 +37,11 @@ type Usecase interface {
 	RefreshToken(ctx context.Context, userID string, sessionID string, tokenHash string, refreshToken string, refreshTokenExpiresAt time.Time, deviceInfo *DeviceInfo) (*LoginResult, error)
 }
 
-func NewUseCase(authRepo Repository, jwtService *jwt.JWTService, cacheService *CacheService) Usecase {
-	tokenService := NewTokenService(jwtService, authRepo, cacheService)
+func NewUseCase(authRepo Repository, jwtService *jwt.JWTService, sessionService *SessionService, permissionService *PermissionService) Usecase {
+	tokenService := NewTokenService(authRepo)
 	userValidator := NewUserValidator(authRepo)
-	tokenStorage := NewTokenStorage(authRepo, cacheService)
+	tokenStorage := NewTokenStorage(authRepo)
 	menuService := NewMenuService(authRepo)
-	permissionService := NewPermissionService(authRepo, cacheService)
 
 	return &authUseCase{
 		authRepo:          authRepo,
@@ -51,7 +50,7 @@ func NewUseCase(authRepo Repository, jwtService *jwt.JWTService, cacheService *C
 		userValidator:     userValidator,
 		tokenStorage:      tokenStorage,
 		menuService:       menuService,
-		cacheService:      cacheService,
+		sessionService:    sessionService,
 		permissionService: permissionService,
 	}
 }
@@ -121,21 +120,9 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 		return nil, fmt.Errorf("failed to store tokens: %w", err)
 	}
 
-	// Cache session to Redis if enabled
-	if uc.cacheService.IsEnabled() {
-		// Clear any existing permission cache for this user to ensure fresh permissions
-		if err := uc.cacheService.InvalidateUserPermissions(ctx, user.ID); err != nil {
-			logger.Error(ctx, fmt.Errorf("failed to invalidate user permissions cache: %w", err))
-		}
-
-		if err := uc.cacheService.CacheSession(ctx, createdSession); err != nil {
-			return nil, fmt.Errorf("failed to cache session to Redis: %w", err)
-		}
-
-		// Cache user permissions for faster authorization checks
-		if err := uc.permissionService.CacheAllUserPermissions(ctx, user.ID); err != nil {
-			return nil, fmt.Errorf("failed to cache user permissions to Redis: %w", err)
-		}
+	// Start the session with fresh permissions; the cache refills on the next check
+	if err := uc.permissionService.InvalidateUserPermissions(ctx, user.ID); err != nil {
+		logger.Error(ctx, err)
 	}
 
 	menus, err := uc.authRepo.GetParentMenus(ctx)
@@ -183,44 +170,28 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 // Note: Authentication is handled by middleware, userID, tokenHash, and sessionID come from context
 func (uc *authUseCase) Logout(ctx context.Context, userID string, tokenHash string, sessionID string) error {
 	// Delete tokens (no need to validate - already done in middleware)
-	return uc.tokenService.DeleteTokens(ctx, tokenHash, userID, sessionID)
+	if err := uc.tokenService.DeleteTokens(ctx, tokenHash, userID, sessionID); err != nil {
+		return err
+	}
+
+	uc.sessionService.Evict(ctx, sessionID)
+
+	return nil
 }
 
 // LogoutAll invalidates all tokens for a user (logout from all devices)
 // Note: Authentication is handled by middleware, userID comes from context
 func (uc *authUseCase) LogoutAll(ctx context.Context, userID string) error {
-
-	// Step 1: Blacklist all tokens atomically BEFORE deletion
-	// This prevents race conditions where tokens might still be used during deletion
-	if err := uc.blacklistAllUserTokens(ctx, userID); err != nil {
-		// Critical: If Redis is enabled and blacklisting fails, we must abort
-		// Otherwise tokens would be deleted from DB but still cached and usable
-		if uc.cacheService.IsEnabled() {
-			return fmt.Errorf("failed to blacklist user tokens: %w", err)
-		}
-		// If Redis is not enabled, continue (DB is source of truth)
-	}
-
-	// Step 2: Delete tokens from database (permanent removal)
 	if err := uc.authRepo.DeleteUserTokens(ctx, userID); err != nil {
 		return fmt.Errorf("failed to delete user tokens: %w", err)
 	}
 
-	// Step 3: Deactivate sessions (preserve for audit trail)
-	// Sessions are not deleted, just marked as inactive for compliance
+	// Sessions are deactivated, not deleted, to keep an audit trail
 	if err := uc.authRepo.DeactivateUserSessions(ctx, userID); err != nil {
 		return fmt.Errorf("failed to deactivate user sessions: %w", err)
 	}
 
-	// Step 4: Clean up cache entries
-	// Cache cleanup failures are not critical since DB is already updated
-	if err := uc.deleteUserTokensFromCache(ctx, userID); err != nil { //nolint:staticcheck
-		// Continue - cache will expire naturally, DB is source of truth
-	}
-
-	if err := uc.deleteUserSessionsFromCache(ctx, userID); err != nil { //nolint:staticcheck
-		// Continue - cache will expire naturally, DB is source of truth
-	}
+	uc.sessionService.EvictUser(ctx, userID)
 
 	return nil
 }
@@ -255,17 +226,9 @@ func (uc *authUseCase) RefreshToken(ctx context.Context, userID string, sessionI
 	// Mark refresh token as used (async - for audit trail)
 	uc.markTokenAsUsedAsync(ctx, tokenHash)
 
-	// Cache permissions if Redis enabled
-	// This is critical when Redis is enabled because permissions will be read from Redis
-	if uc.cacheService.IsEnabled() {
-		// Clear any existing permission cache for this user to ensure fresh permissions
-		if err := uc.cacheService.InvalidateUserPermissions(ctx, user.ID); err != nil {
-			logger.Error(ctx, fmt.Errorf("failed to invalidate user permissions cache: %w", err))
-		}
-
-		if err := uc.permissionService.CacheAllUserPermissions(ctx, user.ID); err != nil {
-			return nil, fmt.Errorf("failed to cache user permissions to Redis: %w", err)
-		}
+	// Refresh with fresh permissions; the cache refills on the next check
+	if err := uc.permissionService.InvalidateUserPermissions(ctx, user.ID); err != nil {
+		logger.Error(ctx, err)
 	}
 
 	// Create response
@@ -394,51 +357,6 @@ func (uc *authUseCase) markTokenAsUsedAsync(ctx context.Context, tokenHash strin
 	}()
 }
 
-// blacklistAllUserTokens adds all user tokens to blacklist atomically
-func (uc *authUseCase) blacklistAllUserTokens(ctx context.Context, userID string) error {
-	if !uc.cacheService.IsEnabled() {
-		return nil // Redis not enabled, skip blacklisting
-	}
-
-	userTokens, err := uc.authRepo.GetUserTokens(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to get user tokens for blacklisting: %w", err)
-	}
-
-	var tokenHashes []string
-	var maxTTL time.Duration
-
-	for _, token := range userTokens {
-		if ttl := time.Until(token.ExpiresAt); ttl > 0 {
-			tokenHashes = append(tokenHashes, token.TokenHash)
-			if ttl > maxTTL {
-				maxTTL = ttl
-			}
-		}
-	}
-
-	if len(tokenHashes) > 0 {
-		if err := uc.cacheService.AddMultipleTokensToBlacklist(ctx, tokenHashes, maxTTL); err != nil {
-			return fmt.Errorf("failed to add tokens to blacklist: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// deleteUserTokensFromCache removes all user tokens from Redis
-func (uc *authUseCase) deleteUserTokensFromCache(ctx context.Context, userID string) error {
-	if !uc.cacheService.IsEnabled() {
-		return nil // Redis not enabled, skip cache deletion
-	}
-
-	if err := uc.cacheService.DeleteUserTokens(ctx, userID); err != nil {
-		return fmt.Errorf("failed to delete user tokens from cache: %w", err)
-	}
-
-	return nil
-}
-
 // filterMenuTreeByPermissions filters menu tree based on user permissions
 func (uc *authUseCase) filterMenuTreeByPermissions(menuTree []Menu, userPermissions []string) []Menu {
 	var filteredMenus []Menu
@@ -494,18 +412,6 @@ func (uc *authUseCase) filterSingleMenu(menu Menu, permissionMap map[string]bool
 		filteredMenu := menu
 		filteredMenu.Children = filteredChildren
 		return &filteredMenu
-	}
-
-	return nil
-}
-
-func (uc *authUseCase) deleteUserSessionsFromCache(ctx context.Context, userID string) error {
-	if !uc.cacheService.IsEnabled() {
-		return nil // Redis not enabled, skip cache deletion
-	}
-
-	if err := uc.cacheService.DeleteUserSessions(ctx, userID); err != nil {
-		return fmt.Errorf("failed to delete user sessions from cache: %w", err)
 	}
 
 	return nil

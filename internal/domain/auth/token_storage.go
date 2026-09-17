@@ -12,15 +12,13 @@ import (
 
 // TokenStorage handles token storage operations
 type TokenStorage struct {
-	authRepo     Repository
-	cacheService *CacheService
+	authRepo Repository
 }
 
 // NewTokenStorage creates a new token storage
-func NewTokenStorage(authRepo Repository, cacheService *CacheService) *TokenStorage {
+func NewTokenStorage(authRepo Repository) *TokenStorage {
 	return &TokenStorage{
-		authRepo:     authRepo,
-		cacheService: cacheService,
+		authRepo: authRepo,
 	}
 }
 
@@ -36,16 +34,9 @@ func (ts *TokenStorage) StoreTokenPair(ctx context.Context, userID, sessionID st
 		UserAgent: deviceInfo.UserAgent,
 	}
 
-	createdAccessToken, err := ts.authRepo.CreateToken(ctx, accessToken)
+	_, err := ts.authRepo.CreateToken(ctx, accessToken)
 	if err != nil {
 		return fmt.Errorf("failed to store access token: %w", err)
-	}
-
-	// Cache access token to Redis if enabled
-	if ts.cacheService.IsEnabled() {
-		if err := ts.cacheService.CacheToken(ctx, createdAccessToken); err != nil {
-			return fmt.Errorf("failed to cache access token: %w", err)
-		}
 	}
 
 	// Store refresh token in database
@@ -58,16 +49,9 @@ func (ts *TokenStorage) StoreTokenPair(ctx context.Context, userID, sessionID st
 		UserAgent: deviceInfo.UserAgent,
 	}
 
-	createdRefreshToken, err := ts.authRepo.CreateToken(ctx, refreshToken)
+	_, err = ts.authRepo.CreateToken(ctx, refreshToken)
 	if err != nil {
 		return fmt.Errorf("failed to store refresh token: %w", err)
-	}
-
-	// Cache refresh token to Redis if enabled
-	if ts.cacheService.IsEnabled() {
-		if err := ts.cacheService.CacheToken(ctx, createdRefreshToken); err != nil {
-			return fmt.Errorf("failed to cache refresh token: %w", err)
-		}
 	}
 
 	return nil
@@ -84,16 +68,9 @@ func (ts *TokenStorage) StoreAccessToken(ctx context.Context, userID string, acc
 		UserAgent: deviceInfo.UserAgent,
 	}
 
-	createdAccessToken, err := ts.authRepo.CreateToken(ctx, accessToken)
+	_, err := ts.authRepo.CreateToken(ctx, accessToken)
 	if err != nil {
 		return fmt.Errorf("failed to store access token: %w", err)
-	}
-
-	// Cache access token to Redis if enabled
-	if ts.cacheService.IsEnabled() {
-		if err := ts.cacheService.CacheToken(ctx, createdAccessToken); err != nil {
-			return fmt.Errorf("failed to cache acess token: %w", err)
-		}
 	}
 
 	return nil

@@ -2,29 +2,33 @@ package auth
 
 import (
 	"context"
+	"fmt"
+
+	"goilerplate/pkg/logger"
 )
 
 // PermissionService handles permission-related operations
 type PermissionService struct {
-	repo         Repository
-	cacheService *CacheService
+	repo  Repository
+	cache PermissionCache
 }
 
 // NewPermissionService creates a new permission service
-func NewPermissionService(repo Repository, cacheService *CacheService) *PermissionService {
+func NewPermissionService(repo Repository, cache PermissionCache) *PermissionService {
 	return &PermissionService{
-		repo:         repo,
-		cacheService: cacheService,
+		repo:  repo,
+		cache: cache,
 	}
 }
 
-// GetUserFinalPermissions gets merged user permissions (role permissions + user overrides)
+// GetUserFinalPermissions gets merged user permissions (role permissions + user overrides).
+// Results are cached; cache failures are logged and fall back to the repository.
 func (s *PermissionService) GetUserFinalPermissions(ctx context.Context, userID string) ([]string, error) {
-	// Try to get from cache first
-	if s.cacheService.IsEnabled() {
-		if cachedPermissions, found, err := s.cacheService.GetCachedUserPermissions(ctx, userID); err == nil && found {
-			return cachedPermissions, nil
-		}
+	cachedPermissions, found, err := s.cache.Get(ctx, userID)
+	if err != nil {
+		logger.Error(ctx, fmt.Errorf("reading permission cache: %w", err))
+	} else if found {
+		return cachedPermissions, nil
 	}
 
 	// Get user roles
@@ -45,8 +49,12 @@ func (s *PermissionService) GetUserFinalPermissions(ctx context.Context, userID 
 		return nil, err
 	}
 
-	// Merge permissions
-	return s.mergePermissions(rolePermissions, userPermissionOverrides), nil
+	finalPermissions := s.mergePermissions(rolePermissions, userPermissionOverrides)
+	if err := s.cache.Set(ctx, userID, finalPermissions); err != nil {
+		logger.Error(ctx, fmt.Errorf("caching permissions: %w", err))
+	}
+
+	return finalPermissions, nil
 }
 
 // HasPermission checks if user has a specific permission after merging role and user permissions
@@ -95,45 +103,20 @@ func (s *PermissionService) mergePermissions(rolePermissions []string, userOverr
 	return finalPermissions
 }
 
-// CacheAllUserPermissions caches all user permissions (merged role + user overrides) to Redis
-func (s *PermissionService) CacheAllUserPermissions(ctx context.Context, userID string) error {
-	if !s.cacheService.IsEnabled() {
-		return nil // Skip if Redis is disabled
-	}
-
-	// Get final merged permissions
-	finalPermissions, err := s.GetUserFinalPermissions(ctx, userID)
-	if err != nil {
-		return err
-	}
-
-	// Convert to map for faster lookup
-	permissionMap := make(map[string]struct{})
-	for _, permission := range finalPermissions {
-		permissionMap[permission] = struct{}{}
-	}
-
-	// Cache with session duration TTL to match user session lifetime
-	ttl := SessionDuration
-	return s.cacheService.CacheUserPermissions(ctx, userID, permissionMap, ttl)
-}
-
-// InvalidateUserPermissions clears cached permissions for a specific user
-// This should be called when user's roles or permissions are modified
+// InvalidateUserPermissions clears cached permissions for a specific user.
+// Call it whenever the user's roles or permission overrides change.
 func (s *PermissionService) InvalidateUserPermissions(ctx context.Context, userID string) error {
-	if !s.cacheService.IsEnabled() {
-		return nil // Skip if Redis is disabled
+	if err := s.cache.Invalidate(ctx, userID); err != nil {
+		return fmt.Errorf("invalidating user permissions: %w", err)
 	}
-
-	return s.cacheService.InvalidateUserPermissions(ctx, userID)
+	return nil
 }
 
-// InvalidateAllPermissions clears cached permissions for all users
-// This should be called when roles, permissions, or menus are modified globally
+// InvalidateAllPermissions clears cached permissions for all users.
+// Call it whenever role permissions or role menus change.
 func (s *PermissionService) InvalidateAllPermissions(ctx context.Context) error {
-	if !s.cacheService.IsEnabled() {
-		return nil // Skip if Redis is disabled
+	if err := s.cache.InvalidateAll(ctx); err != nil {
+		return fmt.Errorf("invalidating all permissions: %w", err)
 	}
-
-	return s.cacheService.InvalidateAllPermissions(ctx)
+	return nil
 }

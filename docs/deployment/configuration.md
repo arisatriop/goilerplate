@@ -23,6 +23,18 @@ problem, such as missing settings for an enabled feature, `<...>` placeholders, 
 shorter than 32 bytes. With `app.env: production`, example or low-entropy secrets (including the
 development secrets in `config.example.yaml`) are rejected too.
 
+### Auth cache modes
+
+`auth.session_cache` selects how sessions and permissions are cached. The database is always the
+source of truth; a cache only saves lookups.
+
+| Mode | Behavior | Use for |
+|---|---|---|
+| `auto` (default) | `redis` when `redis.enabled`, otherwise `none` | Most setups |
+| `none` | Every request reads the session and permissions from the database | Minimal profile |
+| `memory` | In-process cache; with several instances, logout and permission changes can take up to `session_cache_ttl` / `permission_cache_ttl` to reach other instances (a startup warning is logged) | Single instance without Redis |
+| `redis` | Shared by every instance; requires `redis.enabled` | Standard / Full profiles |
+
 You don't need a `.env` file for local development, everything is in `config.yaml`.
 
 ### Configuration File: `config/config.yaml`
