@@ -36,7 +36,7 @@ grpc:
   port: 50051
 ```
 
-The gRPC server only starts when `enabled: true`, and `port` must differ from `server.port` (checked at startup). The HTTP server always starts regardless.
+The gRPC server is only constructed, registered, and started when `enabled: true` (otherwise no gRPC port is opened), and `port` must differ from `server.port` (checked at startup). The HTTP server always starts regardless.
 
 ---
 

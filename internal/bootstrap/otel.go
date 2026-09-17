@@ -17,6 +17,8 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
+// NewMeterProvider registers a Prometheus exporter served at /metrics. Call it only when
+// otel.enabled is true.
 func NewMeterProvider(cfg *config.Config) (*sdkmetric.MeterProvider, error) {
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
@@ -39,6 +41,7 @@ func NewMeterProvider(cfg *config.Config) (*sdkmetric.MeterProvider, error) {
 	return mp, nil
 }
 
+// NewTracerProvider exports traces over OTLP gRPC. Call it only when otel.enabled is true.
 func NewTracerProvider(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
@@ -46,17 +49,6 @@ func NewTracerProvider(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 		semconv.ServiceVersionKey.String(cfg.App.Version),
 		semconv.DeploymentEnvironmentKey.String(cfg.App.Env),
 	)
-
-	var tp *sdktrace.TracerProvider
-
-	if !cfg.OTel.Enabled {
-		tp = sdktrace.NewTracerProvider(
-			sdktrace.WithResource(res),
-			sdktrace.WithSpanProcessor(redactSpanProcessor{}),
-		)
-		otel.SetTracerProvider(tp)
-		return tp, nil
-	}
 
 	exporterOpts := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(cfg.OTel.Endpoint),
@@ -70,7 +62,7 @@ func NewTracerProvider(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 		return nil, fmt.Errorf("creating OTLP trace exporter: %w", err)
 	}
 
-	tp = sdktrace.NewTracerProvider(
+	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSpanProcessor(redactSpanProcessor{}),
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),

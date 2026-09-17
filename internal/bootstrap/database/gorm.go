@@ -66,8 +66,10 @@ func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
 		os.Exit(1)
 	}
 
-	if err := gdb.Use(tracing.NewPlugin(tracing.WithoutMetrics())); err != nil {
-		log.Error(fmt.Sprintf("failed to register GORM OTel plugin: %v", err))
+	if cfg.OTel.Enabled {
+		if err := gdb.Use(tracing.NewPlugin(tracing.WithoutMetrics())); err != nil {
+			log.Error(fmt.Sprintf("failed to register GORM OTel plugin: %v", err))
+		}
 	}
 
 	connection, err := gdb.DB()

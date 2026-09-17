@@ -21,12 +21,15 @@ All instrumentation shares a single global `TracerProvider` initialized at start
 ```yaml
 # config/config.yaml
 otel:
-  enabled: true            # false = no-op provider, zero overhead
+  enabled: true            # false = no instrumentation attached, zero overhead
   endpoint: localhost:4317 # OTLP gRPC endpoint of your backend
   insecure: true           # set false in production (requires TLS)
 ```
 
-When `enabled: false` (default), a no-op provider is used — no performance impact.
+When `enabled: true`, the app also serves Prometheus metrics at `GET /metrics`.
+
+When `enabled: false` (default), nothing is attached: no tracer or meter provider, no Fiber, gRPC,
+or GORM instrumentation, no connection to the collector, and `/metrics` is not registered.
 
 ---
 

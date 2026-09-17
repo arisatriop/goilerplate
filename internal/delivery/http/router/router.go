@@ -126,7 +126,9 @@ func (r *RouteRegistry) Register() {
 	http.Get("/", r.index)
 	http.Get("/health", r.health)
 	http.Get("/healthcheck", r.healthCheck)
-	http.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+	if r.App.MeterProvider != nil {
+		http.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+	}
 
 	if strings.ToLower(r.App.Config.App.Env) != "production" {
 		http.Static("/swagger-ui", ".swagger")
@@ -141,10 +143,12 @@ func (r *RouteRegistry) Register() {
 		Wired: r.Wired,
 	}).register(http)
 
-	(&PartnerRouteRegistry{
-		App:   r.App,
-		Wired: r.Wired,
-	}).register(http)
+	if bootstrap.PartnerRoutesEnabled(r.App.Config) {
+		(&PartnerRouteRegistry{
+			App:   r.App,
+			Wired: r.Wired,
+		}).register(http)
+	}
 
 	(&PublicRouteRegistry{
 		App:   r.App,

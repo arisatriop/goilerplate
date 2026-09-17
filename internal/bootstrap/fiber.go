@@ -17,7 +17,9 @@ func NewFiber(cfg *config.Config) *fiber.App {
 	})
 
 	app.Use(middleware.Recover())
-	app.Use(otelfiber.Middleware())
+	if cfg.OTel.Enabled {
+		app.Use(otelfiber.Middleware())
+	}
 	// app.Use(cors.New(cors.Config{
 	// 	AllowOrigins: "*",
 	// 	AllowHeaders: "Origin, Content-Type, Accept, Authorization",

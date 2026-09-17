@@ -37,8 +37,10 @@ func main() {
 	// 3. Setup HTTP routes
 	router.NewRouteRegistry(app, wired).Register()
 
-	// 4. Register gRPC services
-	wired.GrpcHandlers.ServiceRegistry.Register(app.GrpcServer)
+	// 4. Register gRPC services (only when grpc.enabled)
+	if app.GrpcServer != nil {
+		wired.GrpcHandlers.ServiceRegistry.Register(app.GrpcServer)
+	}
 
 	// 5. Start the servers
 	start(app)
@@ -56,7 +58,7 @@ func start(app *bootstrap.App) {
 		}
 	}()
 
-	if app.Config.GRPC.Enabled {
+	if app.GrpcServer != nil {
 		go func() {
 			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", app.Config.GRPC.Port))
 			if err != nil {
@@ -145,8 +147,10 @@ func gracefulShutdown(ctx context.Context, app *bootstrap.App) {
 		}
 	}
 
-	app.GrpcServer.GracefulStop()
-	fmt.Printf("gRPC server shutdown successfully\n")
+	if app.GrpcServer != nil {
+		app.GrpcServer.GracefulStop()
+		fmt.Printf("gRPC server shutdown successfully\n")
+	}
 
 	fmt.Printf("\nServer shutting down gracefully...\n")
 }
