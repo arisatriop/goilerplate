@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — T1.7, T1.1, T1.5, T1.2, T1.4, T1.3 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7)
 
 ---
 
@@ -147,7 +147,7 @@ jwt:
 | ~~`LogoutAll` scans every `token:*` / `session:*` key in Redis~~ | T1.2 ✅ |
 | ~~Redis-enabled validation reads cache only; expiry check skipped~~ | T1.2 ✅ |
 | Logout errors printed with `fmt.Printf` and swallowed | T3.5, T4.5 |
-| Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber (cache and GORM fixed; Fiber remains) | T1.2 ✅, T1.6 |
+| ~~Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber~~ | T1.2 ✅, T1.6 ✅ |
 | `/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule | T4.1 |
 | Partner API key compared with `==` (not constant time); raw key stored in context | T4.2 |
 | gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
@@ -298,11 +298,13 @@ requests with the same key execute once, and a reused key with a different body 
 
 **Done when:** copying `config.example.yaml` plus a database is enough to run the app.
 
-### T1.6 Framework-free domain · M
-- [ ] Introduce a `DeviceRequest` struct (user agent, forwarded IPs, accept headers, remote IP);
+### T1.6 Framework-free domain · M — ✅ done
+- [x] Introduce a `DeviceRequest` struct (user agent, forwarded IPs, accept headers, remote IP);
       `DeviceService` no longer accepts `*fiber.Ctx`
-- [ ] Move audit context helpers to `pkg/auditctx`, replacing `infrastructure/context`
-- [ ] HTTP (and gRPC) handlers build `DeviceRequest` themselves
+- [x] Move audit context helpers to `pkg/auditctx`, replacing `infrastructure/context`
+      (this also removes the `application/register` → `infrastructure` import)
+- [x] HTTP (and gRPC) handlers build `DeviceRequest` themselves (`handler.newDeviceRequest`; no gRPC
+      handler needs device info yet)
 
 **Done when:** `grep -r "gofiber" internal/domain` returns nothing.
 

@@ -95,7 +95,7 @@ func (h *Auth) Login(ctx *fiber.Ctx) error {
 		RememberMe: req.RememberMe,
 	}
 
-	deviceInfo := h.deviceService.ExtractDeviceInfo(ctx)
+	deviceInfo := h.deviceService.ExtractDeviceInfo(newDeviceRequest(ctx))
 
 	loginResult, err := h.usecase.Login(ctx.UserContext(), credentials, deviceInfo)
 	if err != nil {
@@ -170,7 +170,7 @@ func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 	refreshTokenExpiresAt := ctx.Locals("refresh_token_expires_at").(time.Time)
 
 	// Extract device information
-	deviceInfo := h.deviceService.ExtractDeviceInfo(ctx)
+	deviceInfo := h.deviceService.ExtractDeviceInfo(newDeviceRequest(ctx))
 
 	// Call refresh token usecase
 	loginResult, err := h.usecase.RefreshToken(ctx.UserContext(), userID, sessionID, tokenHash, refreshToken, refreshTokenExpiresAt, deviceInfo)
@@ -182,4 +182,16 @@ func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 	responseData := presenter.ToLoginResponse(loginResult)
 
 	return response.Success(ctx, responseData, response.WithMessage("Token refreshed successfully"))
+}
+
+// newDeviceRequest collects the request attributes the auth domain uses to identify a device.
+func newDeviceRequest(ctx *fiber.Ctx) auth.DeviceRequest {
+	return auth.DeviceRequest{
+		UserAgent:      ctx.Get(fiber.HeaderUserAgent),
+		AcceptLanguage: ctx.Get(fiber.HeaderAcceptLanguage),
+		AcceptEncoding: ctx.Get(fiber.HeaderAcceptEncoding),
+		ForwardedFor:   ctx.Get(fiber.HeaderXForwardedFor),
+		RealIP:         ctx.Get("X-Real-IP"),
+		RemoteIP:       ctx.IP(),
+	}
 }

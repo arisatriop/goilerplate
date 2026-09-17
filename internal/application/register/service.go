@@ -8,10 +8,9 @@ import (
 	"goilerplate/internal/domain/transaction"
 	"goilerplate/internal/domain/user"
 	"goilerplate/internal/domain/userrole"
+	"goilerplate/pkg/auditctx"
 	"goilerplate/pkg/utils"
 	"net/http"
-
-	auditctx "goilerplate/internal/infrastructure/context"
 )
 
 type ApplicationService interface {

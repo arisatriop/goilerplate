@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	auditctx "goilerplate/internal/infrastructure/context"
+	"goilerplate/pkg/auditctx"
 )
 
 type Role struct {

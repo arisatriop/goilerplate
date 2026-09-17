@@ -1,4 +1,5 @@
-package context
+// Package auditctx stores and reads the acting user for audit fields (created_by, updated_by).
+package auditctx
 
 import (
 	"context"
