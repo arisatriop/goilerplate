@@ -6,7 +6,6 @@ import (
 	"goilerplate/config"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -18,11 +17,11 @@ func NewRedis(cfg *config.Config, log *slog.Logger) *redis.Client {
 			Addr:         cfg.Redis.Host,
 			Password:     cfg.Redis.Password, // no password set
 			DB:           cfg.Redis.DB,       // use default DB
-			DialTimeout:  time.Second * time.Duration(cfg.Redis.DialTimeout),
-			ReadTimeout:  time.Second * time.Duration(cfg.Redis.ReadTimeout),
-			WriteTimeout: time.Second * time.Duration(cfg.Redis.WriteTimeout),
+			DialTimeout:  cfg.Redis.DialTimeout,
+			ReadTimeout:  cfg.Redis.ReadTimeout,
+			WriteTimeout: cfg.Redis.WriteTimeout,
 			PoolSize:     cfg.Redis.PoolSize,
-			PoolTimeout:  time.Second * time.Duration(cfg.Redis.PoolTimeout),
+			PoolTimeout:  cfg.Redis.PoolTimeout,
 		})
 
 		if err := rdb.Ping(context.Background()).Err(); err != nil {
