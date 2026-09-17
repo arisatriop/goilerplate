@@ -3,12 +3,12 @@
 
 -- Create user_tokens table for email verification and password reset tokens
 CREATE TABLE user_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
     token_hash VARCHAR(255) NOT NULL UNIQUE,
     token_type VARCHAR(50) NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    used_at TIMESTAMP NULL DEFAULT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ NULL DEFAULT NULL,
     ip_address VARCHAR(45) DEFAULT NULL,
     user_agent TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

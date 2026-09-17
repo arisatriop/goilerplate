@@ -5,7 +5,7 @@ import (
 )
 
 type Bar struct {
-	ID        string     `gorm:"primaryKey;default:gen_random_uuid()"`
+	ID        string     `gorm:"primaryKey"`
 	Code      string     `gorm:"column:code"`
 	Bar       string     `gorm:"column:bar"`
 	IsActive  bool       `gorm:"column:is_active"`

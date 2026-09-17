@@ -23,6 +23,7 @@ func NewDB() *DB {
 
 // PostgresDSN builds a libpq key/value connection string shared by pgx and GORM.
 // Values are quoted, so passwords may contain spaces, quotes, or backslashes.
+// The session time zone is UTC, so timestamps never depend on the database server setting.
 func PostgresDSN(db config.DB) string {
 	return strings.Join([]string{
 		"host=" + quoteDSNValue(db.Host),
@@ -31,6 +32,8 @@ func PostgresDSN(db config.DB) string {
 		"password=" + quoteDSNValue(db.Password),
 		"dbname=" + quoteDSNValue(db.Name),
 		"sslmode=" + quoteDSNValue(sslModeOrDefault(db.SSLMode)),
+		// Unquoted: gorm.io/driver/postgres reads timezone= from the DSN and passes the raw value on
+		"timezone=UTC",
 	}, " ")
 }
 

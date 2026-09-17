@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"fmt"
 	"goilerplate/config"
+	"goilerplate/pkg/utils"
 	"log/slog"
 	"os"
 	"time"
@@ -17,6 +18,7 @@ func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
 	dialector := gormPostgres.Open(PostgresDSN(cfg.DB))
 
 	gdb, err := gorm.Open(dialector, &gorm.Config{
+		NowFunc:                utils.Now,
 		SkipDefaultTransaction: true,
 		PrepareStmt:            true,
 		QueryFields:            true,

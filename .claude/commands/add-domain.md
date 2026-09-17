@@ -60,7 +60,7 @@ Edit these existing files to register the new domain (insert alphabetically betw
 - `internal/delivery/http/router/internal.go` — add `r.<name>(internal)` to the `register` method, then add a `<name>(internal fiber.Router)` method that registers `POST /`, `PUT /:id`, `DELETE /:id`, `GET /`, `GET /:id` on the `<names>` group
 
 ## 5. Create migration
-Run `make migrate-create name=create_<names>_table` to generate up/down SQL files. Populate the up migration with a `CREATE TABLE <names>` matching the GORM model fields (use `uuid` PK with `gen_random_uuid()`, audit columns, `code TEXT UNIQUE`, soft delete via `deleted_at`). Populate the down migration with `DROP TABLE`.
+Run `make migrate-create name=create_<names>_table` to generate up/down SQL files. Populate the up migration with a `CREATE TABLE <names>` matching the GORM model fields (use a `UUID PRIMARY KEY` without a DB default — the repository sets it with `utils.GenerateUUID()` — `TIMESTAMPTZ` audit columns, `code TEXT UNIQUE`, soft delete via `deleted_at`). Populate the down migration with `DROP TABLE`.
 
 ## 6. Verify
 - Run `go build ./...` — must succeed.

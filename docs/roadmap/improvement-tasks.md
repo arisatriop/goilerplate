@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2: T2.1 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2: T2.1, T2.2 done
 
 ---
 
@@ -153,7 +153,7 @@ jwt:
 | gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
 | ~~Idempotency middleware becomes a no-op without Redis~~ | T1.4 ✅ |
 | ~~Migrations are PostgreSQL-only although MySQL is a supported driver~~ | T2.1 ✅ |
-| Time columns use `TIMESTAMP` without timezone | T2.2 |
+| ~~Time columns use `TIMESTAMP` without timezone~~ | T2.2 ✅ |
 | GORM models use MySQL column types; redundant/unused indexes | T2.3, T2.4 |
 | Lockout off-by-one (uses pre-increment attempt count) | T3.7 |
 | Login reveals account existence (disabled status returned before password check) | T3.7 |
@@ -344,17 +344,28 @@ Migrations are edited in place to form a clean baseline (D4).
 
 **Done when:** the project builds without MySQL dependencies and `make migrate-up` succeeds on PostgreSQL.
 
-### T2.2 Migration baseline + UTC · S
-- [ ] Every time column is `TIMESTAMPTZ`
-- [ ] Merge `add_auth_fields_to_users` into `create_users_table`
-- [ ] Rename `001_create_bars_table` to the same timestamp naming as the other migrations
-- [ ] Primary keys: UUIDv7 generated in the application (`uuid.NewV7()`, already available in
+### T2.2 Migration baseline + UTC · S — ✅ done
+- [x] Every time column is `TIMESTAMPTZ`
+- [x] Merge `add_auth_fields_to_users` into `create_users_table`
+- [x] Rename `001_create_bars_table` to the same timestamp naming as the other migrations
+- [x] Primary keys: UUIDv7 generated in the application (`uuid.NewV7()`, already available in
       `google/uuid`) for index locality; no reliance on DB-side `gen_random_uuid()` defaults
-- [ ] `time.Local = time.UTC` in `cmd/server` and `cmd/migrate`
-- [ ] GORM `NowFunc: utils.Now`; DSN `TimeZone=UTC`
+- [x] `time.Local = time.UTC` in `cmd/server` and `cmd/migrate`
+- [x] GORM `NowFunc: utils.Now`; DSN `TimeZone=UTC` (`timezone=UTC`, unquoted — `gorm.io/driver/postgres`
+      rejects a quoted value)
+- [x] The migrator's own `migrations.executed_at` is `TIMESTAMPTZ`; the unused `utils.TimeJakarta` is removed
+- [x] Migration and CRUD conventions (`.claude/skills`, `/add-domain`, `docs/guides/crud-operations.md`)
+      updated: `TIMESTAMPTZ`, no DB-side UUID default
+
+Existing databases must be reset (drop, or migrate down fully) and migrated again, because the
+baseline migrations were edited in place (D4).
 
 **Done when:** `make migrate-up` then `make migrate-down` (all steps) runs cleanly on an empty
 database, and API timestamps always end in `Z` regardless of server timezone.
+
+Verified on an empty database: up → down ×12 (no tables left) → up again; no `timestamp without
+time zone` columns and no `id` defaults; with `TZ=Asia/Jakarta`, every timestamp in the login
+response ends in `Z`, and user, session, and token IDs are UUIDv7.
 
 ### T2.3 `user_sessions` schema · M
 - [ ] Columns: `id`, `user_id`, `refresh_jti`, `previous_refresh_jti`, `rotated_at`,

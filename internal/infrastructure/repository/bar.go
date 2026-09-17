@@ -34,6 +34,7 @@ func (r *barRepo) CreateBar(ctx context.Context, entity *bar.Bar) (*bar.Bar, err
 	now := utils.Now()
 	user := ctx.Value(constants.ContextKeyUserID).(string)
 	model := &model.Bar{
+		ID:        utils.GenerateUUID(),
 		Code:      entity.Code,
 		Bar:       entity.Bar,
 		IsActive:  true,
@@ -145,6 +146,7 @@ func (r *barRepo) BulkCreate(ctx context.Context, entities []*bar.Bar) error {
 	models := make([]model.Bar, len(entities))
 	for i, entity := range entities {
 		models[i] = model.Bar{
+			ID:        utils.GenerateUUID(),
 			Code:      entity.Code,
 			Bar:       entity.Bar,
 			IsActive:  true,
@@ -156,7 +158,7 @@ func (r *barRepo) BulkCreate(ctx context.Context, entities []*bar.Bar) error {
 	}
 
 	if err := r.db.WithContext(ctx).Create(&models).
-		Select("code, bar, is_active, created_at, created_by, updated_at, updated_by").
+		Select("id, code, bar, is_active, created_at, created_by, updated_at, updated_by").
 		Error; err != nil {
 		return utils.WrapErr(err)
 	}

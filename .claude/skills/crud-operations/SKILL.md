@@ -36,8 +36,9 @@ A complete CRUD entity touches these files:
   `Repository` interface.
 - **GORM model** (`infrastructure/model/foo.go`) is separate from the domain
   entity — the model carries GORM tags, audit columns (`CreatedBy`/`UpdatedBy`/
-  `DeletedBy`/`CreatedAt`/`UpdatedAt`/`DeletedAt`/`IsActive`), `id` defaults to
-  `gen_random_uuid()`. Domain entities have no GORM tags.
+  `DeletedBy`/`CreatedAt`/`UpdatedAt`/`DeletedAt`/`IsActive`); `id` has no DB
+  default — the repository sets it with `utils.GenerateUUID()` (UUIDv7) on create and
+  bulk create. Domain entities have no GORM tags.
 - **DTOs**: never expose the GORM model directly — map model → domain entity →
   response DTO via the presenter. Request DTOs use `validate` struct tags.
 - **Handler** struct is built with `NewFoo(validator, usecase)`; methods are

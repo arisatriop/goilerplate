@@ -10,7 +10,7 @@ import (
 )
 
 type Role struct {
-	ID          uuid.UUID  `gorm:"type:char(36);default:UUID();primaryKey"`
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey"`
 	Name        string     `gorm:"type:varchar(100);not null"`
 	Slug        string     `gorm:"type:varchar(100);not null;uniqueIndex"`
 	Description *string    `gorm:"type:text"`
@@ -28,7 +28,7 @@ func (Role) TableName() string {
 
 func (r *Role) BeforeCreate(tx *gorm.DB) error {
 	if r.ID == uuid.Nil {
-		r.ID = uuid.New()
+		r.ID = uuid.Must(uuid.NewV7())
 	}
 
 	// Set audit fields from context

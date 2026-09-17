@@ -26,7 +26,7 @@ func (UserToken) TableName() string {
 
 func (ut *UserToken) BeforeCreate(tx *gorm.DB) error {
 	if ut.ID == "" {
-		ut.ID = uuid.NewString()
+		ut.ID = uuid.Must(uuid.NewV7()).String()
 	}
 	return nil
 }

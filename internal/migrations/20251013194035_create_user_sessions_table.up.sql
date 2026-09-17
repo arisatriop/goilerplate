@@ -3,7 +3,7 @@
 
 -- Create user_sessions table for managing refresh tokens and multiple device logins
 CREATE TABLE user_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
     refresh_token_hash VARCHAR(255) NOT NULL UNIQUE,
     device_name VARCHAR(255) DEFAULT NULL,
@@ -13,8 +13,8 @@ CREATE TABLE user_sessions (
     user_agent TEXT,
     location VARCHAR(255) DEFAULT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    expires_at TIMESTAMP NOT NULL,
-    last_used_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL,
+    last_used_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
