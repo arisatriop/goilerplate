@@ -76,6 +76,9 @@ auth:
   session_cache_ttl: 30s # memory: max revocation lag across instances; redis: bounds staleness after direct DB edits
   permission_cache_ttl: 15m # safety net; permission changes invalidate the cache explicitly
   session_expiry: 168h # absolute session lifetime, and the refresh token's lifetime; rotation never extends it
+  lockout:
+    max_attempts: 5 # consecutive failures before the account stops accepting any password
+    duration: 10m # how long the lockout lasts
   refresh_reuse_grace: 10s # the just-replaced refresh token stays valid this long, so concurrent tabs and a lost response do not trigger reuse detection
   remember_me_expiry: 720h # absolute session lifetime when the client logs in with remember_me
 

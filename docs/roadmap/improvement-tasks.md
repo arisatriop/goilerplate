@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1–T3.5 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1–T3.5, T3.7 done
 
 ---
 
@@ -155,8 +155,8 @@ jwt:
 | ~~Migrations are PostgreSQL-only although MySQL is a supported driver~~ | T2.1 ✅ |
 | ~~Time columns use `TIMESTAMP` without timezone~~ | T2.2 ✅ |
 | ~~GORM models use MySQL column types; redundant/unused indexes~~ | T2.3 ✅, T2.4 ✅ |
-| Lockout off-by-one (uses pre-increment attempt count) | T3.7 |
-| Login reveals account existence (disabled status returned before password check) | T3.7 |
+| ~~Lockout off-by-one (uses pre-increment attempt count)~~ | T3.7 ✅ |
+| ~~Login reveals account existence (disabled status returned before password check)~~ | T3.7 ✅ |
 | ~~JWT validation uses `ParseUnverified` to pick a secret, with a generic fallback secret; no `aud`/`iss` checks~~ | T3.1 ✅ |
 | CORS config exists but the middleware is commented out; 100MB body limit hardcoded | T5.4 |
 | S3 driver: no path-style option, public-read only, extra `HeadObject` per upload | T5.3 |
@@ -165,7 +165,7 @@ jwt:
 | `/auth/refresh` and `/auth/logout` share the per-IP login rate limit, so users behind one NAT throttle each other | T4.6 |
 | No tests for `domain/auth` or auth middleware | T6.1 |
 | ~~Redis timeouts are multiplied by `time.Second` twice (`5s` config → ~158 years), so dial/read/write/pool timeouts never fire~~ | T1.2 ✅ |
-| Wrong email or password returns `400` (`utils.ClientErr(http.StatusBadRequest, MsgInvalidCredential)` in `domain/auth/user_validator.go`); API conventions require `401` | T3.7 |
+| ~~Wrong email or password returns `400`; API conventions require `401`~~ | T3.7 ✅ |
 
 ---
 
@@ -608,30 +608,53 @@ under test.
 **Done when:** a deactivated user loses API access immediately, and changing the password
 logs out every other device.
 
-### T3.7 Atomic lockout + anti-enumeration · M
-- [ ] Single statement:
-      `UPDATE users SET failed_login_attempts = failed_login_attempts + 1, locked_until = CASE WHEN failed_login_attempts + 1 >= ? THEN ? ELSE locked_until END WHERE id = ?`
-- [ ] Check order:
+### T3.7 Atomic lockout + anti-enumeration · M — ✅ done (one bullet deferred)
+- [x] Single statement via `RegisterFailedLogin`, which returns whether the account is now locked:
+      `UPDATE users SET failed_login_attempts = failed_login_attempts + 1, locked_until = CASE WHEN failed_login_attempts + 1 >= ? THEN ? ELSE locked_until END WHERE id = ? RETURNING ...`
+      The `CASE` compares the **post-increment** value, fixing the off-by-one that locked on N+1.
+- [x] Check order:
   1. Unknown user → dummy bcrypt comparison → "invalid credentials"
-  2. **Locked → reject without evaluating the password** (still run a dummy bcrypt for equal
-     timing). Evaluating the password while locked would let an attacker keep guessing and
-     learn when a guess is correct, defeating the lockout.
-  3. Wrong password → increment attempts → "invalid credentials"
-  4. Disabled → "account disabled" (only revealed to someone who knows the password)
-- [ ] Locked response message is generic ("too many attempts, try again later")
-- [ ] Invalid credentials return `401 Unauthorized` instead of `400` (API conventions); `400` stays
-      for request validation errors only
-- [ ] Max attempts and lock duration configurable via `auth.lockout.*`
-- [ ] Password policy on register, change, and reset (NIST 800-63B): minimum 8 characters,
-      maximum 72 **bytes** (bcrypt limit) returned as a 400 validation error; no composition rules
-- [ ] Reject common passwords using an embedded list (e.g. top 10k), as NIST 800-63B requires
-      checking against commonly used or compromised passwords
+  2. Locked → rejected without evaluating the password, with a dummy bcrypt for equal timing
+  3. Wrong password → atomic increment → "invalid credentials"
+  4. Disabled → "account disabled", only after the correct password
+- [x] Locked response message is generic: `MsgAccountLocked` is now
+      "Too many failed attempts, please try again later"
+- [x] Invalid credentials return `401`; locked returns `401` too, so neither can be told from the
+      other by status. `400` is left to request validation.
+- [x] `auth.lockout.max_attempts` (default 5) and `auth.lockout.duration` (default 10m)
+- [x] Password policy in the new `pkg/password`, applied at registration: minimum 8 characters,
+      maximum 72 **bytes** (bcrypt's truncation point, checked in bytes so multi-byte characters
+      count correctly), returned as 400. No composition rules, per NIST 800-63B.
+- [ ] **Deferred by decision:** no common-password list ships with the boilerplate. The
+      `password.CommonChecker` interface and the policy hook are in place, defaulting to
+      `NoCommonList`, so a deployment supplies its own list; wiring points at
+      `wire/application.go`.
 
 **Done when:**
 - the account locks exactly on attempt N
 - while locked, the correct password gets the same response as a wrong one
 - the response for an unregistered email is identical to a wrong password (both `401`)
 - a concurrency test covers the increment
+
+PostgreSQL integration tests: attempts 1–4 do not lock and the 5th does, with the counter and
+`locked_until` checked after each; 20 concurrent failures are all counted exactly once (counter
+reaches 20, and every attempt from the 5th on reports the account locked). Domain tests cover the
+check order, including that a locked account never counts or evaluates the password.
+
+Verified live with `max_attempts: 5`:
+
+| Case | Result |
+|---|---|
+| Unknown email | `401 "Invalid credential"` |
+| Wrong password | `401 "Invalid credential"` — byte-identical to the above |
+| Attempts 1–5 | all `401 "Invalid credential"`; DB shows `attempts=5, locked=true` after the 5th |
+| Wrong password while locked | `401 "Too many failed attempts, please try again later"` |
+| **Correct** password while locked | identical response |
+| Counter during locked attempts | stays at 5 — the password is never evaluated |
+| Register with 5-char / 73-byte / valid password | `400` / `400 "at most 72 bytes"` / `201` |
+
+Response-time medians over 8 requests each: unknown email 52.6 ms, existing account 53.3 ms
+(ratio 0.99), so the dummy comparison keeps timing from revealing which emails are registered.
 
 ---
 

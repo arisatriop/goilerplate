@@ -139,6 +139,8 @@ const (
 	DefaultSessionExpiry      = 7 * 24 * time.Hour
 	DefaultRememberMeExpiry   = 30 * 24 * time.Hour
 	DefaultRefreshReuseGrace  = 10 * time.Second
+	DefaultLockoutMaxAttempts = 5
+	DefaultLockoutDuration    = 10 * time.Minute
 )
 
 type Auth struct {
@@ -149,6 +151,30 @@ type Auth struct {
 	SessionExpiry      time.Duration `mapstructure:"session_expiry"`       // absolute session lifetime; also the refresh token lifetime
 	RememberMeExpiry   time.Duration `mapstructure:"remember_me_expiry"`   // absolute session lifetime when remember_me = true
 	RefreshReuseGrace  time.Duration `mapstructure:"refresh_reuse_grace"`  // window in which the just-replaced refresh token is still accepted
+	Lockout            Lockout       `mapstructure:"lockout"`
+}
+
+// Lockout bounds password guessing: after MaxAttempts consecutive failures the account stops
+// accepting any password, right or wrong, for Duration.
+type Lockout struct {
+	MaxAttempts int           `mapstructure:"max_attempts"`
+	Duration    time.Duration `mapstructure:"duration"`
+}
+
+// MaxAttemptsOrDefault returns lockout.max_attempts, or DefaultLockoutMaxAttempts when unset.
+func (l Lockout) MaxAttemptsOrDefault() int {
+	if l.MaxAttempts > 0 {
+		return l.MaxAttempts
+	}
+	return DefaultLockoutMaxAttempts
+}
+
+// DurationOrDefault returns lockout.duration, or DefaultLockoutDuration when unset.
+func (l Lockout) DurationOrDefault() time.Duration {
+	if l.Duration > 0 {
+		return l.Duration
+	}
+	return DefaultLockoutDuration
 }
 
 // RevocationMode resolves auth.revocation, defaulting to strict (secure by default).

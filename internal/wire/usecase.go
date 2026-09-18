@@ -38,6 +38,10 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 			repos.AuthRepo, infra.JWTService, sessionService, permissionService,
 			sessions, app.Config.Auth.RefreshReuseGraceOrDefault(),
 			transaction.NewGormTransaction(app.DB.GDB),
+			auth.Lockout{
+				MaxAttempts: app.Config.Auth.Lockout.MaxAttemptsOrDefault(),
+				Duration:    app.Config.Auth.Lockout.DurationOrDefault(),
+			},
 		),
 		FooUC: foo.NewUseCase(repos.FooRepo),
 		BarUC: bar.NewUseCase(repos.BarRepo),

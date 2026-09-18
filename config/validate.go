@@ -171,6 +171,13 @@ func (c *Config) validateAuth(v *validation) {
 		v.addf("auth.refresh_reuse_grace must not exceed jwt.access_token_expiry")
 	}
 
+	if c.Auth.Lockout.MaxAttempts < 0 {
+		v.addf("auth.lockout.max_attempts must not be negative")
+	}
+	if c.Auth.Lockout.Duration < 0 {
+		v.addf("auth.lockout.duration must not be negative")
+	}
+
 	if c.Auth.RememberMeExpiry < 0 {
 		v.addf("auth.remember_me_expiry must not be negative")
 	} else if c.Auth.RememberMeExpiryOrDefault() < sessionExpiry {
