@@ -6,6 +6,7 @@ import (
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/bar"
 	"goilerplate/internal/domain/foo"
+	"goilerplate/internal/infrastructure/transaction"
 )
 
 // UseCases contains all use case implementations
@@ -36,6 +37,7 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 		AuthUC: auth.NewUseCase(
 			repos.AuthRepo, infra.JWTService, sessionService, permissionService,
 			sessions, app.Config.Auth.RefreshReuseGraceOrDefault(),
+			transaction.NewGormTransaction(app.DB.GDB),
 		),
 		FooUC: foo.NewUseCase(repos.FooRepo),
 		BarUC: bar.NewUseCase(repos.BarRepo),

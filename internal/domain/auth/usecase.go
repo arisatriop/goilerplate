@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"goilerplate/internal/domain/transaction"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
@@ -36,6 +37,7 @@ type authUseCase struct {
 	permissionService *PermissionService
 	sessionExpiry     SessionExpiry
 	refreshReuseGrace time.Duration
+	txManager         transaction.Transaction
 }
 
 // Usecase defines the authentication use case interface
@@ -54,6 +56,7 @@ func NewUseCase(
 	permissionService *PermissionService,
 	sessionExpiry SessionExpiry,
 	refreshReuseGrace time.Duration,
+	txManager transaction.Transaction,
 ) Usecase {
 	userValidator := NewUserValidator(authRepo)
 	menuService := NewMenuService(authRepo)
@@ -67,6 +70,7 @@ func NewUseCase(
 		permissionService: permissionService,
 		sessionExpiry:     sessionExpiry,
 		refreshReuseGrace: refreshReuseGrace,
+		txManager:         txManager,
 	}
 }
 
@@ -104,13 +108,9 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 		return nil, fmt.Errorf("failed to validate user for login: %w", err)
 	}
 
-	// Update user login info
-	if err := uc.authRepo.UpdateUserLoginInfo(ctx, user.ID, true); err != nil {
-		return nil, fmt.Errorf("failed to update user login info: %w", err)
-	}
-
 	// Generate session and tokens. The refresh token expires with the session, so the
-	// session's absolute lifetime is decided here and handed to the signer.
+	// session's absolute lifetime is decided here and handed to the signer. Signing touches
+	// nothing outside this function, so it is done before the transaction opens.
 	sessionID := utils.GenerateUUID()
 	expiry := uc.sessionExpiry.For(credentials.RememberMe)
 	tokenPair, err := uc.jwtService.GenerateTokenPair(
@@ -125,14 +125,31 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 		return nil, fmt.Errorf("failed to generate token pair: %w", err)
 	}
 
-	// Create user session
+	// Stamping the login and creating the session commit together: a failure between them
+	// would otherwise leave a session the user was never told about, or a last_login_at with
+	// no session behind it.
 	session := uc.createUserSession(sessionID, user.ID, tokenPair.RefreshTokenID, deviceInfo, expiry)
-	createdSession, err := uc.authRepo.CreateSession(ctx, session)
+	var createdSession *UserSession
+	err = uc.txManager.Do(ctx, func(txCtx context.Context) error {
+		repo := uc.authRepo.WithTx(txCtx)
+
+		if err := repo.UpdateUserLoginInfo(txCtx, user.ID, true); err != nil {
+			return fmt.Errorf("failed to update user login info: %w", err)
+		}
+
+		createdSession, err = repo.CreateSession(txCtx, session)
+		if err != nil {
+			return fmt.Errorf("failed to create session: %w", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create session: %w", err)
+		return nil, err
 	}
 
-	// Start the session with fresh permissions; the cache refills on the next check
+	// Cache writes happen only after the commit, so a rolled-back login cannot leave the
+	// cache describing a session that does not exist.
 	if err := uc.permissionService.InvalidateUserPermissions(ctx, user.ID); err != nil {
 		logger.Error(ctx, err)
 	}
@@ -185,10 +202,9 @@ func (uc *authUseCase) buildMenuAndPermissions(ctx context.Context, userID strin
 // exchanged. Other devices keep their own sessions.
 // Note: Authentication is handled by middleware, userID and sessionID come from context.
 func (uc *authUseCase) Logout(ctx context.Context, userID string, sessionID string) error {
-	if err := uc.authRepo.RevokeSession(ctx, userID, sessionID, RevokedReasonLogout); err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
-		}
+	// Logging out twice is not an error: an already-revoked session is the state the caller
+	// asked for. The cache is evicted either way, so a stale entry cannot outlive the call.
+	if err := uc.authRepo.RevokeSession(ctx, userID, sessionID, RevokedReasonLogout); err != nil && !errors.Is(err, ErrNotFound) {
 		return fmt.Errorf("revoking session: %w", err)
 	}
 
