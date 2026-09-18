@@ -59,6 +59,10 @@ definitions:
     type: object
   dtoresponse.LoginResponse:
     properties:
+      menus:
+        items:
+          $ref: '#/definitions/dtoresponse.MenuResponse'
+        type: array
       permissions:
         items:
           type: string
@@ -69,6 +73,29 @@ definitions:
         $ref: '#/definitions/dtoresponse.TokenPairResponse'
       user:
         $ref: '#/definitions/dtoresponse.UserResponse'
+    type: object
+  dtoresponse.MenuResponse:
+    properties:
+      child:
+        items:
+          $ref: '#/definitions/dtoresponse.MenuResponse'
+        type: array
+      displayOrder:
+        type: number
+      icon:
+        type: string
+      isActive:
+        type: boolean
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      route:
+        type: string
+      slug:
+        type: string
     type: object
   dtoresponse.SessionResponse:
     properties:
@@ -87,8 +114,6 @@ definitions:
       isActive:
         type: boolean
       lastUsedAt:
-        type: string
-      location:
         type: string
       userAgent:
         type: string

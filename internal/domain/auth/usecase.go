@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
@@ -108,7 +106,7 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 	}
 
 	// Create user session
-	session := uc.createUserSession(sessionID, user.ID, tokenPair.RefreshToken, deviceInfo, credentials.RememberMe)
+	session := uc.createUserSession(sessionID, user.ID, tokenPair.RefreshTokenID, deviceInfo, credentials.RememberMe)
 	createdSession, err := uc.authRepo.CreateSession(ctx, session)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
@@ -187,7 +185,7 @@ func (uc *authUseCase) LogoutAll(ctx context.Context, userID string) error {
 	}
 
 	// Sessions are deactivated, not deleted, to keep an audit trail
-	if err := uc.authRepo.DeactivateUserSessions(ctx, userID); err != nil {
+	if err := uc.authRepo.DeactivateUserSessions(ctx, userID, RevokedReasonLogoutAll); err != nil {
 		return fmt.Errorf("failed to deactivate user sessions: %w", err)
 	}
 
@@ -283,33 +281,30 @@ func (uc *authUseCase) RefreshToken(ctx context.Context, userID string, sessionI
 	}, nil
 }
 
-// createUserSession creates a new user session with device information
-func (uc *authUseCase) createUserSession(sessionID, userID, refreshToken string, deviceInfo *DeviceInfo, rememberMe bool) *UserSession {
+// createUserSession creates a new user session with device information.
+// refreshJTI is the jti of the refresh token this session starts with; rotation (T3.3)
+// replaces it on every refresh.
+func (uc *authUseCase) createUserSession(sessionID, userID, refreshJTI string, deviceInfo *DeviceInfo, rememberMe bool) *UserSession {
 	expirationDuration := SessionDuration
 	if rememberMe {
 		expirationDuration = rememberMeDuration
 	}
 
-	return &UserSession{
-		ID:               sessionID,
-		UserID:           userID,
-		RefreshTokenHash: uc.hashToken(refreshToken),
-		DeviceName:       deviceInfo.DeviceName,
-		DeviceType:       deviceInfo.DeviceType,
-		DeviceID:         deviceInfo.DeviceID,
-		IPAddress:        deviceInfo.IPAddress,
-		UserAgent:        deviceInfo.UserAgent,
-		Location:         deviceInfo.Location,
-		IsActive:         true,
-		ExpiresAt:        utils.Now().Add(expirationDuration),
-		LastUsedAt:       utils.Now(),
-	}
-}
+	now := utils.Now()
 
-// hashToken creates a SHA256 hash of the token for secure storage
-func (uc *authUseCase) hashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
+	return &UserSession{
+		ID:         sessionID,
+		UserID:     userID,
+		RefreshJTI: refreshJTI,
+		DeviceName: deviceInfo.DeviceName,
+		DeviceType: deviceInfo.DeviceType,
+		DeviceID:   deviceInfo.DeviceID,
+		IPAddress:  deviceInfo.IPAddress,
+		UserAgent:  deviceInfo.UserAgent,
+		IsActive:   true,
+		ExpiresAt:  now.Add(expirationDuration),
+		LastUsedAt: now,
+	}
 }
 
 // buildTokenPair creates a jwt.TokenPair from access and refresh token details

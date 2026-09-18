@@ -158,24 +158,29 @@ func (r *authRepository) ResetExpiredLock(ctx context.Context, userID string) er
 // Session operations
 func (r *authRepository) CreateSession(ctx context.Context, session *auth.UserSession) (*auth.UserSession, error) {
 	sessionModel := &model.UserSession{
-		ID:               session.ID,
-		UserID:           session.UserID,
-		RefreshTokenHash: session.RefreshTokenHash,
-		DeviceName:       session.DeviceName,
-		DeviceType:       session.DeviceType,
-		DeviceID:         session.DeviceID,
-		IPAddress:        session.IPAddress,
-		UserAgent:        session.UserAgent,
-		Location:         session.Location,
-		IsActive:         session.IsActive,
-		ExpiresAt:        session.ExpiresAt,
-		LastUsedAt:       session.LastUsedAt,
+		ID:                 session.ID,
+		UserID:             session.UserID,
+		RefreshJTI:         session.RefreshJTI,
+		PreviousRefreshJTI: nullableString(session.PreviousRefreshJTI),
+		RotatedAt:          session.RotatedAt,
+		DeviceName:         session.DeviceName,
+		DeviceType:         session.DeviceType,
+		DeviceID:           session.DeviceID,
+		IPAddress:          nullableString(session.IPAddress),
+		UserAgent:          session.UserAgent,
+		IsActive:           session.IsActive,
+		ExpiresAt:          session.ExpiresAt,
+		LastUsedAt:         session.LastUsedAt,
+		RevokedAt:          session.RevokedAt,
+		RevokedReason:      session.RevokedReason,
+		CreatedAt:          utils.Now(),
 	}
 
 	if err := r.db.WithContext(ctx).Create(sessionModel).Error; err != nil {
 		return nil, err
 	}
 
+	session.CreatedAt = sessionModel.CreatedAt
 	return session, nil
 }
 
@@ -190,20 +195,7 @@ func (r *authRepository) GetSessionByID(ctx context.Context, sessionID string) (
 		return nil, err
 	}
 
-	return &auth.UserSession{
-		ID:               sessionModel.ID,
-		UserID:           sessionModel.UserID,
-		RefreshTokenHash: sessionModel.RefreshTokenHash,
-		DeviceID:         sessionModel.DeviceID,
-		DeviceName:       sessionModel.DeviceName,
-		DeviceType:       sessionModel.DeviceType,
-		IPAddress:        sessionModel.IPAddress,
-		UserAgent:        sessionModel.UserAgent,
-		Location:         sessionModel.Location,
-		IsActive:         sessionModel.IsActive,
-		ExpiresAt:        sessionModel.ExpiresAt,
-		LastUsedAt:       sessionModel.LastUsedAt,
-	}, nil
+	return userSessionModelToEntity(&sessionModel), nil
 }
 
 func (r *authRepository) DeleteUserSessions(ctx context.Context, userID string) error {
@@ -218,11 +210,15 @@ func (r *authRepository) DeleteUserSessions(ctx context.Context, userID string) 
 	return nil
 }
 
-func (r *authRepository) DeactivateUserSessions(ctx context.Context, userID string) error {
+func (r *authRepository) DeactivateUserSessions(ctx context.Context, userID, reason string) error {
 	result := r.db.WithContext(ctx).
 		Model(&model.UserSession{}).
-		Where("user_id = ?", userID).
-		Update("is_active", false)
+		Where("user_id = ? AND is_active", userID).
+		Updates(map[string]any{
+			"is_active":      false,
+			"revoked_at":     utils.Now(),
+			"revoked_reason": reason,
+		})
 
 	if result.Error != nil {
 		return result.Error
@@ -313,52 +309,29 @@ func (r *authRepository) DeleteUserTokens(ctx context.Context, userID string) er
 	return nil
 }
 
-func (r *authRepository) DeleteTokensBySession(ctx context.Context, userID, sessionID string) error {
-	// Find the session to get the refresh token hash
-	var session model.UserSession
-	err := r.db.WithContext(ctx).
-		Where("id = ? AND user_id = ?", sessionID, userID).
-		First(&session).Error
+// RevokeSession deactivates one session in a single conditional UPDATE, so concurrent
+// logouts cannot both report success. It returns auth.ErrNotFound when the session does not
+// belong to the user or was already revoked.
+func (r *authRepository) RevokeSession(ctx context.Context, userID, sessionID, reason string) error {
+	now := utils.Now()
 
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return auth.ErrNotFound
-		}
-		return err
-	}
-
-	// Delete the refresh token associated with this session
 	result := r.db.WithContext(ctx).
-		Where("token_hash = ?", session.RefreshTokenHash).
-		Delete(&model.UserToken{})
+		Model(&model.UserSession{}).
+		Where("id = ? AND user_id = ? AND is_active", sessionID, userID).
+		Updates(map[string]any{
+			"is_active":      false,
+			"revoked_at":     now,
+			"revoked_reason": reason,
+		})
 
 	if result.Error != nil {
 		return result.Error
 	}
-
-	// Check if any refresh token was actually deleted
 	if result.RowsAffected == 0 {
-		// No refresh token found, but session exists - this is unusual
-		// Still deactivate the session for consistency
-		err = r.db.WithContext(ctx).
-			Model(&model.UserSession{}).
-			Where("id = ?", sessionID).
-			Update("is_active", false).Error
-
-		if err != nil {
-			return err
-		}
-
 		return auth.ErrNotFound
 	}
 
-	// Deactivate the session
-	err = r.db.WithContext(ctx).
-		Model(&model.UserSession{}).
-		Where("id = ?", sessionID).
-		Update("is_active", false).Error
-
-	return err
+	return nil
 }
 
 func (r *authRepository) GetUserByID(ctx context.Context, userID string) (*auth.User, error) {
@@ -708,6 +681,32 @@ func oneTimeTokenModelToEntity(m *model.OneTimeToken) *auth.OneTimeToken {
 		token.IPAddress = *m.IPAddress
 	}
 	return token
+}
+
+func userSessionModelToEntity(m *model.UserSession) *auth.UserSession {
+	session := &auth.UserSession{
+		ID:            m.ID,
+		UserID:        m.UserID,
+		RefreshJTI:    m.RefreshJTI,
+		RotatedAt:     m.RotatedAt,
+		DeviceID:      m.DeviceID,
+		DeviceName:    m.DeviceName,
+		DeviceType:    m.DeviceType,
+		UserAgent:     m.UserAgent,
+		IsActive:      m.IsActive,
+		ExpiresAt:     m.ExpiresAt,
+		LastUsedAt:    m.LastUsedAt,
+		RevokedAt:     m.RevokedAt,
+		RevokedReason: m.RevokedReason,
+		CreatedAt:     m.CreatedAt,
+	}
+	if m.PreviousRefreshJTI != nil {
+		session.PreviousRefreshJTI = *m.PreviousRefreshJTI
+	}
+	if m.IPAddress != nil {
+		session.IPAddress = *m.IPAddress
+	}
+	return session
 }
 
 // nullableString stores an empty string as NULL, which typed columns such as inet require.

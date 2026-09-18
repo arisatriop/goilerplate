@@ -15,7 +15,6 @@ type DeviceInfo struct {
 	DeviceName string
 	IPAddress  string
 	UserAgent  string
-	Location   string
 }
 
 // DeviceRequest carries the request attributes used to identify a device.
@@ -52,7 +51,6 @@ func (s *deviceService) ExtractDeviceInfo(req DeviceRequest) *DeviceInfo {
 		DeviceName: s.generateDeviceName(deviceType, req.UserAgent),
 		IPAddress:  ipAddress,
 		UserAgent:  req.UserAgent,
-		Location:   "", // TODO: Implement geolocation if needed
 	}
 }
 

@@ -638,6 +638,12 @@ const docTemplate = `{
         "dtoresponse.LoginResponse": {
             "type": "object",
             "properties": {
+                "menus": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dtoresponse.MenuResponse"
+                    }
+                },
                 "permissions": {
                     "type": "array",
                     "items": {
@@ -652,6 +658,41 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/dtoresponse.UserResponse"
+                }
+            }
+        },
+        "dtoresponse.MenuResponse": {
+            "type": "object",
+            "properties": {
+                "child": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dtoresponse.MenuResponse"
+                    }
+                },
+                "displayOrder": {
+                    "type": "number"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "route": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
                 }
             }
         },
@@ -680,9 +721,6 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "lastUsedAt": {
-                    "type": "string"
-                },
-                "location": {
                     "type": "string"
                 },
                 "userAgent": {

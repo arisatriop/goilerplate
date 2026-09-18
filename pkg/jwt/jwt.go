@@ -38,6 +38,7 @@ type TokenPair struct {
 	AccessTokenExpiresIn  int64
 	AccessTokenExpiresAt  time.Time
 	RefreshToken          string
+	RefreshTokenID        string // jti of the refresh token; stored as user_sessions.refresh_jti
 	RefreshTokenType      string
 	RefreshTokenExpiresIn int64
 	RefreshTokenExpiresAt time.Time
@@ -91,7 +92,9 @@ func (j *JWTService) GenerateTokenPair(userID, userName, email, sessionID, devic
 		return nil, err
 	}
 
-	// Generate Refresh Token (longer expiry, minimal claims)
+	// Generate Refresh Token (longer expiry, minimal claims). Its jti identifies the token
+	// that the session currently accepts, so rotation can invalidate the previous one.
+	refreshTokenID := generateUniqueID()
 	refreshClaims := &Claims{
 		UserID:    userID,
 		SessionID: sessionID,
@@ -103,6 +106,7 @@ func (j *JWTService) GenerateTokenPair(userID, userName, email, sessionID, devic
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.refreshExpiry)),
 			NotBefore: jwt.NewNumericDate(now),
+			ID:        refreshTokenID,
 		},
 	}
 
@@ -118,6 +122,7 @@ func (j *JWTService) GenerateTokenPair(userID, userName, email, sessionID, devic
 		AccessTokenExpiresIn:  int64(j.accessExpiry.Seconds()),
 		AccessTokenExpiresAt:  now.Add(j.accessExpiry),
 		RefreshToken:          refreshTokenString,
+		RefreshTokenID:        refreshTokenID,
 		RefreshTokenType:      "Bearer",
 		RefreshTokenExpiresIn: int64(j.refreshExpiry.Seconds()),
 		RefreshTokenExpiresAt: now.Add(j.refreshExpiry),

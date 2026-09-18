@@ -22,18 +22,19 @@ func NewTokenService(authRepo Repository) *TokenService {
 	}
 }
 
-// DeleteTokens deletes the access token and the session's refresh token, and deactivates
-// the session. This only affects the current session, not all of the user's tokens.
+// DeleteTokens deletes the caller's access token and revokes its session, which is what
+// invalidates the session's refresh token: every request checks that the session is still
+// active. This only affects the current session, not the user's other devices.
 // Evicting the session from cache is the caller's responsibility.
 func (ts *TokenService) DeleteTokens(ctx context.Context, tokenHash string, userID string, sessionID string) error {
-	tokensDeleted := ts.deleteAccessToken(ctx, tokenHash)
+	revoked := ts.deleteAccessToken(ctx, tokenHash)
 	if sessionID != "" {
-		if ts.deleteSessionTokens(ctx, userID, sessionID) {
-			tokensDeleted = true
+		if ts.revokeSession(ctx, userID, sessionID) {
+			revoked = true
 		}
 	}
 
-	if !tokensDeleted {
+	if !revoked {
 		return utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 
@@ -50,11 +51,11 @@ func (ts *TokenService) deleteAccessToken(ctx context.Context, tokenHash string)
 	return err == nil
 }
 
-// deleteSessionTokens removes the session's refresh token and deactivates the session
-func (ts *TokenService) deleteSessionTokens(ctx context.Context, userID, sessionID string) bool {
-	err := ts.authRepo.DeleteTokensBySession(ctx, userID, sessionID)
+// revokeSession deactivates the session, which invalidates its refresh token
+func (ts *TokenService) revokeSession(ctx context.Context, userID, sessionID string) bool {
+	err := ts.authRepo.RevokeSession(ctx, userID, sessionID, RevokedReasonLogout)
 	if err != nil && !errors.Is(err, ErrNotFound) {
-		logger.Error(ctx, fmt.Errorf("deleting session tokens: %w", err))
+		logger.Error(ctx, fmt.Errorf("revoking session: %w", err))
 	}
 
 	return err == nil
