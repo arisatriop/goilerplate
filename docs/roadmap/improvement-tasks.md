@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1, T3.2 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1–T3.3 done
 
 ---
 
@@ -138,8 +138,8 @@ jwt:
 | Registration reveals whether an email is already registered | T5.1 |
 | No security audit events (login failures, lockouts, token reuse, password resets) | T4.7 |
 | ~~Logout does not revoke access tokens issued by earlier refreshes~~ (fixed by the session check) | T1.2 ✅ |
-| Refresh tokens are reusable until expiry; no rotation or reuse detection | T3.3 |
-| `user_sessions.is_active` / `expires_at` never checked; `RememberMe` has no effect | T3.2, T3.3 |
+| ~~Refresh tokens are reusable until expiry; no rotation or reuse detection~~ | T3.3 ✅ |
+| ~~`user_sessions.is_active` / `expires_at` never checked; `RememberMe` has no effect~~ | T3.2 ✅, T3.3 ✅ |
 | ~~`user_tokens` grows unbounded (row per login and per refresh, no cleanup)~~ (table dropped) | T3.2 ✅ |
 | ~~DB `UPDATE used_at` on every authenticated request~~ | T3.2 ✅ |
 | ~~`user_tokens` mixes session tokens with one-time tokens; `LogoutAll` would wipe pending reset/OTP tokens~~ (`one_time_tokens` added in T2.4; `user_tokens` dropped in T3.2, and `LogoutAll` no longer touches tokens at all) | T2.4 ✅, T3.2 ✅ |
@@ -493,26 +493,27 @@ issued an `UPDATE used_at`. Unit tests cover both revocation modes, including th
 `refresh_only` performs no session lookup per request while refresh still rejects the revoked
 session.
 
-### T3.3 Refresh token rotation + reuse detection · L
+### T3.3 Refresh token rotation + reuse detection · L — ✅ done
 **Depends on:** T3.2
-- [ ] Refresh issues a new access token **and** a new refresh token
-- [ ] Load the session by `claims.SessionID` first: missing, inactive, or expired → plain 401
-      (**not** a reuse event — e.g. a refresh after logout)
-- [ ] Atomic rotation:
+- [x] Refresh issues a new access token **and** a new refresh token
+- [x] Load the session by `claims.SessionID` first: missing, inactive, or expired → plain 401
+      (**not** a reuse event — e.g. a refresh after logout). The refresh middleware already does
+      this, so such a request never reaches the rotation logic.
+- [x] Atomic rotation via `RotateRefreshJTI`:
       `UPDATE user_sessions SET previous_refresh_jti = refresh_jti, refresh_jti = ?, rotated_at = now, last_used_at = now WHERE id = ? AND refresh_jti = ? AND is_active AND expires_at > now`
-- [ ] When `RowsAffected = 0` on an active session, **re-read the session after the failed
-      UPDATE** (the pre-loaded copy may predate a concurrent rotation; PostgreSQL row locking
-      makes the UPDATE wait for the concurrent commit), then:
+- [x] `RowsAffected = 0` re-reads the session **from the repository, never the cache**, then:
   - jti equals `previous_refresh_jti` and `rotated_at` is within `auth.refresh_reuse_grace` →
-    **idempotent success**: return a new access token and re-issue a refresh token carrying the
-    session's current `refresh_jti` (no further rotation). Handles concurrent tabs and a lost
-    refresh response without client retry logic.
-  - otherwise → **reuse detected**: revoke **only that session** (`revoked_reason = refresh_reuse`)
-    and log a security event; other devices of the same user are unaffected
-- [ ] Refresh JWT `exp` = `session.expires_at`; rotation never extends the session
-- [ ] Session lifetime from `auth.session_expiry` / `auth.remember_me_expiry`
-- [ ] Rotation is always on (no config switch): a non-rotating refresh token is the weaker
-      option under RFC 9700 and not worth supporting
+    idempotent success: a new access token plus a refresh token carrying the session's current
+    `refresh_jti`, with no further rotation
+  - otherwise → reuse detected: revoke only that session (`revoked_reason = reuse_detected`,
+    matching the constant and column comment shipped in T2.3) and log a security event
+- [x] Refresh JWT `exp` = `session.expires_at` via the new `jwt.SignRefreshToken`, which takes an
+      explicit jti and absolute expiry; rotation never extends the session
+- [x] Session lifetime from `auth.session_expiry` / `auth.remember_me_expiry` (T3.1)
+- [x] Rotation is always on (no config switch)
+- [x] New config `auth.refresh_reuse_grace` (default 10s), validated to stay within
+      `jwt.access_token_expiry`
+- [x] Login and refresh now share `buildMenuAndPermissions`, which they previously duplicated
 
 **Done when:**
 - reusing an old refresh token after the grace period revokes that session only
@@ -521,6 +522,30 @@ session.
   current refresh token
 - a client that lost the refresh response can refresh again with the old token within the grace period
 - `remember_me` yields a session that expires after `auth.remember_me_expiry`
+
+Covered by PostgreSQL integration tests (20 concurrent rotations of one token yield exactly one
+winner; revoked, expired, and wrong-jti rotations are rejected) and by use-case tests for the
+grace decision: within grace returns the session's current token without revoking, past grace
+and unknown-jti revoke with `reuse_detected`, and an already-dead session is a plain 401 with no
+revocation recorded.
+
+Verified live with `auth.refresh_reuse_grace: 5s`:
+
+| Case | Result |
+|---|---|
+| Refresh | 200, new refresh token with a different jti |
+| Replay the replaced token within grace | 200, returns the session's **current** token |
+| Replay it after grace | 401, session revoked `reuse_detected`, security event logged |
+| That session's current token afterwards | 401 |
+| Another device of the same user | 200, untouched |
+| Plain vs `remember_me` refresh `exp` | 168.0h vs 720.0h |
+| `exp` after a further rotation | unchanged |
+
+**Defect found and fixed along the way:** `user_sessions.revoked_reason` is documented and
+defined as "NULL while active", but the GORM model used a plain `string`, so active rows stored
+`''` and a `WHERE revoked_reason IS NULL` filter silently matched nothing. The model field is now
+`*string` written through `nullableString`, with a test asserting an active row is found by that
+filter. Introduced in T2.3.
 
 ### T3.4 Transactional login · S
 - [ ] Wrap login-info update and session creation in one DB transaction

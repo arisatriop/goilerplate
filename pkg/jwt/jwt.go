@@ -202,6 +202,19 @@ func (j *JWTService) GenerateAccessToken(userID, userName, email, sessionID, dev
 	return token, expiresAt, nil
 }
 
+// SignRefreshToken mints a refresh token with a caller-chosen jti and absolute expiry.
+// Rotation needs both: the jti is decided by the atomic UPDATE that claims it, and the expiry
+// is the session's, so rotating never extends the session.
+func (j *JWTService) SignRefreshToken(userID, sessionID, deviceID, tokenID string, expiresAt time.Time) (string, error) {
+	return j.sign(&Claims{
+		UserID:           userID,
+		SessionID:        sessionID,
+		DeviceID:         deviceID,
+		Type:             RefreshToken,
+		RegisteredClaims: j.registered(userID, tokenID, utils.Now(), expiresAt),
+	}, j.active.RefreshSecret)
+}
+
 // ValidateAccessToken verifies an access token and rejects a refresh token presented in its place.
 func (j *JWTService) ValidateAccessToken(tokenString string) (*Claims, error) {
 	return j.validate(tokenString, AccessToken)

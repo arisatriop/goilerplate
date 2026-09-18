@@ -18,7 +18,7 @@ type UserSession struct {
 	ExpiresAt          time.Time  `gorm:"not null;column:expires_at"`
 	LastUsedAt         time.Time  `gorm:"not null;column:last_used_at"`
 	RevokedAt          *time.Time `gorm:"column:revoked_at"`
-	RevokedReason      string     `gorm:"type:varchar(50);column:revoked_reason"`
+	RevokedReason      *string    `gorm:"type:varchar(50);column:revoked_reason"`
 	CreatedAt          time.Time  `gorm:"not null;column:created_at"`
 }
 

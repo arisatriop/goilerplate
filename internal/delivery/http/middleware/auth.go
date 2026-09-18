@@ -16,6 +16,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// refreshJTILocal carries the presented refresh token's jti from the middleware to the handler.
+const refreshJTILocal = "refresh_jti"
+
 type Auth struct {
 	jwtService        *jwtService.JWTService
 	authRepository    auth.Repository
@@ -93,8 +96,9 @@ func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 		// Set context for handler to use
 		m.setUserContext(ctx, claims.UserID, claims.UserName, claims.SessionID)
 
-		ctx.Locals("refresh_token", token)
-		ctx.Locals("refresh_token_expires_at", claims.ExpiresAt.Time)
+		// The jti is what the session tracks and rotates; the raw token has no further use
+		// now that refresh always issues a replacement.
+		ctx.Locals(refreshJTILocal, claims.ID)
 
 		return ctx.Next()
 	}

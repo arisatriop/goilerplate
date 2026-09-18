@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"time"
-
 	"goilerplate/internal/application/register"
 	dtorequest "goilerplate/internal/delivery/http/dto/request"
 	"goilerplate/internal/delivery/http/presenter"
@@ -164,14 +162,13 @@ func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 	// Get data from context (guaranteed by AuthenticateRefreshToken middleware)
 	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
 	sessionID := ctx.Locals(string(constants.ContextKeySessionID)).(string)
-	refreshToken := ctx.Locals("refresh_token").(string)
-	refreshTokenExpiresAt := ctx.Locals("refresh_token_expires_at").(time.Time)
+	refreshJTI := ctx.Locals("refresh_jti").(string)
 
 	// Extract device information
 	deviceInfo := h.deviceService.ExtractDeviceInfo(newDeviceRequest(ctx))
 
 	// Call refresh token usecase
-	loginResult, err := h.usecase.RefreshToken(ctx.UserContext(), userID, sessionID, refreshToken, refreshTokenExpiresAt, deviceInfo)
+	loginResult, err := h.usecase.RefreshToken(ctx.UserContext(), userID, sessionID, refreshJTI, deviceInfo)
 	if err != nil {
 		return response.HandleError(ctx, err)
 	}
