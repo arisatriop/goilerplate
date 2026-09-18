@@ -62,6 +62,23 @@ type Server struct {
 	IdleTimeout  time.Duration `mapstructure:"idle_timeout"`
 	EnableCORS   bool          `mapstructure:"enable_cors"`
 	CORS         CORS
+	// TrustedProxies lists the CIDRs or addresses allowed to set forwarding headers. Empty
+	// means trust nobody, so the client IP is always the peer that actually connected.
+	TrustedProxies []string `mapstructure:"trusted_proxies"`
+	// ProxyHeader names the header carrying the real client IP, honoured only from a trusted
+	// proxy. Defaults to X-Forwarded-For.
+	ProxyHeader string `mapstructure:"proxy_header"`
+	// HSTS adds Strict-Transport-Security. Only enable it where TLS terminates in front of
+	// the app, otherwise browsers are told to refuse plain HTTP they still need.
+	HSTS bool `mapstructure:"hsts"`
+}
+
+// ProxyHeaderOrDefault returns the configured proxy header, or X-Forwarded-For.
+func (s Server) ProxyHeaderOrDefault() string {
+	if header := strings.TrimSpace(s.ProxyHeader); header != "" {
+		return header
+	}
+	return "X-Forwarded-For"
 }
 
 type CORS struct {

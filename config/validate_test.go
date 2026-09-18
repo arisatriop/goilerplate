@@ -89,6 +89,10 @@ func TestConfig_Validate_Rules(t *testing.T) {
 		}, "auth.remember_me_expiry must not be shorter than auth.session_expiry"},
 		{"api key placeholder", func(c *Config) { c.Apikeys["partner1"] = "<API_KEY_PARTNER1>" }, "api_key.partner1 still contains the placeholder"},
 		{"db pool size zero", func(c *Config) { c.DB.MaxOpenConnections = 0 }, "db.max_open_connections must be at least 1, got 0"},
+		{"bad trusted proxy CIDR", func(c *Config) { c.Server.TrustedProxies = []string{"10.0.0.0/99"} }, `server.trusted_proxies[0] "10.0.0.0/99" is not a valid CIDR`},
+		{"bad trusted proxy IP", func(c *Config) { c.Server.TrustedProxies = []string{"not-an-ip"} }, `server.trusted_proxies[0] "not-an-ip" is not a valid IP or CIDR`},
+		{"empty trusted proxy", func(c *Config) { c.Server.TrustedProxies = []string{"  "} }, "server.trusted_proxies[0] must not be empty"},
+		{"valid trusted proxies", func(c *Config) { c.Server.TrustedProxies = []string{"10.0.0.0/8", "192.0.2.1"} }, ""},
 		{"unknown revocation mode", func(c *Config) { c.Auth.Revocation = "sometimes" }, `auth.revocation must be strict or refresh_only, got "sometimes"`},
 		{"refresh_only revocation", func(c *Config) { c.Auth.Revocation = "refresh_only" }, ""},
 		{"unknown session cache", func(c *Config) { c.Auth.SessionCache = "memcached" }, `auth.session_cache must be auto, none, memory, or redis, got "memcached"`},
@@ -218,4 +222,10 @@ func TestAuth_RevocationMode(t *testing.T) {
 	assert.Equal(t, RevocationStrict, Auth{Revocation: "  STRICT  "}.RevocationMode())
 	assert.Equal(t, RevocationRefreshOnly, Auth{Revocation: "refresh_only"}.RevocationMode())
 	assert.Equal(t, RevocationRefreshOnly, Auth{Revocation: " Refresh_Only "}.RevocationMode())
+}
+
+func TestServer_ProxyHeaderOrDefault(t *testing.T) {
+	assert.Equal(t, "X-Forwarded-For", Server{}.ProxyHeaderOrDefault())
+	assert.Equal(t, "X-Forwarded-For", Server{ProxyHeader: "  "}.ProxyHeaderOrDefault())
+	assert.Equal(t, "CF-Connecting-IP", Server{ProxyHeader: "CF-Connecting-IP"}.ProxyHeaderOrDefault())
 }

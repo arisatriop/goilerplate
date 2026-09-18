@@ -15,12 +15,27 @@ type PublicRouteRegistry struct {
 }
 
 func (r *PublicRouteRegistry) register(route fiber.Router) {
-	auth := route.Group("api/v1/auth").Use(r.Wired.Middleware.RateLimit.Auth)
-	auth.Post("/register", r.Wired.Handlers.Auth.Register)
-	auth.Post("/login", r.Wired.Handlers.Auth.Login)
-	auth.Post("/refresh", r.Wired.Middleware.Auth.AuthenticateRefreshToken(), r.Wired.Handlers.Auth.RefreshToken)
-	auth.Post("/logout", r.Wired.Middleware.Auth.Authenticate(), r.Wired.Handlers.Auth.Logout)
-	auth.Post("/logout-all", r.Wired.Middleware.Auth.Authenticate(), r.Wired.Handlers.Auth.LogoutAll)
+	// Unauthenticated endpoints are limited per IP: they are what an attacker can hammer
+	// without credentials.
+	auth := route.Group("api/v1/auth")
+	auth.Post("/register", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.Register)
+	auth.Post("/login", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.Login)
+
+	// These already carry a verified token, so they are limited per session. Keyed by IP they
+	// would make everyone behind one NAT share a budget, and a single user refreshing in a few
+	// tabs could lock the rest out.
+	auth.Post("/refresh",
+		r.Wired.Middleware.Auth.AuthenticateRefreshToken(),
+		r.Wired.Middleware.RateLimit.Session,
+		r.Wired.Handlers.Auth.RefreshToken)
+	auth.Post("/logout",
+		r.Wired.Middleware.Auth.Authenticate(),
+		r.Wired.Middleware.RateLimit.Session,
+		r.Wired.Handlers.Auth.Logout)
+	auth.Post("/logout-all",
+		r.Wired.Middleware.Auth.Authenticate(),
+		r.Wired.Middleware.RateLimit.Session,
+		r.Wired.Handlers.Auth.LogoutAll)
 
 	api := route.Group("api").Use(r.Wired.Middleware.Auth.Authenticate(), r.Wired.Middleware.RateLimit.User)
 	v1 := api.Group("v1")
