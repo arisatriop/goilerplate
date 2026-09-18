@@ -2,11 +2,13 @@ package repository_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
 	"goilerplate/internal/domain/auth"
+	"goilerplate/internal/infrastructure/transaction"
 	"goilerplate/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -263,4 +265,64 @@ func TestUserSession_RotateRejectsStaleOrUnusableSessions(t *testing.T) {
 			assert.ErrorIs(t, err, auth.ErrNotFound)
 		})
 	}
+}
+
+// A login that fails after the session insert must leave nothing behind: the caller never
+// received the tokens, so a session row would be one no client can ever present.
+func TestUserSession_RollbackLeavesNoOrphanedSession(t *testing.T) {
+	// Arrange
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	userID := createTestUser(t, db)
+	session := newSession(userID)
+	txManager := transaction.NewGormTransaction(db)
+	wantErr := errors.New("failure after the session was created")
+
+	// Act
+	err := txManager.Do(ctx, func(txCtx context.Context) error {
+		txRepo := repo.WithTx(txCtx)
+
+		if err := txRepo.UpdateUserLoginInfo(txCtx, userID, true); err != nil {
+			return err
+		}
+		if _, err := txRepo.CreateSession(txCtx, session); err != nil {
+			return err
+		}
+
+		// The session is visible inside the transaction...
+		inTx, err := txRepo.GetSessionByID(txCtx, session.ID)
+		require.NoError(t, err)
+		require.NotNil(t, inTx)
+
+		return wantErr
+	})
+
+	// Assert
+	require.ErrorIs(t, err, wantErr)
+
+	// ...but nothing survives the rollback, and last_login_at is unstamped with it
+	orphan, err := repo.GetSessionByID(ctx, session.ID)
+	require.NoError(t, err)
+	assert.Nil(t, orphan, "a rolled-back login must leave no session")
+
+	var stamped int
+	require.NoError(t, db.Raw(
+		"SELECT count(*) FROM users WHERE id = ? AND last_login_at IS NOT NULL", userID,
+	).Scan(&stamped).Error)
+	assert.Equal(t, 0, stamped, "the login stamp rolls back with the session")
+}
+
+// WithTx must fall back to the plain repository when the context carries no transaction,
+// otherwise every non-transactional call would silently do nothing.
+func TestUserSession_WithTxWithoutTransaction(t *testing.T) {
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	session := newSession(createTestUser(t, db))
+
+	_, err := repo.WithTx(ctx).CreateSession(ctx, session)
+	require.NoError(t, err)
+
+	got, err := repo.GetSessionByID(ctx, session.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, got)
 }

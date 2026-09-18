@@ -5,6 +5,7 @@ import (
 	"errors"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/infrastructure/model"
+	"goilerplate/internal/infrastructure/transaction"
 	"goilerplate/pkg/utils"
 	"time"
 
@@ -19,6 +20,13 @@ func NewAuth(db *gorm.DB) auth.Repository {
 	return &authRepository{
 		db: db,
 	}
+}
+
+func (r *authRepository) WithTx(ctx context.Context) auth.Repository {
+	if tx := transaction.GetTxFromContext(ctx); tx != nil {
+		return NewAuth(tx)
+	}
+	return r
 }
 
 func (r *authRepository) CreateUser(ctx context.Context, user *auth.User) (*auth.User, error) {

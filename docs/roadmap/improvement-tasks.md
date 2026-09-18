@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1–T3.3 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1–T3.5 done
 
 ---
 
@@ -143,10 +143,10 @@ jwt:
 | ~~`user_tokens` grows unbounded (row per login and per refresh, no cleanup)~~ (table dropped) | T3.2 ✅ |
 | ~~DB `UPDATE used_at` on every authenticated request~~ | T3.2 ✅ |
 | ~~`user_tokens` mixes session tokens with one-time tokens; `LogoutAll` would wipe pending reset/OTP tokens~~ (`one_time_tokens` added in T2.4; `user_tokens` dropped in T3.2, and `LogoutAll` no longer touches tokens at all) | T2.4 ✅, T3.2 ✅ |
-| Login writes (session, tokens, cache) are not transactional | T3.4 |
+| ~~Login writes (session, tokens, cache) are not transactional~~ | T3.4 ✅ |
 | ~~`LogoutAll` scans every `token:*` / `session:*` key in Redis~~ | T1.2 ✅ |
 | ~~Redis-enabled validation reads cache only; expiry check skipped~~ | T1.2 ✅ |
-| Logout errors printed with `fmt.Printf` and swallowed | T3.5, T4.5 |
+| ~~Logout errors printed with `fmt.Printf` and swallowed~~ (that code is gone) | T3.2 ✅, T3.5 ✅ |
 | ~~Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber~~ | T1.2 ✅, T1.6 ✅ |
 | `/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule | T4.1 |
 | Partner API key compared with `==` (not constant time); raw key stored in context | T4.2 |
@@ -547,27 +547,55 @@ defined as "NULL while active", but the GORM model used a plain `string`, so act
 `*string` written through `nullableString`, with a test asserting an active row is found by that
 filter. Introduced in T2.3.
 
-### T3.4 Transactional login · S
-- [ ] Wrap login-info update and session creation in one DB transaction
-- [ ] Write to cache only after commit
+### T3.4 Transactional login · S — ✅ done
+- [x] Wrap login-info update and session creation in one DB transaction. Token signing touches
+      nothing outside the function, so it stays before the transaction opens.
+- [x] Write to cache only after commit
+- [x] `auth.Repository` gains `WithTx(ctx)`, following the pattern the user and user-role
+      repositories already use
 
 **Done when:** a failure midway leaves no orphaned session.
 
-### T3.5 Logout and LogoutAll · M
+Covered by a PostgreSQL integration test: a transaction that creates the session and then fails
+leaves no session row and no `last_login_at` stamp, while the session is visible inside the
+transaction before the rollback. A second test pins `WithTx` falling back to the plain
+repository when the context carries no transaction.
+
+### T3.5 Logout and LogoutAll · M — ✅ done
 **Depends on:** T3.2
-- [ ] Logout: deactivate the session (`revoked_reason = logout`) and evict it from cache;
-      **idempotent** (200 even if already logged out)
-- [ ] LogoutAll: `UPDATE user_sessions SET is_active = false ... WHERE user_id = ?`, then
-      `SessionStore.DeleteByUser`
-- [ ] Remove `fmt.Printf`, empty `if err {}` blocks, and `//nolint` markers
-- [ ] Logout must only touch the session identified by `claims.SessionID` — never query or
-      revoke by `user_id` or `device_id` (the device fingerprint can collide across devices
-      behind the same NAT with the same browser)
+- [x] Logout: deactivate the session (`revoked_reason = logout`) and evict it from cache;
+      **idempotent** — an already-revoked session is the state the caller asked for, so
+      `RevokeSession` returning `ErrNotFound` no longer becomes a 401. The cache is evicted
+      either way, so a stale entry cannot outlive the call.
+- [x] LogoutAll: `DeactivateUserSessions` (one `UPDATE ... WHERE user_id = ? AND is_active`,
+      stamping `logout_all`) then `SessionStore.DeleteByUser` (T3.2)
+- [x] Remove `fmt.Printf`, empty `if err {}` blocks, and `//nolint` markers — these lived in
+      `TokenService`, deleted in T3.2. No `//nolint` remains anywhere; the surviving
+      `fmt.Printf` calls are in `pkg/filesystem` and the migrator CLI, outside the auth path.
+- [x] Logout only touches the session identified by `claims.SessionID`; it never queries or
+      revokes by `user_id` or `device_id`. `user_id` appears only as a guard in the
+      `WHERE id = ? AND user_id = ?` clause, so one user cannot revoke another's session.
 
 **Done when:**
 - logout on device A leaves device B's access and refresh tokens fully working
 - after LogoutAll every token on every device is rejected
 - both are tested in all three cache modes
+
+Verified live, one server run per cache mode:
+
+| `auth.session_cache` | logout A | A access | A refresh | B refresh | logout-all | then access | then refresh | other device |
+|---|---|---|---|---|---|---|---|---|
+| `none` | 200 | 401 | 401 | **200** | 200 | 401 | 401 | 401 |
+| `memory` | 200 | 401 | 401 | **200** | 200 | 401 | 401 | 401 |
+| `redis` | 200 | 401 | 401 | **200** | 200 | 401 | 401 | 401 |
+
+`revoked_reason` afterwards: 4 rows `logout`, 8 rows `logout_all`, and no active row carrying an
+empty reason.
+
+**Noted while testing (not fixed here):** `/auth/refresh` and `/auth/logout` share the per-IP
+`rate_limit.auth` bucket (10/min), so a burst of these calls returns 429 before auth is even
+consulted. Already tracked for T4.6; the runs above raised the limit to isolate the behaviour
+under test.
 
 ### T3.6 Revoke sessions on user state changes · S
 **Depends on:** T3.5

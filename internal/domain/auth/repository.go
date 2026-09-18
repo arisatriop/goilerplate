@@ -7,6 +7,9 @@ import (
 
 // Repository defines the authentication repository interface
 type Repository interface {
+	// WithTx returns a Repository bound to the transaction in ctx, or the receiver when ctx
+	// carries none.
+	WithTx(ctx context.Context) Repository
 
 	// Session operations
 	CreateSession(ctx context.Context, session *UserSession) (*UserSession, error)
