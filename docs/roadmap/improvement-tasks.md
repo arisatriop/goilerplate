@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: all but T4.4 (cleanup job) done
+**Status:** in progress — Phases 1–4 done (T1.1–T4.7). Next: Phase 5 (optional features), Phase 6 (tests & docs)
 
 ---
 
@@ -177,7 +177,7 @@ jwt:
 | 1. Optional-component foundation | T1.1 – T1.7 | ~8–10 days |
 | 2. Schema & database | T2.1 – T2.4 | ✅ done |
 | 3. Token security | T3.1 – T3.7 | ✅ done |
-| 4. Other auth surfaces | T4.1 – T4.7 | ~6–8 days |
+| 4. Other auth surfaces | T4.1 – T4.7 | ✅ done |
 | 5. Optional features | T5.1 – T5.6 | ~10–13 days |
 | 6. Tests & documentation | T6.1 – T6.2 | ~3–4 days |
 
@@ -936,16 +936,97 @@ exactly, by wildcard, and *not* matching a sibling method, a different service, 
 merely shares a prefix; streams rejected without a token and carrying the authenticated context
 when accepted; reflection registered only when configured; an unreadable certificate failing.
 
-### T4.4 Cleanup job · M
+### T4.4 Cleanup job · M — ✅ done
 **Depends on:** T1.2, T2.3, T2.4
-- [ ] Delete expired or used `one_time_tokens` older than the retention period
-- [ ] Delete inactive or expired `user_sessions` older than the retention period
-- [ ] Batched deletes
-- [ ] Config `jobs.cleanup.enabled`, `interval`, `retention`
-- [ ] Guard with `LockProvider.TryLock` (Redis: `SET NX`; memory/noop: always acquires)
-- [ ] Stop gracefully on shutdown via context
+- [x] Delete expired or used `one_time_tokens` older than the retention period
+- [x] Delete inactive or expired `user_sessions` older than the retention period
+- [x] Batched deletes, with a ceiling of 100 batches per run
+- [x] Config `jobs.cleanup.enabled`, `interval`, `retention`, plus `batch_size`
+- [x] Guard with `LockProvider.TryLock` (Redis: `SET NX`; memory/noop: always acquires)
+- [x] Stop gracefully on shutdown via context
 
-**Done when:** the job runs in the minimal profile, and with Redis only one instance executes it.
+**Off by default.** Deleting rows is not something a boilerplate should start doing to a
+deployment that never asked for it.
+
+**The retention is the point, not an afterthought.** A revoked session is the record of a logout,
+and an incident is usually investigated well after it happened. Rows go because the tables would
+otherwise grow without bound, not because the history stops being useful when a session ends.
+
+**The delete predicates carry a redundant condition on purpose.**
+`COALESCE(revoked_at, expires_at) < cutoff` already implies a row is dead whenever the cutoff is
+in the past. But this statement deletes login history, and a misconfigured retention is the one
+input that could put the cutoff in the *future*. The explicit "revoked, or expired by now" test
+means that mistake deletes **nothing** instead of every live session. Config validation also
+refuses a retention shorter than `auth.session_expiry`, so the two guards are independent.
+
+PostgreSQL has no `DELETE ... LIMIT`, so each batch is chosen by a subquery on the primary key,
+oldest first. A batch shorter than `batch_size` is what says the backlog is exhausted — which
+means an exactly-full final batch costs one extra empty query rather than leaving rows behind
+forever.
+
+**The lock is an optimisation, not a correctness requirement.** The deletes are idempotent, so
+two instances overlapping would waste work rather than break anything. That is what makes it safe
+for the lock to expire under a run that takes longer than expected.
+
+**No pass at startup.** A deploy or a crash loop would otherwise turn every restart into a delete
+pass.
+
+**Done when:** the job runs in the minimal profile, and with Redis only one instance executes it. ✅
+
+Verified live. Six sessions and three one-time tokens seeded across the retention boundary, with
+`interval: 5s`, `retention: 720h`, `batch_size: 2`:
+
+```
+cleanup job started: every 5s, retaining 720h0m0s
+cleanup removed 3 sessions and 2 one-time tokens
+```
+
+| Row | Kept? |
+|---|---|
+| expired 60 days ago | deleted |
+| revoked 60 days ago, `expires_at` a day in the future | deleted |
+| revoked and expired 90 days ago | deleted |
+| live (expires in 7 days) | **kept** |
+| expired 1 hour ago | **kept** — inside the retention window |
+| revoked 2 hours ago | **kept** — inside the retention window |
+| one-time token used 60 days ago | deleted |
+| one-time token expired 60 days ago | deleted |
+| one-time token neither used nor expired | **kept** — a pending password reset |
+
+**Three instances against one Redis**, 40 eligible sessions, `batch_size: 5`:
+
+```
+instance 1: passes=0  skips=5
+instance 2: passes=1  skips=5
+instance 3: passes=0  skips=4
+-> cleanup removed 40 sessions and 0 one-time tokens
+```
+
+Exactly one pass, in 8 batches of 5. The other two found the lock held on every tick.
+
+**Graceful shutdown**, SIGTERM to the instance holding the lock:
+
+```
+Shutting down server...
+cleanup job stopped
+Fiber server shutdown successfully
+```
+
+**Startup validation:**
+
+```
+jobs.cleanup.retention (1h0m0s) must be at least auth.session_expiry (168h0m0s),
+  otherwise a session could be deleted while it is still valid
+jobs.cleanup.retention must not be negative
+```
+
+Tests — unit: batching until a short batch, an exact multiple asking once more, the batch
+ceiling, the cutoff being retention *behind* now, repository errors stopping the pass before the
+next table, cancellation mid-pass not counting as a failure, the lock being skipped when held,
+released after a pass, and not run when Redis is unreachable, no pass at startup, and the ticker
+actually firing. Against real PostgreSQL: only dead rows past the cutoff are removed, a
+**future cutoff deletes nothing**, batch sizes are respected, and a pending one-time token
+survives.
 
 ### T4.5 Auth code cleanup · M — ✅ done
 **Depends on:** Phase 3

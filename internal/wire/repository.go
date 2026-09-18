@@ -5,6 +5,7 @@ import (
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/bar"
 	"goilerplate/internal/domain/foo"
+	"goilerplate/internal/domain/job"
 	"goilerplate/internal/domain/role"
 	"goilerplate/internal/domain/user"
 	"goilerplate/internal/domain/userrole"
@@ -20,6 +21,7 @@ type Repositories struct {
 	UserRoleRepo userrole.Repository
 	FooRepo      foo.Repository
 	BarRepo      bar.Repository
+	CleanupRepo  job.CleanupRepository
 }
 
 // WireRepositories creates all repository implementations
@@ -32,5 +34,6 @@ func WireRepositories(app *bootstrap.App) *Repositories {
 		UserRoleRepo: repository.NewUserRole(db),
 		FooRepo:      repository.NewFoo(db),
 		BarRepo:      repository.NewBar(db),
+		CleanupRepo:  repository.NewCleanup(db),
 	}
 }

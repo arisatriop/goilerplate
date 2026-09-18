@@ -23,6 +23,58 @@ type Config struct {
 	Apikeys      map[string]string  `mapstructure:"api_key"`
 	Services     map[string]Service `mapstructure:"service"`
 	InternalAuth InternalAuth       `mapstructure:"internal_auth"`
+	Jobs         Jobs               `mapstructure:"jobs"`
+}
+
+// Jobs holds the background jobs the application runs itself.
+type Jobs struct {
+	Cleanup Cleanup `mapstructure:"cleanup"`
+}
+
+// Defaults applied when the corresponding cleanup settings are zero.
+const (
+	DefaultCleanupInterval  = time.Hour
+	DefaultCleanupRetention = 30 * 24 * time.Hour
+	DefaultCleanupBatchSize = 1000
+)
+
+// Cleanup removes rows that can no longer be used: revoked or expired sessions, and one-time
+// tokens that were consumed or have expired. They are kept for Retention past that moment so
+// they can still answer "what happened to this login" during an incident.
+//
+// Off by default. Deleting rows is not something a boilerplate should start doing to a
+// deployment that never asked for it.
+type Cleanup struct {
+	Enabled   bool          `mapstructure:"enabled"`
+	Interval  time.Duration `mapstructure:"interval"`
+	Retention time.Duration `mapstructure:"retention"`
+	// BatchSize bounds one DELETE, so a first run against a large table does not hold locks
+	// or bloat WAL for the length of the whole backlog.
+	BatchSize int `mapstructure:"batch_size"`
+}
+
+// IntervalOrDefault returns jobs.cleanup.interval, or DefaultCleanupInterval when unset.
+func (c Cleanup) IntervalOrDefault() time.Duration {
+	if c.Interval > 0 {
+		return c.Interval
+	}
+	return DefaultCleanupInterval
+}
+
+// RetentionOrDefault returns jobs.cleanup.retention, or DefaultCleanupRetention when unset.
+func (c Cleanup) RetentionOrDefault() time.Duration {
+	if c.Retention > 0 {
+		return c.Retention
+	}
+	return DefaultCleanupRetention
+}
+
+// BatchSizeOrDefault returns jobs.cleanup.batch_size, or DefaultCleanupBatchSize when unset.
+func (c Cleanup) BatchSizeOrDefault() int {
+	if c.BatchSize > 0 {
+		return c.BatchSize
+	}
+	return DefaultCleanupBatchSize
 }
 
 // Internal auth modes. See InternalAuth.

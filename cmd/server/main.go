@@ -46,12 +46,18 @@ func main() {
 	}
 
 	// 5. Start the servers
-	start(app)
+	start(app, wired)
 }
 
-func start(app *bootstrap.App) {
+func start(app *bootstrap.App, wired *wire.ApplicationContainer) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Background jobs take the signal context directly, so a shutdown stops them at the same
+	// moment it stops accepting requests rather than after the HTTP drain.
+	if wired.CleanupJob != nil {
+		go wired.CleanupJob.Run(ctx)
+	}
 
 	go func() {
 		webPort := app.Config.Server.Port

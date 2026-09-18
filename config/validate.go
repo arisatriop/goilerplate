@@ -43,6 +43,7 @@ func (c *Config) Validate() error {
 	c.validateFileSystem(v)
 	c.validateAPIKeys(v)
 	c.validateInternalAuth(v)
+	c.validateJobs(v)
 
 	return v.err()
 }
@@ -71,6 +72,34 @@ func (c *Config) Warnings() []string {
 	}
 
 	return warnings
+}
+
+// validateJobs guards the cleanup job. Its whole purpose is to delete rows, so a value that is
+// merely odd elsewhere is destructive here: a zero or negative retention would make every
+// revoked session eligible the instant it was revoked.
+func (c *Config) validateJobs(v *validation) {
+	cleanup := c.Jobs.Cleanup
+	if !cleanup.Enabled {
+		return
+	}
+
+	if cleanup.Interval < 0 {
+		v.addf("jobs.cleanup.interval must not be negative")
+	}
+	if cleanup.Retention < 0 {
+		v.addf("jobs.cleanup.retention must not be negative")
+	}
+	if cleanup.BatchSize < 0 {
+		v.addf("jobs.cleanup.batch_size must not be negative")
+	}
+
+	// Sessions are what the retention is really protecting: deleting one before it has expired
+	// would remove a login that is still in use.
+	if retention := cleanup.RetentionOrDefault(); retention < c.Auth.SessionExpiryOrDefault() {
+		v.addf("jobs.cleanup.retention (%s) must be at least auth.session_expiry (%s), "+
+			"otherwise a session could be deleted while it is still valid",
+			retention, c.Auth.SessionExpiryOrDefault())
+	}
 }
 
 func (c *Config) validateInternalAuth(v *validation) {

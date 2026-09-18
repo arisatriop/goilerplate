@@ -93,3 +93,12 @@ api_key: {}
 internal_auth:
   mode: none
   secret: ""
+
+# Deletes revoked/expired sessions and finished one-time tokens older than `retention`.
+# See config.full.example.yaml.
+jobs:
+  cleanup:
+    enabled: false
+    interval: 1h
+    retention: 720h
+    batch_size: 1000
