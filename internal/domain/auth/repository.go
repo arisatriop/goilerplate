@@ -14,6 +14,7 @@ type Repository interface {
 	DeleteUserSessions(ctx context.Context, userID string) error
 	DeactivateUserSessions(ctx context.Context, userID, reason string) error
 	RevokeSession(ctx context.Context, userID, sessionID, reason string) error
+	RotateRefreshJTI(ctx context.Context, sessionID, currentJTI, newJTI string) error
 
 	// User operations
 	CreateUser(ctx context.Context, user *User) (*User, error)

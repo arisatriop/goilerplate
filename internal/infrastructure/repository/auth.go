@@ -172,7 +172,7 @@ func (r *authRepository) CreateSession(ctx context.Context, session *auth.UserSe
 		ExpiresAt:          session.ExpiresAt,
 		LastUsedAt:         session.LastUsedAt,
 		RevokedAt:          session.RevokedAt,
-		RevokedReason:      session.RevokedReason,
+		RevokedReason:      nullableString(session.RevokedReason),
 		CreatedAt:          utils.Now(),
 	}
 
@@ -222,6 +222,34 @@ func (r *authRepository) DeactivateUserSessions(ctx context.Context, userID, rea
 
 	if result.Error != nil {
 		return result.Error
+	}
+
+	return nil
+}
+
+// RotateRefreshJTI claims the refresh token named by currentJTI and replaces it with newJTI,
+// in one conditional UPDATE. Only the request whose jti still matches wins, so two concurrent
+// refreshes cannot both rotate. It returns auth.ErrNotFound when nothing matched, which means
+// either the token was already rotated away or the session is no longer usable — the caller
+// re-reads the session to tell those apart.
+func (r *authRepository) RotateRefreshJTI(ctx context.Context, sessionID, currentJTI, newJTI string) error {
+	now := utils.Now()
+
+	result := r.db.WithContext(ctx).
+		Model(&model.UserSession{}).
+		Where("id = ? AND refresh_jti = ? AND is_active AND expires_at > ?", sessionID, currentJTI, now).
+		Updates(map[string]any{
+			"previous_refresh_jti": currentJTI,
+			"refresh_jti":          newJTI,
+			"rotated_at":           now,
+			"last_used_at":         now,
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return auth.ErrNotFound
 	}
 
 	return nil
@@ -567,20 +595,22 @@ func oneTimeTokenModelToEntity(m *model.OneTimeToken) *auth.OneTimeToken {
 
 func userSessionModelToEntity(m *model.UserSession) *auth.UserSession {
 	session := &auth.UserSession{
-		ID:            m.ID,
-		UserID:        m.UserID,
-		RefreshJTI:    m.RefreshJTI,
-		RotatedAt:     m.RotatedAt,
-		DeviceID:      m.DeviceID,
-		DeviceName:    m.DeviceName,
-		DeviceType:    m.DeviceType,
-		UserAgent:     m.UserAgent,
-		IsActive:      m.IsActive,
-		ExpiresAt:     m.ExpiresAt,
-		LastUsedAt:    m.LastUsedAt,
-		RevokedAt:     m.RevokedAt,
-		RevokedReason: m.RevokedReason,
-		CreatedAt:     m.CreatedAt,
+		ID:         m.ID,
+		UserID:     m.UserID,
+		RefreshJTI: m.RefreshJTI,
+		RotatedAt:  m.RotatedAt,
+		DeviceID:   m.DeviceID,
+		DeviceName: m.DeviceName,
+		DeviceType: m.DeviceType,
+		UserAgent:  m.UserAgent,
+		IsActive:   m.IsActive,
+		ExpiresAt:  m.ExpiresAt,
+		LastUsedAt: m.LastUsedAt,
+		RevokedAt:  m.RevokedAt,
+		CreatedAt:  m.CreatedAt,
+	}
+	if m.RevokedReason != nil {
+		session.RevokedReason = *m.RevokedReason
 	}
 	if m.PreviousRefreshJTI != nil {
 		session.PreviousRefreshJTI = *m.PreviousRefreshJTI

@@ -138,6 +138,7 @@ const (
 	DefaultPermissionCacheTTL = 15 * time.Minute
 	DefaultSessionExpiry      = 7 * 24 * time.Hour
 	DefaultRememberMeExpiry   = 30 * 24 * time.Hour
+	DefaultRefreshReuseGrace  = 10 * time.Second
 )
 
 type Auth struct {
@@ -147,6 +148,7 @@ type Auth struct {
 	Revocation         string        `mapstructure:"revocation"`           // strict | refresh_only
 	SessionExpiry      time.Duration `mapstructure:"session_expiry"`       // absolute session lifetime; also the refresh token lifetime
 	RememberMeExpiry   time.Duration `mapstructure:"remember_me_expiry"`   // absolute session lifetime when remember_me = true
+	RefreshReuseGrace  time.Duration `mapstructure:"refresh_reuse_grace"`  // window in which the just-replaced refresh token is still accepted
 }
 
 // RevocationMode resolves auth.revocation, defaulting to strict (secure by default).
@@ -200,6 +202,15 @@ func (a Auth) RememberMeExpiryOrDefault() time.Duration {
 		return a.RememberMeExpiry
 	}
 	return DefaultRememberMeExpiry
+}
+
+// RefreshReuseGraceOrDefault returns refresh_reuse_grace, or DefaultRefreshReuseGrace when
+// unset. Zero is not a valid override: it would make concurrent tabs log each other out.
+func (a Auth) RefreshReuseGraceOrDefault() time.Duration {
+	if a.RefreshReuseGrace > 0 {
+		return a.RefreshReuseGrace
+	}
+	return DefaultRefreshReuseGrace
 }
 
 type Logger struct {

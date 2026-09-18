@@ -33,9 +33,12 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 	}
 
 	return &UseCases{
-		AuthUC: auth.NewUseCase(repos.AuthRepo, infra.JWTService, sessionService, permissionService, sessions),
-		FooUC:  foo.NewUseCase(repos.FooRepo),
-		BarUC:  bar.NewUseCase(repos.BarRepo),
+		AuthUC: auth.NewUseCase(
+			repos.AuthRepo, infra.JWTService, sessionService, permissionService,
+			sessions, app.Config.Auth.RefreshReuseGraceOrDefault(),
+		),
+		FooUC: foo.NewUseCase(repos.FooRepo),
+		BarUC: bar.NewUseCase(repos.BarRepo),
 		// Future use cases will be added here:
 		// UserUC:    user.NewUseCase(repos.UserRepo),
 		// OrderUC:   order.NewUseCase(repos.OrderRepo, repos.ProductRepo),

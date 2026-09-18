@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -60,6 +61,13 @@ func TestUserSession_CreateAndGetByID(t *testing.T) {
 	assert.True(t, got.IsActive)
 	assert.Nil(t, got.RevokedAt)
 	assert.Empty(t, got.RevokedReason)
+	// The column means "NULL while active", so an active row must not store an empty string:
+	// a WHERE revoked_reason IS NULL filter has to find it.
+	var activeRowsWithNullReason int
+	require.NoError(t, db.Raw(
+		"SELECT count(*) FROM user_sessions WHERE id = ? AND revoked_reason IS NULL", session.ID,
+	).Scan(&activeRowsWithNullReason).Error)
+	assert.Equal(t, 1, activeRowsWithNullReason)
 	assert.True(t, got.IsValidSession())
 	assert.WithinDuration(t, session.ExpiresAt, got.ExpiresAt, time.Second)
 	assert.WithinDuration(t, session.CreatedAt, got.CreatedAt, time.Second)
@@ -177,4 +185,82 @@ func TestUserSession_GetSessionByIDUnknown(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 	assert.Nil(t, got)
+}
+
+// Only one of many concurrent refreshes may claim the same refresh token, otherwise two
+// clients would walk away believing they each own the session's next token.
+func TestUserSession_ConcurrentRotateSucceedsOnce(t *testing.T) {
+	// Arrange
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	session := newSession(createTestUser(t, db))
+	_, err := repo.CreateSession(ctx, session)
+	require.NoError(t, err)
+
+	const racers = 20
+	var wg sync.WaitGroup
+	results := make(chan error, racers)
+
+	// Act
+	for range racers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results <- repo.RotateRefreshJTI(ctx, session.ID, session.RefreshJTI, utils.GenerateUUID())
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	// Assert
+	var succeeded int
+	for err := range results {
+		if err == nil {
+			succeeded++
+			continue
+		}
+		assert.ErrorIs(t, err, auth.ErrNotFound)
+	}
+	assert.Equal(t, 1, succeeded, "exactly one concurrent rotation may win")
+
+	rotated, err := repo.GetSessionByID(ctx, session.ID)
+	require.NoError(t, err)
+	assert.Equal(t, session.RefreshJTI, rotated.PreviousRefreshJTI, "the claimed token is kept for the grace window")
+	assert.NotEqual(t, session.RefreshJTI, rotated.RefreshJTI)
+	require.NotNil(t, rotated.RotatedAt)
+	assert.True(t, rotated.IsActive)
+	assert.WithinDuration(t, session.ExpiresAt, rotated.ExpiresAt, time.Second, "rotation must not extend the session")
+}
+
+func TestUserSession_RotateRejectsStaleOrUnusableSessions(t *testing.T) {
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	userID := createTestUser(t, db)
+
+	revoked := newSession(userID)
+	expired := newSession(userID)
+	expired.ExpiresAt = utils.Now().Add(-time.Minute)
+	live := newSession(userID)
+	for _, s := range []*auth.UserSession{revoked, expired, live} {
+		_, err := repo.CreateSession(ctx, s)
+		require.NoError(t, err)
+	}
+	require.NoError(t, repo.RevokeSession(ctx, userID, revoked.ID, auth.RevokedReasonLogout))
+
+	tests := []struct {
+		name    string
+		session *auth.UserSession
+		jti     string
+	}{
+		{"revoked session", revoked, revoked.RefreshJTI},
+		{"expired session", expired, expired.RefreshJTI},
+		{"wrong jti", live, utils.GenerateUUID()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.RotateRefreshJTI(ctx, tt.session.ID, tt.jti, utils.GenerateUUID())
+			assert.ErrorIs(t, err, auth.ErrNotFound)
+		})
+	}
 }

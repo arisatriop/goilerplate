@@ -163,6 +163,14 @@ func (c *Config) validateAuth(v *validation) {
 		v.addf("auth.session_expiry must be greater than jwt.access_token_expiry")
 	}
 
+	// The grace window must stay far below the access token lifetime: it is meant to cover a
+	// lost response or two tabs racing, not to keep a replaced token usable.
+	if c.Auth.RefreshReuseGrace < 0 {
+		v.addf("auth.refresh_reuse_grace must not be negative")
+	} else if c.Auth.RefreshReuseGraceOrDefault() > c.JWT.AccessTokenExpiry {
+		v.addf("auth.refresh_reuse_grace must not exceed jwt.access_token_expiry")
+	}
+
 	if c.Auth.RememberMeExpiry < 0 {
 		v.addf("auth.remember_me_expiry must not be negative")
 	} else if c.Auth.RememberMeExpiryOrDefault() < sessionExpiry {
