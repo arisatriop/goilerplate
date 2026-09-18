@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.6 done
+**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.6, T4.7 done
 
 ---
 
@@ -136,7 +136,7 @@ jwt:
 | ~~No security response headers~~ | T4.6 ✅ |
 | ~~No change-password endpoint; no maximum password length (bcrypt rejects > 72 bytes, surfacing as a 500)~~ | T3.6 ✅, T3.7 ✅ |
 | Registration reveals whether an email is already registered | T5.1 |
-| No security audit events (login failures, lockouts, token reuse, password resets) | T4.7 |
+| ~~No security audit events (login failures, lockouts, token reuse, password resets)~~ (reset/email-change flows land with T5.1) | T4.7 ✅ |
 | ~~Logout does not revoke access tokens issued by earlier refreshes~~ (fixed by the session check) | T1.2 ✅ |
 | ~~Refresh tokens are reusable until expiry; no rotation or reuse detection~~ | T3.3 ✅ |
 | ~~`user_sessions.is_active` / `expires_at` never checked; `RememberMe` has no effect~~ | T3.2 ✅, T3.3 ✅ |
@@ -801,18 +801,67 @@ an untrusted peer claims `X-Forwarded-Proto: https`**; two sessions from one IP 
 budgets; a recording `fiber.Storage` confirms the raw API key never appears as a storage key;
 malformed `trusted_proxies` entries fail startup validation.
 
-### T4.7 Security event logging · S
+### T4.7 Security event logging · S — ✅ done
 **Depends on:** T1.7
-- [ ] Structured `security` log events with `user_id`, `session_id`, IP, and user agent (never secrets):
-  - login success / failure
-  - account locked
-  - refresh token reuse detected
-  - logout-all and session revoked
-  - password changed / reset requested / reset completed
-  - email changed
-- [ ] Distinct log label so events can be routed to a SIEM or alerting
+- [x] Structured `security` log events with `user_id`, `session_id`, IP, and user agent (never secrets):
+  - [x] login success / failure — failure carries a `reason`: `unknown_email`, `bad_password`,
+        `account_locked`, `account_disabled`
+  - [x] account locked
+  - [x] refresh token reuse detected
+  - [x] logout-all and session revoked
+  - [x] password changed
+  - [x] account deactivated (not in the original list; `DeactivateUser` revokes sessions, so it
+        belongs in the same trail)
+  - [ ] password reset requested / completed, email changed — the flows do not exist yet.
+        `ActionPasswordResetRequested`, `ActionPasswordResetCompleted` and `ActionEmailChanged`
+        are defined so T5.1 adopts this vocabulary instead of inventing a second one.
+- [x] Distinct log label so events can be routed to a SIEM or alerting: `label: "security-log"`,
+      separate from `application-log` and `incoming-request-log`
 
-**Done when:** each event above emits exactly one structured log entry (covered by tests).
+`logger.Security(ctx, logger.SecurityEvent{...})` writes one entry. Actions, outcomes, and
+reasons are exported constants: alerting rules are written against these strings, so they are an
+API, not prose.
+
+Identity comes from the context (`user_id`, `session_id`, `request_id`, `client_ip`,
+`user_agent`) and may be overridden per event. Login is why the override exists — it establishes
+an identity the context does not have yet, and a failed login has no session at all. The request
+logger now also puts `client_ip` and `user_agent` on the context, so the auth domain can name the
+caller without taking a `*fiber.Ctx`; the IP is the one `c.IP()` resolved against the
+trusted-proxy list from T4.6, not a header the client chose.
+
+**What is deliberately not logged:** the attempted email on an unknown-email failure, and the
+replayed `jti` on reuse detection. There is no account to name in the first case, and the second
+is part of a bearer token while the audit trail outlives it by far. Every `reason` is a fixed
+vocabulary word, never anything derived from a credential.
+
+Failures log at `WARN` and successes at `INFO`, so the events an operator most wants still appear
+at the default level.
+
+**Done when:** each event above emits exactly one structured log entry (covered by tests). ✅
+
+Verified live against a running server. Every event fired exactly once, in order:
+
+| # | Request | Event | Level | Reason |
+|---|---|---|---|---|
+| 1 | login, unknown email | `login_failed` | WARN | `unknown_email` |
+| 2–4 | login ×3, wrong password | `login_failed` ×3 | WARN | `bad_password` |
+| 4 | (3rd failure hits the limit) | `account_locked` | WARN | `bad_password` |
+| 5 | login, correct password while locked | `login_failed` | WARN | `account_locked` |
+| 6 | login, correct password | `login_succeeded` | INFO | — |
+| 7 | `POST /auth/logout` | `session_revoked` | INFO | `logout` |
+| 8 | `POST /auth/logout-all` | `all_sessions_revoked` | INFO | `logout_all` |
+| 9 | `PUT /users/me/password` | `password_changed` | INFO | — |
+| 10 | replay a superseded refresh token past the grace window | `refresh_token_reuse_detected` | WARN | `reuse_detected` |
+
+`user_id` was populated on all 19 events except the unknown-email one, which by definition has no
+subject. Grepping the 19 events for JWTs, either password, and the attempted email address found
+nothing.
+
+Tests: one event per rejection reason and no more; locking emits its own event separate from the
+failure that caused it; a failure that does *not* lock emits no lock event; validation stays
+silent on success; explicit identity beats context identity; failures are WARN; a call with no
+HTTP context still records. In the middleware: the client IP and user agent reach the context
+before any handler runs, and a spoofed `X-Forwarded-For` does not change the recorded IP.
 
 ---
 
