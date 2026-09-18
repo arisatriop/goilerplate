@@ -71,8 +71,15 @@ redis:
   db: 0
 
 jwt:
+  key_id: v1 # published as each token's "kid" header
   access_token_expiry: 15m
-  refresh_token_expiry: 168h # 7 days
+  issuer: goilerplate
+  audience: goilerplate-api
+  # previous_keys: retired keys still accepted for verification while rotating secrets
+
+auth:
+  session_expiry: 168h # absolute session lifetime, and the refresh token's lifetime
+  remember_me_expiry: 720h # absolute lifetime when the client logs in with remember_me
 
 log:
   level: debug # debug, info, warn, error

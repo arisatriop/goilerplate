@@ -95,20 +95,38 @@ func (c *Config) validateOTel(v *validation) {
 
 func (c *Config) validateJWT(v *validation) {
 	jwt := c.JWT
+	production := c.IsProduction()
 
-	v.secret("jwt.secret_key", jwt.SecretKey, 1, c.IsProduction())
-	v.secret("jwt.access_secret", jwt.AccessSecret, MinSecretBytes, c.IsProduction())
-	v.secret("jwt.refresh_secret", jwt.RefreshSecret, MinSecretBytes, c.IsProduction())
+	v.required("jwt.key_id", jwt.KeyID)
+	v.secret("jwt.access_secret", jwt.AccessSecret, MinSecretBytes, production)
+	v.secret("jwt.refresh_secret", jwt.RefreshSecret, MinSecretBytes, production)
 	if jwt.AccessSecret != "" && jwt.AccessSecret == jwt.RefreshSecret {
 		v.addf("jwt.access_secret and jwt.refresh_secret must be different")
 	}
 
 	v.required("jwt.issuer", jwt.Issuer)
+	v.required("jwt.audience", jwt.Audience)
 	if jwt.AccessTokenExpiry <= 0 {
 		v.addf("jwt.access_token_expiry must be greater than 0")
 	}
-	if jwt.RefreshTokenExpiry <= jwt.AccessTokenExpiry {
-		v.addf("jwt.refresh_token_expiry must be greater than jwt.access_token_expiry")
+	if jwt.Leeway < 0 {
+		v.addf("jwt.leeway must not be negative")
+	}
+
+	// A duplicate key id would make "kid" ambiguous, so a token could be verified with the
+	// wrong secret depending on map order.
+	seen := map[string]bool{jwt.KeyID: true}
+	for i, key := range jwt.PreviousKeys {
+		field := fmt.Sprintf("jwt.previous_keys[%d]", i)
+
+		v.required(field+".key_id", key.KeyID)
+		if key.KeyID != "" && seen[key.KeyID] {
+			v.addf("%s.key_id %q is already used by another key", field, key.KeyID)
+		}
+		seen[key.KeyID] = true
+
+		v.secret(field+".access_secret", key.AccessSecret, MinSecretBytes, production)
+		v.secret(field+".refresh_secret", key.RefreshSecret, MinSecretBytes, production)
 	}
 }
 
@@ -128,6 +146,21 @@ func (c *Config) validateAuth(v *validation) {
 	}
 	if c.Auth.PermissionCacheTTL < 0 {
 		v.addf("auth.permission_cache_ttl must not be negative")
+	}
+
+	// A session must outlive the access tokens issued within it, otherwise a client holding a
+	// valid access token would already have an unusable session.
+	sessionExpiry := c.Auth.SessionExpiryOrDefault()
+	if c.Auth.SessionExpiry < 0 {
+		v.addf("auth.session_expiry must not be negative")
+	} else if sessionExpiry <= c.JWT.AccessTokenExpiry {
+		v.addf("auth.session_expiry must be greater than jwt.access_token_expiry")
+	}
+
+	if c.Auth.RememberMeExpiry < 0 {
+		v.addf("auth.remember_me_expiry must not be negative")
+	} else if c.Auth.RememberMeExpiryOrDefault() < sessionExpiry {
+		v.addf("auth.remember_me_expiry must not be shorter than auth.session_expiry")
 	}
 }
 

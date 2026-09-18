@@ -2,12 +2,11 @@ package middleware
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/pkg/constants"
+	"goilerplate/pkg/hash"
 	jwtService "goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/response"
@@ -46,7 +45,7 @@ func (m *Auth) Authenticate() fiber.Handler {
 		}
 
 		// Verify token exists in storage and its session is still active
-		tokenHash := m.hashToken(token)
+		tokenHash := hash.Token(token)
 		_, err = m.verifyTokenValidity(ctx, tokenHash, claims.SessionID)
 		if err != nil {
 			return response.HandleError(ctx, err)
@@ -79,19 +78,15 @@ func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 			return response.Unauthorized(ctx, "Invalid authorization format")
 		}
 
-		// Validate token and get claims
-		claims, err := m.jwtService.ValidateToken(token)
+		// Validate token and get claims. This accepts refresh tokens only, so an access
+		// token presented here fails to verify.
+		claims, err := m.jwtService.ValidateRefreshToken(token)
 		if err != nil {
 			return response.Unauthorized(ctx, "Invalid or expired token")
 		}
 
-		// IMPORTANT: Check that this is a REFRESH token, not an access token
-		if claims.Type != jwtService.RefreshToken {
-			return response.Unauthorized(ctx, "Invalid token type: expected refresh token")
-		}
-
 		// Hash token for storage lookup
-		tokenHash := m.hashToken(token)
+		tokenHash := hash.Token(token)
 
 		// Verify token exists in storage and its session is still active
 		userToken, err := m.verifyTokenValidity(ctx, tokenHash, claims.SessionID)
@@ -214,13 +209,11 @@ func (m *Auth) validateAuthHeader(ctx *fiber.Ctx) (string, *jwtService.Claims, e
 		return "", nil, fmt.Errorf("failed to extract bearer token: %w", err)
 	}
 
-	claims, err := m.jwtService.ValidateToken(token)
+	// ValidateAccessToken pins the algorithm, issuer, audience, signing key and token type,
+	// so a refresh token presented here is rejected by the parser rather than by a later check.
+	claims, err := m.jwtService.ValidateAccessToken(token)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to validate token: %w", err)
-	}
-
-	if claims.Type != jwtService.AccessToken {
-		return "", nil, utils.ClientErr(http.StatusUnauthorized, "Invalid token")
 	}
 
 	return token, claims, nil
@@ -287,10 +280,4 @@ func (m *Auth) extractBearerToken(authHeader string) (string, error) {
 	}
 
 	return token, nil
-}
-
-// hashToken creates a SHA256 hash of the token for secure storage
-func (m *Auth) hashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
 }

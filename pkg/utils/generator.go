@@ -2,10 +2,7 @@ package utils
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -60,18 +57,6 @@ func GenerateRefreshToken() (string, error) {
 // GenerateVerificationToken generates a secure verification token
 func GenerateVerificationToken() (string, error) {
 	return GenerateSecureToken(TokenLength)
-}
-
-// HashToken creates a SHA256 hash of a token for secure storage
-func HashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
-}
-
-// VerifyToken verifies a token against its hash using constant-time comparison
-func VerifyToken(token, hash string) bool {
-	tokenHash := HashToken(token)
-	return subtle.ConstantTimeCompare([]byte(tokenHash), []byte(hash)) == 1
 }
 
 func GenerateRandomString(n int) string {

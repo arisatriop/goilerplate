@@ -55,17 +55,27 @@ redis:
 
 # Generate each secret with: openssl rand -base64 48
 jwt:
-  secret_key: <JWT_SECRET_KEY> # legacy fallback, removed in roadmap T3.1
+  key_id: v1 # published as the "kid" header of every issued token
   access_secret: <JWT_ACCESS_SECRET> # at least 32 bytes
   refresh_secret: <JWT_REFRESH_SECRET> # at least 32 bytes, different from access_secret
   access_token_expiry: 15m
-  refresh_token_expiry: 168h # must be longer than access_token_expiry
-  issuer: goilerplate
+  issuer: goilerplate # tokens from another issuer are rejected
+  audience: goilerplate-api # tokens minted for another audience are rejected
+  leeway: 30s # clock skew tolerated when checking exp/nbf/iat
+  # Retired keys, accepted for verification only. To rotate: move the current key_id and
+  # secrets here, set a new key_id and new secrets above, and drop the entry once every
+  # token signed with it has expired (auth.remember_me_expiry after the rotation).
+  previous_keys:
+    - key_id: v0
+      access_secret: <JWT_PREVIOUS_ACCESS_SECRET>
+      refresh_secret: <JWT_PREVIOUS_REFRESH_SECRET>
 
 auth:
   session_cache: auto # auto (redis when enabled, else none) | none | memory | redis; also used for the permission cache
   session_cache_ttl: 30s # memory: max revocation lag across instances; redis: bounds staleness after direct DB edits
   permission_cache_ttl: 15m # safety net; permission changes invalidate the cache explicitly
+  session_expiry: 168h # absolute session lifetime, and the refresh token's lifetime; rotation never extends it
+  remember_me_expiry: 720h # absolute session lifetime when the client logs in with remember_me
 
 log:
   level: info # debug | info | warn | error

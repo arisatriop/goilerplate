@@ -2,9 +2,8 @@ package auth
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
+	"goilerplate/pkg/hash"
 	"goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
 	"time"
@@ -27,7 +26,7 @@ func (ts *TokenStorage) StoreTokenPair(ctx context.Context, userID, sessionID st
 	// Store access token in database
 	accessToken := &UserToken{
 		UserID:    userID,
-		TokenHash: ts.hashToken(tokenPair.AccessToken),
+		TokenHash: hash.Token(tokenPair.AccessToken),
 		TokenType: TokenTypeAccess,
 		ExpiresAt: tokenPair.AccessTokenExpiresAt,
 		IPAddress: deviceInfo.IPAddress,
@@ -42,7 +41,7 @@ func (ts *TokenStorage) StoreTokenPair(ctx context.Context, userID, sessionID st
 	// Store refresh token in database
 	refreshToken := &UserToken{
 		UserID:    userID,
-		TokenHash: ts.hashToken(tokenPair.RefreshToken),
+		TokenHash: hash.Token(tokenPair.RefreshToken),
 		TokenType: TokenTypeRefresh,
 		ExpiresAt: tokenPair.RefreshTokenExpiresAt,
 		IPAddress: deviceInfo.IPAddress,
@@ -61,7 +60,7 @@ func (ts *TokenStorage) StoreTokenPair(ctx context.Context, userID, sessionID st
 func (ts *TokenStorage) StoreAccessToken(ctx context.Context, userID string, accessTokenString string, expiresAt time.Time, deviceInfo *DeviceInfo) error {
 	accessToken := &UserToken{
 		UserID:    userID,
-		TokenHash: ts.hashToken(accessTokenString),
+		TokenHash: hash.Token(accessTokenString),
 		TokenType: TokenTypeAccess,
 		ExpiresAt: expiresAt,
 		IPAddress: deviceInfo.IPAddress,
@@ -85,10 +84,4 @@ func (ts *TokenStorage) MarkTokenAsUsedAsync(ctx context.Context, tokenID string
 			logger.Error(bgCtx, err)
 		}
 	}()
-}
-
-// hashToken creates a SHA256 hash of the token for secure storage
-func (ts *TokenStorage) hashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
 }

@@ -97,12 +97,21 @@ type Redis struct {
 }
 
 type JWT struct {
-	SecretKey          string        `mapstructure:"secret_key"`
-	AccessSecret       string        `mapstructure:"access_secret"`
-	RefreshSecret      string        `mapstructure:"refresh_secret"`
-	AccessTokenExpiry  time.Duration `mapstructure:"access_token_expiry"`
-	RefreshTokenExpiry time.Duration `mapstructure:"refresh_token_expiry"`
-	Issuer             string        `mapstructure:"issuer"`
+	KeyID             string        `mapstructure:"key_id"`        // published as the "kid" header of every issued token
+	AccessSecret      string        `mapstructure:"access_secret"` // active signing secret for access tokens
+	RefreshSecret     string        `mapstructure:"refresh_secret"`
+	PreviousKeys      []JWTKey      `mapstructure:"previous_keys"` // verification only, so secrets rotate without logging everyone out
+	AccessTokenExpiry time.Duration `mapstructure:"access_token_expiry"`
+	Issuer            string        `mapstructure:"issuer"`
+	Audience          string        `mapstructure:"audience"`
+	Leeway            time.Duration `mapstructure:"leeway"` // clock skew tolerance; jwt.DefaultLeeway when unset
+}
+
+// JWTKey is a retired signing key kept for verification during rotation.
+type JWTKey struct {
+	KeyID         string `mapstructure:"key_id"`
+	AccessSecret  string `mapstructure:"access_secret"`
+	RefreshSecret string `mapstructure:"refresh_secret"`
 }
 
 // Cache modes for auth.session_cache.
@@ -117,12 +126,16 @@ const (
 const (
 	DefaultSessionCacheTTL    = 30 * time.Second
 	DefaultPermissionCacheTTL = 15 * time.Minute
+	DefaultSessionExpiry      = 7 * 24 * time.Hour
+	DefaultRememberMeExpiry   = 30 * 24 * time.Hour
 )
 
 type Auth struct {
 	SessionCache       string        `mapstructure:"session_cache"`        // auto | none | memory | redis (also used for the permission cache)
 	SessionCacheTTL    time.Duration `mapstructure:"session_cache_ttl"`    // memory: max cross-instance revocation lag; redis: bounds staleness after direct DB edits
 	PermissionCacheTTL time.Duration `mapstructure:"permission_cache_ttl"` // safety net; permission changes invalidate explicitly
+	SessionExpiry      time.Duration `mapstructure:"session_expiry"`       // absolute session lifetime; also the refresh token lifetime
+	RememberMeExpiry   time.Duration `mapstructure:"remember_me_expiry"`   // absolute session lifetime when remember_me = true
 }
 
 // CacheMode resolves auth.session_cache, turning "auto" (or empty) into redis or none.
@@ -151,6 +164,22 @@ func (a Auth) PermissionCacheTTLOrDefault() time.Duration {
 		return a.PermissionCacheTTL
 	}
 	return DefaultPermissionCacheTTL
+}
+
+// SessionExpiryOrDefault returns session_expiry, or DefaultSessionExpiry when unset.
+func (a Auth) SessionExpiryOrDefault() time.Duration {
+	if a.SessionExpiry > 0 {
+		return a.SessionExpiry
+	}
+	return DefaultSessionExpiry
+}
+
+// RememberMeExpiryOrDefault returns remember_me_expiry, or DefaultRememberMeExpiry when unset.
+func (a Auth) RememberMeExpiryOrDefault() time.Duration {
+	if a.RememberMeExpiry > 0 {
+		return a.RememberMeExpiry
+	}
+	return DefaultRememberMeExpiry
 }
 
 type Logger struct {
