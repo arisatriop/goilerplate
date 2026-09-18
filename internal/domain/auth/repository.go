@@ -30,14 +30,6 @@ type Repository interface {
 	ConsumeOneTimeToken(ctx context.Context, tokenHash, tokenType string) error
 	IncrementOneTimeTokenAttempts(ctx context.Context, tokenID string) (int, error)
 
-	// Token operations
-	CreateToken(ctx context.Context, token *UserToken) (*UserToken, error)
-	GetTokenByHash(ctx context.Context, tokenHash string) (*UserToken, error)
-	GetUserTokens(ctx context.Context, userID string) ([]UserToken, error)
-	DeleteTokenByHash(ctx context.Context, tokenHash string) error
-	DeleteUserTokens(ctx context.Context, userID string) error
-	MarkTokenAsUsed(ctx context.Context, token string) error
-
 	// Menu Operations
 	GetParentMenus(ctx context.Context) ([]Menu, error)
 	GetMenusByParentIDs(ctx context.Context, parentIDs []string) ([]Menu, error)

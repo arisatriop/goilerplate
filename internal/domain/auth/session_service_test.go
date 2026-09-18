@@ -115,7 +115,7 @@ func TestSessionService_GetActive_CacheMissReadsRepositoryAndCaches(t *testing.T
 	// Arrange
 	repo := &stubRepository{sessions: map[string]*UserSession{"s1": activeSession("s1", "u1")}}
 	store := newFakeSessionStore()
-	service := NewSessionService(repo, store)
+	service := NewSessionService(repo, store, true)
 	ctx := context.Background()
 
 	// Act
@@ -138,7 +138,7 @@ func TestSessionService_GetActive_RejectsInvalidSessions(t *testing.T) {
 	expired.ExpiresAt = utils.Now().Add(-time.Minute)
 
 	repo := &stubRepository{sessions: map[string]*UserSession{"inactive": inactive, "expired": expired}}
-	service := NewSessionService(repo, newFakeSessionStore())
+	service := NewSessionService(repo, newFakeSessionStore(), true)
 
 	for _, sessionID := range []string{"", "missing", "inactive", "expired"} {
 		t.Run("session "+sessionID, func(t *testing.T) {
@@ -154,7 +154,7 @@ func TestSessionService_GetActive_CachedRevocationIsHonored(t *testing.T) {
 	revoked.IsActive = false
 	store := newFakeSessionStore()
 	store.sessions["s1"] = *revoked
-	service := NewSessionService(&stubRepository{}, store)
+	service := NewSessionService(&stubRepository{}, store, true)
 
 	// Act
 	_, err := service.GetActive(context.Background(), "s1")
@@ -168,7 +168,7 @@ func TestSessionService_GetActive_CacheFailureFallsBackToRepository(t *testing.T
 	repo := &stubRepository{sessions: map[string]*UserSession{"s1": activeSession("s1", "u1")}}
 	store := newFakeSessionStore()
 	store.err = errors.New("redis down")
-	service := NewSessionService(repo, store)
+	service := NewSessionService(repo, store, true)
 
 	// Act
 	session, err := service.GetActive(context.Background(), "s1")
@@ -181,7 +181,7 @@ func TestSessionService_GetActive_CacheFailureFallsBackToRepository(t *testing.T
 
 func TestSessionService_GetActive_RepositoryErrorIsReturned(t *testing.T) {
 	repo := &stubRepository{sessionErr: errors.New("db down")}
-	service := NewSessionService(repo, newFakeSessionStore())
+	service := NewSessionService(repo, newFakeSessionStore(), true)
 
 	_, err := service.GetActive(context.Background(), "s1")
 
@@ -196,7 +196,7 @@ func TestSessionService_Evict(t *testing.T) {
 	store.sessions["a1"] = *activeSession("a1", "alice")
 	store.sessions["a2"] = *activeSession("a2", "alice")
 	store.sessions["b1"] = *activeSession("b1", "bob")
-	service := NewSessionService(&stubRepository{}, store)
+	service := NewSessionService(&stubRepository{}, store, true)
 	ctx := context.Background()
 
 	// Act
@@ -212,10 +212,48 @@ func TestSessionService_Evict(t *testing.T) {
 func TestSessionService_Evict_CacheFailureDoesNotPanic(t *testing.T) {
 	store := newFakeSessionStore()
 	store.err = errors.New("redis down")
-	service := NewSessionService(&stubRepository{}, store)
+	service := NewSessionService(&stubRepository{}, store, true)
 
 	assert.NotPanics(t, func() {
 		service.Evict(context.Background(), "s1")
 		service.EvictUser(context.Background(), "u1")
 	})
+}
+
+// In strict mode a revoked session must stop every access token of that session at once,
+// whatever the cache is doing.
+func TestSessionService_EnsureActiveForRequest_Strict(t *testing.T) {
+	revoked := activeSession("revoked", "u1")
+	revoked.IsActive = false
+
+	repo := &stubRepository{sessions: map[string]*UserSession{
+		"live":    activeSession("live", "u1"),
+		"revoked": revoked,
+	}}
+	service := NewSessionService(repo, newFakeSessionStore(), true)
+	ctx := context.Background()
+
+	require.NoError(t, service.EnsureActiveForRequest(ctx, "live"))
+
+	assertUnauthorized(t, service.EnsureActiveForRequest(ctx, "revoked"))
+	assertUnauthorized(t, service.EnsureActiveForRequest(ctx, "missing"))
+	assertUnauthorized(t, service.EnsureActiveForRequest(ctx, ""))
+}
+
+// In refresh_only mode the per-request check is skipped entirely: no session lookup happens,
+// so a revoked session keeps working until its access token expires. Refresh still checks.
+func TestSessionService_EnsureActiveForRequest_RefreshOnly(t *testing.T) {
+	revoked := activeSession("revoked", "u1")
+	revoked.IsActive = false
+
+	repo := &stubRepository{sessions: map[string]*UserSession{"revoked": revoked}}
+	service := NewSessionService(repo, newFakeSessionStore(), false)
+	ctx := context.Background()
+
+	assert.NoError(t, service.EnsureActiveForRequest(ctx, "revoked"))
+	assert.Equal(t, 0, repo.sessionLookups, "refresh_only must not read the session per request")
+
+	// The refresh path does not honour the mode, so the revoked session is still rejected
+	_, err := service.GetActive(ctx, "revoked")
+	assertUnauthorized(t, err)
 }

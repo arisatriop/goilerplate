@@ -1,6 +1,7 @@
 package wire
 
 import (
+	"goilerplate/config"
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/bar"
@@ -22,7 +23,8 @@ type UseCases struct {
 func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure) *UseCases {
 	// The middleware verifies the tokens this use case issues, so both must share one
 	// service: a second instance could drift to a different key or issuer.
-	sessionService := auth.NewSessionService(repos.AuthRepo, infra.SessionStore)
+	strictRevocation := app.Config.Auth.RevocationMode() == config.RevocationStrict
+	sessionService := auth.NewSessionService(repos.AuthRepo, infra.SessionStore, strictRevocation)
 	permissionService := auth.NewPermissionService(repos.AuthRepo, infra.PermissionCache)
 
 	sessions := auth.SessionExpiry{

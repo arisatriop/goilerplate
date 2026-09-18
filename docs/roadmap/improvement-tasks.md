@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1, T3.2 done
 
 ---
 
@@ -140,9 +140,9 @@ jwt:
 | ~~Logout does not revoke access tokens issued by earlier refreshes~~ (fixed by the session check) | T1.2 ✅ |
 | Refresh tokens are reusable until expiry; no rotation or reuse detection | T3.3 |
 | `user_sessions.is_active` / `expires_at` never checked; `RememberMe` has no effect | T3.2, T3.3 |
-| `user_tokens` grows unbounded (row per login and per refresh, no cleanup) | T3.2, T4.4 |
-| DB `UPDATE used_at` on every authenticated request | T3.2 |
-| `user_tokens` mixes session tokens with one-time tokens; `LogoutAll` would wipe pending reset/OTP tokens (`one_time_tokens` exists; `user_tokens` is dropped in T3.2) | T2.4 ✅, T3.5 |
+| ~~`user_tokens` grows unbounded (row per login and per refresh, no cleanup)~~ (table dropped) | T3.2 ✅ |
+| ~~DB `UPDATE used_at` on every authenticated request~~ | T3.2 ✅ |
+| ~~`user_tokens` mixes session tokens with one-time tokens; `LogoutAll` would wipe pending reset/OTP tokens~~ (`one_time_tokens` added in T2.4; `user_tokens` dropped in T3.2, and `LogoutAll` no longer touches tokens at all) | T2.4 ✅, T3.2 ✅ |
 | Login writes (session, tokens, cache) are not transactional | T3.4 |
 | ~~`LogoutAll` scans every `token:*` / `session:*` key in Redis~~ | T1.2 ✅ |
 | ~~Redis-enabled validation reads cache only; expiry check skipped~~ | T1.2 ✅ |
@@ -396,8 +396,8 @@ revoking one device leaving the user's other sessions active, a second revoke re
 stamping the reason on every active row.
 
 ### T2.4 `one_time_tokens` table · M — ✅ done
-- [x] Add `create_one_time_tokens_table`. The `user_tokens` migration stays until T3.2 removes the
-      access/refresh token storage that still uses it; T3.2 drops that table and its migration.
+- [x] Add `create_one_time_tokens_table`. The `user_tokens` migration stayed until T3.2 removed
+      the access/refresh token storage that used it; T3.2 dropped that table and its migration.
 - [x] `token_type` restricted by `CHECK` to `email_verification | password_reset | email_change`
 - [x] Indexes: `token_hash` UNIQUE, `(user_id, token_type)`, `expires_at` — nothing else
 - [x] `attempts` column (failed verification attempts, used by OTP limits in T5.1)
@@ -456,22 +456,42 @@ rejected at `/auth/refresh` (401) and a refresh token at `/auth/logout` (401). A
 with `key_id: v2` and the old key moved to `previous_keys`, new logins sign with `kid=v2`
 while the v1 access and refresh tokens issued before the rotation still work (200).
 
-### T3.2 Stateless access token + session check · L
+### T3.2 Stateless access token + session check · L — ✅ done
 **Depends on:** T1.2, T2.3, T3.1
 - [x] `Authenticate` middleware: verify signature → `SessionStore.Get(claims.SessionID)` →
-      require active and unexpired (done in T1.2 via `SessionService.GetActive`, still alongside
-      the access-token lookup)
+      require active and unexpired. The access-token lookup alongside it is now gone: nothing
+      about an access token is stored, so the session is the only state consulted.
 - [x] Cache miss → read DB → populate cache (T1.2)
-- [ ] Config `auth.revocation: strict | refresh_only`
-- [ ] Remove `TokenStorage`, access-token persistence, and `MarkTokenAsUsed`
-      (blacklist and `CacheToken` / `GetToken` already removed in T1.2)
-- [ ] Drop the `user_tokens` table and its migration (replaced by `one_time_tokens` from T2.4)
-- [ ] Put `session_id` in context instead of `token_hash`
+- [x] Config `auth.revocation: strict | refresh_only`, defaulting to `strict`. Wiring resolves
+      it once into `SessionService.EnsureActiveForRequest`, so no request path branches on
+      configuration. `/auth/refresh` always calls `GetActive` regardless of the mode — that is
+      the point where a revoked login must stop minting access tokens.
+- [x] Remove `TokenStorage`, `TokenService`, access-token persistence, and `MarkTokenAsUsed`
+- [x] Drop the `user_tokens` table and its migration, the `UserToken` entity and GORM model,
+      and the six repository methods that served them
+- [x] Put `session_id` in context instead of `token_hash`; `constants.ContextTokenHash` removed
+- [x] `Logout` revokes the session directly (`RevokeSession`) instead of deleting token rows;
+      `LogoutAll` no longer deletes tokens either
 
 **Done when:**
 - in `strict` mode, logout rejects **every** access token of that session immediately, with
   cache `none`, `memory` (single instance), and `redis`
 - no DB writes happen per request
+
+Verified live against a scratch database, one run per cache mode. In each, logging in, calling
+`/auth/logout`, then replaying **the same** access token returns 401:
+
+| `auth.session_cache` | valid token | logout | same token after logout |
+|---|---|---|---|
+| `none` | 200 | 200 | **401** |
+| `memory` | 200 | 200 | **401** |
+| `redis` | 200 | 200 | **401** |
+
+For the write claim, `pg_stat_user_tables` reported `n_tup_upd=12 n_tup_ins=21` both before and
+after 30 authenticated requests on one access token — unchanged, where previously every request
+issued an `UPDATE used_at`. Unit tests cover both revocation modes, including that
+`refresh_only` performs no session lookup per request while refresh still rejects the revoked
+session.
 
 ### T3.3 Refresh token rotation + reuse detection · L
 **Depends on:** T3.2

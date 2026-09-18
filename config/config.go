@@ -114,6 +114,16 @@ type JWTKey struct {
 	RefreshSecret string `mapstructure:"refresh_secret"`
 }
 
+// Revocation modes for auth.revocation.
+const (
+	// RevocationStrict checks the session on every authenticated request, so logout and
+	// admin deactivation take effect immediately (subject to the cache TTL).
+	RevocationStrict = "strict"
+	// RevocationRefreshOnly checks the session only when refreshing, so revocation takes
+	// effect once the current access token expires. Cheaper, but not immediate.
+	RevocationRefreshOnly = "refresh_only"
+)
+
 // Cache modes for auth.session_cache.
 const (
 	CacheModeAuto   = "auto"   // redis when redis.enabled, otherwise none
@@ -134,8 +144,18 @@ type Auth struct {
 	SessionCache       string        `mapstructure:"session_cache"`        // auto | none | memory | redis (also used for the permission cache)
 	SessionCacheTTL    time.Duration `mapstructure:"session_cache_ttl"`    // memory: max cross-instance revocation lag; redis: bounds staleness after direct DB edits
 	PermissionCacheTTL time.Duration `mapstructure:"permission_cache_ttl"` // safety net; permission changes invalidate explicitly
+	Revocation         string        `mapstructure:"revocation"`           // strict | refresh_only
 	SessionExpiry      time.Duration `mapstructure:"session_expiry"`       // absolute session lifetime; also the refresh token lifetime
 	RememberMeExpiry   time.Duration `mapstructure:"remember_me_expiry"`   // absolute session lifetime when remember_me = true
+}
+
+// RevocationMode resolves auth.revocation, defaulting to strict (secure by default).
+func (a Auth) RevocationMode() string {
+	mode := strings.ToLower(strings.TrimSpace(a.Revocation))
+	if mode == RevocationRefreshOnly {
+		return RevocationRefreshOnly
+	}
+	return RevocationStrict
 }
 
 // CacheMode resolves auth.session_cache, turning "auto" (or empty) into redis or none.

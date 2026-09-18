@@ -118,13 +118,12 @@ func (h *Auth) Login(ctx *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /api/v1/auth/logout [post]
 func (h *Auth) Logout(ctx *fiber.Ctx) error {
-	// Get user ID, token hash, and session ID from context (guaranteed by middleware)
+	// Get user ID and session ID from context (guaranteed by middleware)
 	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
-	tokenHash := ctx.Locals(string(constants.ContextTokenHash)).(string)
 	sessionID := ctx.Locals(string(constants.ContextKeySessionID)).(string)
 
 	// Call logout usecase
-	if err := h.usecase.Logout(ctx.UserContext(), userID, tokenHash, sessionID); err != nil {
+	if err := h.usecase.Logout(ctx.UserContext(), userID, sessionID); err != nil {
 		return response.HandleError(ctx, err)
 	}
 
@@ -165,7 +164,6 @@ func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 	// Get data from context (guaranteed by AuthenticateRefreshToken middleware)
 	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
 	sessionID := ctx.Locals(string(constants.ContextKeySessionID)).(string)
-	tokenHash := ctx.Locals(string(constants.ContextTokenHash)).(string)
 	refreshToken := ctx.Locals("refresh_token").(string)
 	refreshTokenExpiresAt := ctx.Locals("refresh_token_expires_at").(time.Time)
 
@@ -173,7 +171,7 @@ func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 	deviceInfo := h.deviceService.ExtractDeviceInfo(newDeviceRequest(ctx))
 
 	// Call refresh token usecase
-	loginResult, err := h.usecase.RefreshToken(ctx.UserContext(), userID, sessionID, tokenHash, refreshToken, refreshTokenExpiresAt, deviceInfo)
+	loginResult, err := h.usecase.RefreshToken(ctx.UserContext(), userID, sessionID, refreshToken, refreshTokenExpiresAt, deviceInfo)
 	if err != nil {
 		return response.HandleError(ctx, err)
 	}

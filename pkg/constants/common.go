@@ -8,7 +8,6 @@ const (
 	ContextKeyRequestID ContextKey = "request_id"
 	ContextKeyUserID    ContextKey = "user_id"
 	ContextKeyUserName  ContextKey = "user_name"
-	ContextTokenHash    ContextKey = "token_hash"
 	ContextKeySessionID ContextKey = "session_id"
 	ContextKeyStoreID   ContextKey = "store_id"
 )
