@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/infrastructure/model"
 	"goilerplate/pkg/utils"
@@ -604,4 +605,115 @@ func (r *authRepository) tokenModelToEntity(m *model.UserToken) *auth.UserToken 
 		IPAddress: m.IPAddress,
 		UserAgent: m.UserAgent,
 	}
+}
+
+// One-time token operations
+
+func (r *authRepository) CreateOneTimeToken(ctx context.Context, token *auth.OneTimeToken) error {
+	tokenModel := &model.OneTimeToken{
+		ID:        utils.GenerateUUID(),
+		UserID:    token.UserID,
+		TokenType: token.TokenType,
+		TokenHash: token.TokenHash,
+		Attempts:  token.Attempts,
+		ExpiresAt: token.ExpiresAt,
+		UsedAt:    token.UsedAt,
+		IPAddress: nullableString(token.IPAddress),
+		UserAgent: token.UserAgent,
+		CreatedAt: utils.Now(),
+	}
+
+	if err := r.db.WithContext(ctx).Create(tokenModel).Error; err != nil {
+		return err
+	}
+
+	token.ID = tokenModel.ID
+	token.CreatedAt = tokenModel.CreatedAt
+	return nil
+}
+
+// GetLatestActiveOneTimeToken returns the newest unused, unexpired token of that type,
+// or nil when there is none. OTP verification looks the token up this way so wrong guesses
+// can be counted; a lookup by hash alone cannot.
+func (r *authRepository) GetLatestActiveOneTimeToken(ctx context.Context, userID, tokenType string) (*auth.OneTimeToken, error) {
+	var tokenModel model.OneTimeToken
+
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND token_type = ? AND used_at IS NULL AND expires_at > ?", userID, tokenType, utils.Now()).
+		Order("created_at DESC").
+		First(&tokenModel).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return oneTimeTokenModelToEntity(&tokenModel), nil
+}
+
+// ConsumeOneTimeToken marks a token as used in one statement, so two concurrent requests
+// with the same token yield exactly one success. It returns auth.ErrNotFound when the token
+// does not exist, was already used, or has expired.
+func (r *authRepository) ConsumeOneTimeToken(ctx context.Context, tokenHash, tokenType string) error {
+	now := utils.Now()
+
+	result := r.db.WithContext(ctx).
+		Model(&model.OneTimeToken{}).
+		Where("token_hash = ? AND token_type = ? AND used_at IS NULL AND expires_at > ?", tokenHash, tokenType, now).
+		Update("used_at", now)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return auth.ErrNotFound
+	}
+
+	return nil
+}
+
+// IncrementOneTimeTokenAttempts counts a failed verification attempt and returns the new total.
+func (r *authRepository) IncrementOneTimeTokenAttempts(ctx context.Context, tokenID string) (int, error) {
+	var attempts int
+
+	err := r.db.WithContext(ctx).
+		Raw(`UPDATE one_time_tokens SET attempts = attempts + 1
+			WHERE id = ? AND used_at IS NULL
+			RETURNING attempts`, tokenID).
+		Scan(&attempts).Error
+	if err != nil {
+		return 0, err
+	}
+	if attempts == 0 {
+		return 0, auth.ErrNotFound
+	}
+
+	return attempts, nil
+}
+
+func oneTimeTokenModelToEntity(m *model.OneTimeToken) *auth.OneTimeToken {
+	token := &auth.OneTimeToken{
+		ID:        m.ID,
+		UserID:    m.UserID,
+		TokenType: m.TokenType,
+		TokenHash: m.TokenHash,
+		Attempts:  m.Attempts,
+		ExpiresAt: m.ExpiresAt,
+		UsedAt:    m.UsedAt,
+		UserAgent: m.UserAgent,
+		CreatedAt: m.CreatedAt,
+	}
+	if m.IPAddress != nil {
+		token.IPAddress = *m.IPAddress
+	}
+	return token
+}
+
+// nullableString stores an empty string as NULL, which typed columns such as inet require.
+func nullableString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }

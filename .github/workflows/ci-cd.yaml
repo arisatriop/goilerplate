@@ -20,6 +20,18 @@ jobs:
   test:
     runs-on: ubuntu-latest
     services:
+      postgres: # PostgreSQL integration tests (internal/infrastructure/repository)
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: goilerplate_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
       redis: # Redis integration tests (internal/infrastructure/cache)
         image: redis:7-alpine
         ports:
@@ -44,6 +56,7 @@ jobs:
         run: go test -v ./...
         env:
           REDIS_TEST_ADDR: localhost:6379
+          POSTGRES_TEST_DSN: host=localhost port=5432 user=postgres password=postgres dbname=goilerplate_test sslmode=disable timezone=UTC
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v7
