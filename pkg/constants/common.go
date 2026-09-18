@@ -22,4 +22,7 @@ const (
 	HeaderRequestID   = "X-Request-Id"
 	HeaderAPIKey      = "x-api-key"
 	HeaderServiceName = "X-Service-Name"
+	// HeaderInternalSecret is the shared secret for /internal routes when
+	// internal_auth.mode=shared_secret. Already redacted from logs (see pkg/redact).
+	HeaderInternalSecret = "X-Internal-Secret"
 )

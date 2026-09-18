@@ -57,7 +57,7 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 	permissionService := auth.NewPermissionService(repos.AuthRepo, infrastructure.PermissionCache)
 
 	return &Middleware{
-		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, sessionService, permissionService, cfg.Apikeys),
+		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, sessionService, permissionService, cfg.Apikeys, cfg.InternalAuth),
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(omitBodyPaths(cfg)),
 		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit, pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "rl:")),

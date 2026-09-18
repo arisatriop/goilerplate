@@ -4,6 +4,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"goilerplate/config"
+
 	"goilerplate/pkg/apikey"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/hash"
@@ -31,7 +33,7 @@ type partnerCall struct {
 func callPartnerRoute(t *testing.T, keys map[string]string, header string) partnerCall {
 	t.Helper()
 
-	auth := NewAuth(nil, nil, nil, nil, keys)
+	auth := NewAuth(nil, nil, nil, nil, keys, config.InternalAuth{})
 
 	var got partnerCall
 	app := fiber.New()
