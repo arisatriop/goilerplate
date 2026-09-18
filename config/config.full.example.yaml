@@ -22,6 +22,13 @@ server:
   read_timeout: 5s
   write_timeout: 5s
   idle_timeout: 120s
+  # Addresses or CIDRs allowed to set the forwarding header. Empty (the default) trusts nobody,
+  # so the client IP is always the peer that connected and a spoofed X-Forwarded-For is ignored.
+  # List your load balancer or ingress here when one sits in front of the app.
+  trusted_proxies:
+    - 10.0.0.0/8
+  proxy_header: X-Forwarded-For # header consulted, but only from a trusted proxy
+  hsts: true # send Strict-Transport-Security; only where TLS terminates in front of the app
   enable_cors: false
   cors:
     allow_origin: https://app.example.com

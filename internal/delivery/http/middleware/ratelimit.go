@@ -3,6 +3,7 @@ package middleware
 import (
 	"goilerplate/config"
 	"goilerplate/pkg/constants"
+	"goilerplate/pkg/hash"
 	"goilerplate/pkg/response"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,7 +11,13 @@ import (
 )
 
 type RateLimiter struct {
-	Auth    fiber.Handler
+	// Auth limits unauthenticated endpoints by IP: login, register, and later forgot-password
+	// and OTP. These are the ones an attacker can hammer without credentials.
+	Auth fiber.Handler
+	// Session limits endpoints that already carry a valid token but run before the user
+	// limiter, keyed per session rather than per IP. Everyone behind one NAT shares an IP, so
+	// keying these by IP would let one user throttle a whole office.
+	Session fiber.Handler
 	User    fiber.Handler
 	Partner fiber.Handler
 }
@@ -21,12 +28,15 @@ type RateLimiter struct {
 func NewRateLimiter(cfg config.RateLimit, storage fiber.Storage) *RateLimiter {
 	return &RateLimiter{
 		Auth:    newAuthLimiter(cfg.Auth, storage),
+		Session: newSessionLimiter(cfg.User, storage),
 		User:    newUserLimiter(cfg.User, storage),
 		Partner: newPartnerLimiter(cfg.Partner, storage),
 	}
 }
 
 // newAuthLimiter limits by IP — protects login/register from brute force.
+// Only unauthenticated endpoints belong here: an authenticated one keyed by IP punishes every
+// user behind the same NAT for one user's traffic.
 func newAuthLimiter(cfg config.RateLimitRule, storage fiber.Storage) fiber.Handler {
 	return limiter.New(limiter.Config{
 		Max:        cfg.Max,
@@ -34,6 +44,26 @@ func newAuthLimiter(cfg config.RateLimitRule, storage fiber.Storage) fiber.Handl
 		Storage:    storage,
 		KeyGenerator: func(c *fiber.Ctx) string {
 			return "auth:" + c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return response.TooManyRequests(c, "")
+		},
+	})
+}
+
+// newSessionLimiter limits refresh and logout per session. It runs after the token has been
+// verified, so the session ID is available; falling back to the IP covers the window where an
+// early failure means no session was ever established.
+func newSessionLimiter(cfg config.RateLimitRule, storage fiber.Storage) fiber.Handler {
+	return limiter.New(limiter.Config{
+		Max:        cfg.Max,
+		Expiration: cfg.Expiration,
+		Storage:    storage,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			if sessionID, ok := c.Locals(string(constants.ContextKeySessionID)).(string); ok && sessionID != "" {
+				return "session:" + sessionID
+			}
+			return "session:" + c.IP()
 		},
 		LimitReached: func(c *fiber.Ctx) error {
 			return response.TooManyRequests(c, "")
@@ -66,8 +96,10 @@ func newPartnerLimiter(cfg config.RateLimitRule, storage fiber.Storage) fiber.Ha
 		Expiration: cfg.Expiration,
 		Storage:    storage,
 		KeyGenerator: func(c *fiber.Ctx) string {
+			// Hashed, not raw: the key would otherwise sit in Redis under a readable name and
+			// in any dump of the limiter's storage.
 			if apiKey := c.Get("x-api-key"); apiKey != "" {
-				return "partner:" + apiKey
+				return "partner:" + hash.Token(apiKey)
 			}
 			return "partner:" + c.IP()
 		},

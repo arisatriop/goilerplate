@@ -220,8 +220,8 @@ func newDeviceRequest(ctx *fiber.Ctx) auth.DeviceRequest {
 		UserAgent:      ctx.Get(fiber.HeaderUserAgent),
 		AcceptLanguage: ctx.Get(fiber.HeaderAcceptLanguage),
 		AcceptEncoding: ctx.Get(fiber.HeaderAcceptEncoding),
-		ForwardedFor:   ctx.Get(fiber.HeaderXForwardedFor),
-		RealIP:         ctx.Get("X-Real-IP"),
-		RemoteIP:       ctx.IP(),
+		// ctx.IP() already applied the trusted-proxy check configured in bootstrap, so a
+		// forwarding header from an untrusted peer has been ignored by this point.
+		ClientIP: ctx.IP(),
 	}
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"strings"
 )
@@ -55,6 +56,25 @@ func (c *Config) validateApp(v *validation) {
 
 func (c *Config) validateServer(v *validation) {
 	v.port("server.port", c.Server.Port)
+
+	// A malformed entry would silently widen or narrow who is trusted to set forwarding
+	// headers, so it has to stop startup rather than be skipped.
+	for i, proxy := range c.Server.TrustedProxies {
+		proxy = strings.TrimSpace(proxy)
+		if proxy == "" {
+			v.addf("server.trusted_proxies[%d] must not be empty", i)
+			continue
+		}
+		if strings.Contains(proxy, "/") {
+			if _, _, err := net.ParseCIDR(proxy); err != nil {
+				v.addf("server.trusted_proxies[%d] %q is not a valid CIDR", i, proxy)
+			}
+			continue
+		}
+		if net.ParseIP(proxy) == nil {
+			v.addf("server.trusted_proxies[%d] %q is not a valid IP or CIDR", i, proxy)
+		}
+	}
 }
 
 func (c *Config) validateDB(v *validation) {

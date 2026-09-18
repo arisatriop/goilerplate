@@ -4,7 +4,6 @@ package auth
 import (
 	"crypto/md5"
 	"fmt"
-	"net"
 	"strings"
 )
 
@@ -23,9 +22,11 @@ type DeviceRequest struct {
 	UserAgent      string
 	AcceptLanguage string
 	AcceptEncoding string
-	ForwardedFor   string // X-Forwarded-For header
-	RealIP         string // X-Real-IP header
-	RemoteIP       string // peer address as seen by the server
+	// ClientIP is the address the transport already resolved. The delivery layer decides
+	// whether a forwarding header may be believed — Fiber does it with the trusted-proxy
+	// list — because only it knows which hop the request actually arrived from. Re-reading
+	// X-Forwarded-For here would accept whatever the client chose to send.
+	ClientIP string
 }
 
 // DeviceService handles device detection and fingerprinting
@@ -42,37 +43,15 @@ func NewDeviceService() DeviceService {
 
 // ExtractDeviceInfo extracts and generates device information from the request attributes
 func (s *deviceService) ExtractDeviceInfo(req DeviceRequest) *DeviceInfo {
-	ipAddress := s.getClientIP(req)
 	deviceType := s.detectDeviceType(req.UserAgent)
 
 	return &DeviceInfo{
-		DeviceID:   s.generateDeviceFingerprint(req, ipAddress),
+		DeviceID:   s.generateDeviceFingerprint(req, req.ClientIP),
 		DeviceType: deviceType,
 		DeviceName: s.generateDeviceName(deviceType, req.UserAgent),
-		IPAddress:  ipAddress,
+		IPAddress:  req.ClientIP,
 		UserAgent:  req.UserAgent,
 	}
-}
-
-// getClientIP extracts the real client IP from forwarding headers, falling back to the peer address
-func (s *deviceService) getClientIP(req DeviceRequest) string {
-	if req.ForwardedFor != "" {
-		ips := strings.Split(req.ForwardedFor, ",")
-		if len(ips) > 0 {
-			ip := strings.TrimSpace(ips[0])
-			if net.ParseIP(ip) != nil {
-				return ip
-			}
-		}
-	}
-
-	if req.RealIP != "" {
-		if net.ParseIP(req.RealIP) != nil {
-			return req.RealIP
-		}
-	}
-
-	return req.RemoteIP
 }
 
 // detectDeviceType determines the device type from user agent

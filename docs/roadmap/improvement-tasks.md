@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3 done (T3.1–T3.7)
+**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.6 done
 
 ---
 
@@ -132,8 +132,8 @@ jwt:
 | Issue | Addressed by |
 |---|---|
 | **HTTP request logger writes secrets to logs unfiltered**: `Authorization` / `x-api-key` headers, login passwords (request payload), and issued tokens (response body) | T1.7 |
-| Client IP taken from `X-Forwarded-For` without a trusted-proxy check (spoofable); behind a load balancer `c.IP()` is the proxy, so per-IP rate limits are shared by all users | T4.6 |
-| No security response headers | T4.6 |
+| ~~Client IP taken from `X-Forwarded-For` without a trusted-proxy check (spoofable); behind a load balancer `c.IP()` is the proxy, so per-IP rate limits are shared by all users~~ | T4.6 ✅ |
+| ~~No security response headers~~ | T4.6 ✅ |
 | ~~No change-password endpoint; no maximum password length (bcrypt rejects > 72 bytes, surfacing as a 500)~~ | T3.6 ✅, T3.7 ✅ |
 | Registration reveals whether an email is already registered | T5.1 |
 | No security audit events (login failures, lockouts, token reuse, password resets) | T4.7 |
@@ -162,7 +162,7 @@ jwt:
 | S3 driver: no path-style option, public-read only, extra `HeadObject` per upload | T5.3 |
 | Permission cache TTL is 7 days and is only refreshed on login/refresh; role or permission changes are not invalidated (TTL fixed; invalidation hooks await role-management endpoints) | T1.2 |
 | ~~Idempotency middleware lets concurrent duplicates both execute and does not detect a reused key with a different payload~~ | T1.4 ✅ |
-| `/auth/refresh` and `/auth/logout` share the per-IP login rate limit, so users behind one NAT throttle each other | T4.6 |
+| ~~`/auth/refresh` and `/auth/logout` share the per-IP login rate limit, so users behind one NAT throttle each other~~ | T4.6 ✅ |
 | No tests for `domain/auth` or auth middleware | T6.1 |
 | ~~Redis timeouts are multiplied by `time.Second` twice (`5s` config → ~158 years), so dial/read/write/pool timeouts never fire~~ | T1.2 ✅ |
 | ~~Wrong email or password returns `400`; API conventions require `401`~~ | T3.7 ✅ |
@@ -757,19 +757,49 @@ and allowlisted methods still work.
 
 **Done when:** `golangci-lint` is clean and no unused functions remain.
 
-### T4.6 HTTP hardening: client IP and security headers · S
-- [ ] Config `server.trusted_proxies` (CIDR list) and `server.proxy_header`; enable Fiber
-      `EnableTrustedProxyCheck` so forwarded headers are honored only from trusted proxies
-- [ ] `DeviceService` and rate limiters use the resolved `c.IP()`; stop parsing
-      `X-Forwarded-For` / `X-Real-IP` manually
-- [ ] Security headers via Fiber `helmet` (`X-Content-Type-Options`, `X-Frame-Options`,
-      `Referrer-Policy`; `Strict-Transport-Security` when `server.hsts` is on)
-- [ ] Partner rate-limit key uses a hash of the API key, not the raw key
-- [ ] Per-IP auth limiter applies only to unauthenticated endpoints (login, register, forgot
-      password, OTP); `/auth/refresh` and `/auth/logout` are limited per session instead
+### T4.6 HTTP hardening: client IP and security headers · S — ✅ done
+- [x] Config `server.trusted_proxies` (IPs or CIDRs, validated at startup) and
+      `server.proxy_header` (default `X-Forwarded-For`), with Fiber `EnableTrustedProxyCheck`.
+      Empty means trust nobody, so the default is safe: the client IP is always the peer that
+      connected.
+- [x] `DeviceService` takes the already-resolved `ClientIP` and no longer parses
+      `X-Forwarded-For` / `X-Real-IP` itself. Deciding whether a forwarding header may be
+      believed needs to know which hop the request arrived from, which only the transport does.
+- [x] Security headers via Fiber `helmet` (already part of fiber v2 — no new dependency):
+      `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+      `Referrer-Policy: strict-origin-when-cross-origin`, and `X-XSS-Protection: 0` because the
+      legacy filter is itself a vulnerability. `Strict-Transport-Security` when `server.hsts`
+      is on — and only on HTTPS, since telling a browser to refuse plain HTTP from a service
+      only reachable over plain HTTP would lock everyone out.
+- [x] Partner rate-limit key is `hash.Token(apiKey)`, so the raw key never becomes a storage key
+- [x] The per-IP auth limiter now covers only unauthenticated endpoints (login, register).
+      `/auth/refresh`, `/auth/logout`, and `/auth/logout-all` use a new per-**session** limiter
+      that runs after the token is verified.
 
 **Done when:** a spoofed `X-Forwarded-For` from an untrusted source does not change the client IP,
 and security headers are present on every response.
+
+Verified live. With no trusted proxies configured, three logins — one plain, two sending
+`X-Forwarded-For: 203.0.113.7` and `198.51.100.42` plus matching `X-Real-IP` — all recorded
+`127.0.0.1` in `user_sessions`. After adding `127.0.0.1` to `trusted_proxies`, a login carrying
+`X-Forwarded-For: 203.0.113.99` recorded that address instead. Response headers on every request:
+
+```
+X-Xss-Protection: 0
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+Rate-limit separation, with `rate_limit.auth.max: 10`: after 14 logins (`200`×9 then `429`×5),
+`/auth/refresh` and `/auth/logout` both still returned `200` — the shared-bucket problem that
+interfered with the T3.5 and T3.7 test runs is gone.
+
+Tests: a spoofed header from an untrusted peer leaves `ClientIP` unchanged while a trusted peer's
+is honoured; HSTS is absent when off, absent over plain HTTP, present on HTTPS, and **absent when
+an untrusted peer claims `X-Forwarded-Proto: https`**; two sessions from one IP get separate
+budgets; a recording `fiber.Storage` confirms the raw API key never appears as a storage key;
+malformed `trusted_proxies` entries fail startup validation.
 
 ### T4.7 Security event logging · S
 **Depends on:** T1.7
