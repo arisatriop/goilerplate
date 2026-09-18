@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"goilerplate/internal/domain/auth"
+	"goilerplate/pkg/apikey"
 	"goilerplate/pkg/constants"
 	jwtService "goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
@@ -24,7 +25,7 @@ type Auth struct {
 	authRepository    auth.Repository
 	sessionService    *auth.SessionService
 	permissionService *auth.PermissionService
-	apikeys           map[string]string
+	apikeys           *apikey.Registry
 }
 
 func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, sessionService *auth.SessionService, permissionService *auth.PermissionService, apikeys map[string]string) *Auth {
@@ -33,7 +34,9 @@ func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, 
 		authRepository:    authRepository,
 		sessionService:    sessionService,
 		permissionService: permissionService,
-		apikeys:           apikeys,
+		// Built once, so the plaintext keys are reduced to digests at startup instead of being
+		// held in memory for the life of the process.
+		apikeys: apikey.NewRegistry(apikeys),
 	}
 }
 
@@ -157,37 +160,32 @@ func (m *Auth) InternalAuthenticate() fiber.Handler {
 	}
 }
 
-// PartnerAuthenticate provides authentication for partner services
+// PartnerAuthenticate provides authentication for partner services.
+//
+// The partner's identity is its configured name. The key itself goes no further than this
+// function: it used to be stored as the user ID, which put a live credential into every log
+// line the request produced and into any cache keyed on the caller.
 func (m *Auth) PartnerAuthenticate() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		apiKey := ctx.Get("x-api-key")
+		apiKey := ctx.Get(constants.HeaderAPIKey)
 		if apiKey == "" {
 			return response.Unauthorized(ctx, "")
 		}
 
-		isValid := false
-		userID := ""
-		userName := ""
-		for name, key := range m.apikeys {
-			if apiKey == key {
-				isValid = true
-				userID = key
-				userName = name
-				break
-			}
-		}
-
-		if !isValid {
+		name, ok := m.apikeys.Lookup(apiKey)
+		if !ok {
 			return response.Unauthorized(ctx, "")
 		}
 
-		userIdCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyUserID, userID)
-		userNameCtx := context.WithValue(userIdCtx, constants.ContextKeyUserName, userName)
+		// A partner has no identifier separate from its name, so both carry the name. What
+		// matters is that neither carries the key.
+		userIdCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyUserID, name)
+		userNameCtx := context.WithValue(userIdCtx, constants.ContextKeyUserName, name)
 		ctx.SetUserContext(userNameCtx)
 
 		// Set in Locals (for Fiber context usage)
-		ctx.Locals(string(constants.ContextKeyUserID), userID)
-		ctx.Locals(string(constants.ContextKeyUserName), userName)
+		ctx.Locals(string(constants.ContextKeyUserID), name)
+		ctx.Locals(string(constants.ContextKeyUserName), name)
 
 		return ctx.Next()
 	}

@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.6, T4.7 done
+**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.2, T4.6, T4.7 done
 
 ---
 
@@ -149,7 +149,7 @@ jwt:
 | ~~Logout errors printed with `fmt.Printf` and swallowed~~ (that code is gone) | T3.2 ✅, T3.5 ✅ |
 | ~~Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber~~ | T1.2 ✅, T1.6 ✅ |
 | `/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule | T4.1 |
-| Partner API key compared with `==` (not constant time); raw key stored in context | T4.2 |
+| ~~Partner API key compared with `==` (not constant time); raw key stored in context~~ | T4.2 ✅ |
 | gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
 | ~~Idempotency middleware becomes a no-op without Redis~~ | T1.4 ✅ |
 | ~~Migrations are PostgreSQL-only although MySQL is a supported driver~~ | T2.1 ✅ |
@@ -713,12 +713,64 @@ Response-time medians over 8 requests each: unknown email 52.6 ms, existing acco
 - a request to `/internal/*` through the public gateway does not reach the app
 - with `shared_secret` enabled, requests without the secret get 401
 
-### T4.2 Harden partner API keys · S
-- [ ] `subtle.ConstantTimeCompare`
-- [ ] Optional: store keys in config as SHA-256 hashes
-- [ ] Put the partner name in context, never the raw key
+### T4.2 Harden partner API keys · S — ✅ done
+- [x] `subtle.ConstantTimeCompare`, over two SHA-256 digests rather than the raw strings.
+      Comparing the raw values returns early on a length mismatch, which reveals how long the
+      real key is. The lookup also visits every configured partner instead of stopping at the
+      first match, so the time taken does not depend on which partner presented the key.
+- [x] Store keys in config as SHA-256 hashes: a value may be written `sha256:<64 hex chars>`
+      instead of the key itself. The server only ever compares digests, so both forms behave
+      identically and a config file need never hold a usable credential.
+- [x] Put the partner name in context, never the raw key
 
-**Done when:** keys never appear in context or logs.
+New `pkg/apikey` holds the `Registry`. Entries are a slice, not a map, because the lookup
+deliberately visits all of them. Only digests are kept, so the plaintext keys are reduced at
+startup rather than held in memory for the life of the process.
+
+Config validation rejects a malformed digest at startup — a typo would otherwise become a partner
+that can simply never authenticate. A digest is checked for shape only: the production entropy
+heuristics cannot see through SHA-256 (a hashed `changeme` looks exactly as strong as a hashed
+random key), so running them on a digest would claim a confidence the value has not earned. The
+plaintext form is still checked as before.
+
+**Done when:** keys never appear in context or logs. ✅
+
+Verified live, against the previous implementation for comparison. Two partners were configured,
+`acme` with a plaintext key and `globex` with `sha256:...`:
+
+| Presented | Before (HEAD) | After |
+|---|---|---|
+| `acme`'s key | 200 | 200 |
+| `globex`'s key (configured as a digest) | **401** — the form did not exist | 200 |
+| correct key + one extra character | 401 | 401 |
+| correct key minus the last character | 401 | 401 |
+| the digest itself, used as a key | 401 | 401 |
+| no header | 401 | 401 |
+
+Forcing one domain log on a partner route, the `application-log` entry read:
+
+```
+before:  "user_id": "partner-key-plaintext-7f3a9c2e5b1d"     ← a live credential in the log
+after:   "user_id": "acme"
+```
+
+`logger.baseAttrs` puts `user_id` on every application log entry, so under the old code every log
+line a partner request produced carried its API key. The `x-api-key` *header* was already redacted
+by T1.7 — the leak was the context value, which redaction never saw. Grepping the new server's
+whole log for either raw key: 0 occurrences.
+
+Note that a digest is not a credential: presenting `globex`'s digest as the key is rejected, which
+is the property that makes storing it in config worth anything.
+
+Tests: name resolution, rejection of a key that is one character too long or too short, both
+configured forms authenticating the same partner, a digest pasted in upper case, a malformed
+digest matching nothing, an empty registry rejecting everyone including a request with no header,
+the registry holding only digests, and the middleware putting the name — not the key — into both
+the Go context and Fiber locals.
+
+**Not addressed here:** partner routes apply the rate limiter *after* authentication, so guesses
+against the API key are not rate limited at all. Keying the limiter by API key would not help, as
+an attacker gets a fresh bucket per guess; this needs a per-IP limit on partner routes.
 
 ### T4.3 gRPC auth interceptor · M
 **Depends on:** T1.3, T3.2

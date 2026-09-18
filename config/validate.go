@@ -6,6 +6,8 @@ import (
 	"net"
 	"regexp"
 	"strings"
+
+	"goilerplate/pkg/apikey"
 )
 
 const (
@@ -236,6 +238,17 @@ func (c *Config) validateFileSystem(v *validation) {
 func (c *Config) validateAPIKeys(v *validation) {
 	for name, key := range c.Apikeys {
 		field := "api_key." + name
+
+		// A digest is checked for shape only. The entropy heuristics below cannot see through
+		// SHA-256 — a hashed "changeme" looks exactly as strong as a hashed random key — so
+		// running them on a digest would report a confidence the value does not earn.
+		if apikey.IsHashed(key) {
+			if err := apikey.ValidateConfigured(key); err != nil {
+				v.addf("%s %s", field, err)
+			}
+			continue
+		}
+
 		v.required(field, key)
 		if c.IsProduction() {
 			v.notSample(field, key)

@@ -98,7 +98,7 @@ func newPartnerLimiter(cfg config.RateLimitRule, storage fiber.Storage) fiber.Ha
 		KeyGenerator: func(c *fiber.Ctx) string {
 			// Hashed, not raw: the key would otherwise sit in Redis under a readable name and
 			// in any dump of the limiter's storage.
-			if apiKey := c.Get("x-api-key"); apiKey != "" {
+			if apiKey := c.Get(constants.HeaderAPIKey); apiKey != "" {
 				return "partner:" + hash.Token(apiKey)
 			}
 			return "partner:" + c.IP()

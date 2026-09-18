@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"goilerplate/pkg/apikey"
 	"goilerplate/pkg/filesystem"
+	"goilerplate/pkg/hash"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,6 +90,15 @@ func TestConfig_Validate_Rules(t *testing.T) {
 			c.Auth.RememberMeExpiry = time.Hour
 		}, "auth.remember_me_expiry must not be shorter than auth.session_expiry"},
 		{"api key placeholder", func(c *Config) { c.Apikeys["partner1"] = "<API_KEY_PARTNER1>" }, "api_key.partner1 still contains the placeholder"},
+		{"api key digest too short", func(c *Config) {
+			c.Apikeys["partner1"] = apikey.HashPrefix + strings.Repeat("a", 63)
+		}, "api_key.partner1 must be sha256: followed by 64 hex characters, got 63"},
+		{"api key digest not hex", func(c *Config) {
+			c.Apikeys["partner1"] = apikey.HashPrefix + strings.Repeat("z", 64)
+		}, "api_key.partner1 must be sha256: followed by hex characters"},
+		{"api key digest", func(c *Config) {
+			c.Apikeys["partner1"] = apikey.HashPrefix + strings.Repeat("ab", 32)
+		}, ""},
 		{"db pool size zero", func(c *Config) { c.DB.MaxOpenConnections = 0 }, "db.max_open_connections must be at least 1, got 0"},
 		{"bad trusted proxy CIDR", func(c *Config) { c.Server.TrustedProxies = []string{"10.0.0.0/99"} }, `server.trusted_proxies[0] "10.0.0.0/99" is not a valid CIDR`},
 		{"bad trusted proxy IP", func(c *Config) { c.Server.TrustedProxies = []string{"not-an-ip"} }, `server.trusted_proxies[0] "not-an-ip" is not a valid IP or CIDR`},
@@ -228,4 +239,22 @@ func TestServer_ProxyHeaderOrDefault(t *testing.T) {
 	assert.Equal(t, "X-Forwarded-For", Server{}.ProxyHeaderOrDefault())
 	assert.Equal(t, "X-Forwarded-For", Server{ProxyHeader: "  "}.ProxyHeaderOrDefault())
 	assert.Equal(t, "CF-Connecting-IP", Server{ProxyHeader: "CF-Connecting-IP"}.ProxyHeaderOrDefault())
+}
+
+// A digest of a weak key looks exactly as strong as a digest of a random one, so the entropy
+// heuristics must not be applied to it — claiming to have checked something SHA-256 hides would
+// be worse than not checking. The plaintext form is still checked.
+func TestConfig_Validate_ProductionSkipsEntropyChecksOnHashedAPIKeys(t *testing.T) {
+	weak := "changeme"
+
+	hashed := validConfig()
+	hashed.App.Env = "production"
+	hashed.Apikeys["default"] = apikey.HashPrefix + hash.Token(weak)
+	assert.NoError(t, hashed.Validate(), "a digest is accepted on its shape alone")
+
+	plain := validConfig()
+	plain.App.Env = "production"
+	plain.Apikeys["default"] = weak
+	require.Error(t, plain.Validate())
+	assert.Contains(t, plain.Validate().Error(), `api_key.default looks like an example value`)
 }
