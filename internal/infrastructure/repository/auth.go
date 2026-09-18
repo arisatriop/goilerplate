@@ -102,28 +102,6 @@ func (r *authRepository) RegisterFailedLogin(ctx context.Context, userID string,
 	return row.LockedUntil != nil && row.LockedUntil.After(utils.Now()), nil
 }
 
-func (r *authRepository) LockUser(ctx context.Context, userID string, lockedUntil *time.Time) error {
-	updates := map[string]interface{}{
-		"locked_until": lockedUntil,
-		"updated_at":   utils.Now(),
-	}
-
-	result := r.db.WithContext(ctx).
-		Model(&model.User{}).
-		Where("id = ? AND deleted_at IS NULL", userID).
-		Updates(updates)
-
-	if result.Error != nil {
-		return result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		return auth.ErrNotFound
-	}
-
-	return nil
-}
-
 func (r *authRepository) UpdateUserLoginInfo(ctx context.Context, userID string, resetFailedAttempts bool) error {
 	now := utils.Now()
 	updates := map[string]interface{}{
@@ -216,18 +194,6 @@ func (r *authRepository) GetSessionByID(ctx context.Context, sessionID string) (
 	}
 
 	return userSessionModelToEntity(&sessionModel), nil
-}
-
-func (r *authRepository) DeleteUserSessions(ctx context.Context, userID string) error {
-	result := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Delete(&model.UserSession{})
-
-	if result.Error != nil {
-		return result.Error
-	}
-
-	return nil
 }
 
 func (r *authRepository) DeactivateUserSessions(ctx context.Context, userID, reason string) error {

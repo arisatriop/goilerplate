@@ -7,6 +7,10 @@ linters:
     - staticcheck
     - ineffassign
     - misspell
+    # T4.5 asks that no unused functions remain. Enforcing it here keeps that true instead of
+    # being a sweep that decays. It only sees unexported symbols, so exported dead code still
+    # needs a human to notice.
+    - unused
   exclusions:
     rules:
       - path: _test\.go

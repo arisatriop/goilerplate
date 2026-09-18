@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -69,8 +70,10 @@ func (tm *TokenManager) GetToken(ctx context.Context) (*oauth2.Token, error) {
 
 	// Cache the new token
 	if err := tm.cacheToken(); err != nil {
-		// Log but don't fail - caching is optional
-		fmt.Printf("Warning: failed to cache token: %v\n", err)
+		// Caching is optional, so this does not fail the call — but it belongs in the logs
+		// with a level rather than on stdout. slog rather than pkg/logger: that package
+		// imports config, which imports this one.
+		slog.ErrorContext(ctx, "caching drive token", "error", err)
 	}
 
 	return tm.token, nil
@@ -149,21 +152,4 @@ func (tm *TokenManager) cacheToken() error {
 // ClearCache removes the cached token file
 func (tm *TokenManager) ClearCache() error {
 	return os.Remove(tm.cacheFile)
-}
-
-// TokenInfo returns information about the current token
-func (tm *TokenManager) TokenInfo() (isValid bool, expiresIn time.Duration) {
-	tm.tokenMu.RLock()
-	defer tm.tokenMu.RUnlock()
-
-	if tm.token == nil {
-		return false, 0
-	}
-
-	isValid = tm.token.Valid()
-	if isValid {
-		expiresIn = time.Until(tm.token.Expiry)
-	}
-
-	return isValid, expiresIn
 }

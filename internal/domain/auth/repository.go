@@ -14,7 +14,6 @@ type Repository interface {
 	// Session operations
 	CreateSession(ctx context.Context, session *UserSession) (*UserSession, error)
 	GetSessionByID(ctx context.Context, sessionID string) (*UserSession, error)
-	DeleteUserSessions(ctx context.Context, userID string) error
 	DeactivateUserSessions(ctx context.Context, userID, reason string) error
 	RevokeSession(ctx context.Context, userID, sessionID, reason string) error
 	RotateRefreshJTI(ctx context.Context, sessionID, currentJTI, newJTI string) error
@@ -24,7 +23,6 @@ type Repository interface {
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, userID string) (*User, error)
-	LockUser(ctx context.Context, userID string, lockedUntil *time.Time) error
 	UpdateUserLoginInfo(ctx context.Context, userID string, resetFailedAttempts bool) error
 	RegisterFailedLogin(ctx context.Context, userID string, maxAttempts int, lockUntil time.Time) (bool, error)
 	ResetExpiredLock(ctx context.Context, userID string) error

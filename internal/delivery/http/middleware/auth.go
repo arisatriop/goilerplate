@@ -79,22 +79,16 @@ func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		var clientError *utils.ClientError
 
-		// Extract token from Authorization header
-		authHeader := ctx.Get("Authorization")
-		if authHeader == "" {
-			return response.Unauthorized(ctx, "Authorization header missing")
-		}
-
-		token, err := m.extractBearerToken(authHeader)
+		token, err := bearerToken(ctx)
 		if err != nil {
-			return response.Unauthorized(ctx, "Invalid authorization format")
+			return response.Unauthorized(ctx, "")
 		}
 
 		// Validate token and get claims. This accepts refresh tokens only, so an access
 		// token presented here fails to verify.
 		claims, err := m.jwtService.ValidateRefreshToken(token)
 		if err != nil {
-			return response.Unauthorized(ctx, "Invalid or expired token")
+			return response.Unauthorized(ctx, "")
 		}
 
 		// Refresh always checks the session, whatever auth.revocation says: this is the point
@@ -253,14 +247,9 @@ func (m *Auth) PartnerAuthenticate() fiber.Handler {
 
 // validateAuthHeader extracts and validates the authorization header
 func (m *Auth) validateAuthHeader(ctx *fiber.Ctx) (*jwtService.Claims, error) {
-	authHeader := ctx.Get("Authorization")
-	if authHeader == "" {
-		return nil, utils.ClientErr(http.StatusUnauthorized, "Unauthorized")
-	}
-
-	token, err := m.extractBearerToken(authHeader)
+	token, err := bearerToken(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract bearer token: %w", err)
+		return nil, err
 	}
 
 	// ValidateAccessToken pins the algorithm, issuer, audience, signing key and token type,
@@ -285,14 +274,14 @@ func (m *Auth) setUserContext(ctx *fiber.Ctx, userID, userName, sessionID string
 	ctx.Locals(string(constants.ContextKeySessionID), sessionID)
 }
 
-// extractBearerToken extracts JWT token from Authorization header
-func (m *Auth) extractBearerToken(authHeader string) (string, error) {
-	if authHeader == "" {
-		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
-	}
-
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+// bearerToken reads the token out of the Authorization header.
+//
+// Every failure answers the same way. Telling a caller whether the header was missing, not a
+// Bearer scheme, or empty after the scheme describes our parser, not their mistake, and the one
+// thing it reliably tells an attacker is which of their guesses got further.
+func bearerToken(ctx *fiber.Ctx) (string, error) {
+	parts := strings.SplitN(ctx.Get(fiber.HeaderAuthorization), " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
 		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 	}
 

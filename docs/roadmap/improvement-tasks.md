@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.1, T4.2, T4.6, T4.7 done
+**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.1, T4.2, T4.5, T4.6, T4.7 done (T4.3, T4.4 remain)
 
 ---
 
@@ -852,17 +852,75 @@ and allowlisted methods still work.
 
 **Done when:** the job runs in the minimal profile, and with Redis only one instance executes it.
 
-### T4.5 Auth code cleanup · M
+### T4.5 Auth code cleanup · M — ✅ done
 **Depends on:** Phase 3
-- [ ] Remove duplicated `extractBearerToken` / validation between middleware and `TokenService`
-- [ ] Extract the shared "menus + permissions" builder used by Login and Refresh
-- [ ] Remove dead code: commented-out entities, `IsAdmin()`, `UserToken.IsRevoked`,
-      `Repository.DeleteUserSessions`, `TokenStorage.MarkTokenAsUsedAsync`
-      (`TokenService.ValidateAndGetClaims` / `ValidateRefreshTokenAndGetUser` removed in T1.2),
-      unused expiry constants in `domain/auth/error.go`
-- [ ] All logging through the structured logger
+- [x] Remove duplicated `extractBearerToken` / validation between middleware and `TokenService`.
+      `TokenService` was already gone (T1.2), but the two remaining callers each checked for an
+      empty header and then called a parser that checked again. Now one `bearerToken(ctx)` reads
+      and parses, and every failure answers identically — telling a caller whether the header was
+      missing, not Bearer, or empty after the scheme describes our parser, and the one thing it
+      reliably tells an attacker is which guess got further.
+- [x] Extract the shared "menus + permissions" builder used by Login and Refresh — done in T3.x
+      as `buildMenuAndPermissions`, but it still **reimplemented permission resolution**: the
+      same three queries and its own byte-identical copy of `mergePermissions`. See below.
+- [x] Remove dead code (list below)
+- [x] All logging through the structured logger
 
-**Done when:** `golangci-lint` is clean and no unused functions remain.
+**The find worth naming.** `authUseCase.mergePermissions` and `PermissionService.mergePermissions`
+were character-for-character identical, and `buildMenuAndPermissions` duplicated the whole
+roles → role permissions → overrides → merge sequence that `GetUserFinalPermissions` already did.
+So the permission list handed to the client at login and the list `RequiredPermission` enforces on
+every request afterwards were produced by two separate implementations reading the same tables. A
+change to grant/revoke semantics in one would have left the token saying a user has a permission
+the enforcement denies, or the reverse. `buildMenuAndPermissions` now calls the same resolver the
+per-request check uses, and the second copy is gone.
+
+**Removed as dead** (each verified to have no caller):
+
+| Removed | Note |
+|---|---|
+| `User.Password` | plaintext password field on the entity, never set or read |
+| `User.RememberMe` | never set or read; the live one is on `LoginCredentials` |
+| `User.IsAdmin()` | returned a hardcoded `false` with a TODO |
+| `User.ShouldLockAccount()` | lockout is decided inside `RegisterFailedLogin`'s `UPDATE` (T3.7), so a read-then-compare helper is the race that change removed |
+| `auth.Login` struct | nothing constructed it |
+| `TokenType*` constants | a second definition of the same three strings as `OneTimeToken*`, which is the live set matching the DB `CHECK` |
+| commented-out `TokenPair`, `Login`, `ChangePassword`, `ForgotPassword`, `ResetPassword`, `RefreshToken`, `AuthResponse` | ~50 lines of commented-out entities |
+| `Repository.DeleteUserSessions` + impl | sessions are deactivated, never deleted, to keep the audit trail |
+| `Repository.LockUser` + impl | superseded by `RegisterFailedLogin` |
+| `MaxFailedLoginAttempts`, `AccountLockDuration`, `AccessTokenExpiry`, `RefreshTokenExpiry`, `VerificationTokenExpiry`, `ResetTokenExpiry` | every one is now a config key; leaving hardcoded twins invites reading the wrong value |
+| `TokenManager.TokenInfo()` | its only caller was a commented-out log line, removed with it |
+
+**Kept deliberately**, despite having no caller yet: the `one_time_tokens` repository methods and
+`PermissionService.InvalidateAllPermissions`. Both are tested foundations waiting on T5.1 and
+role-management endpoints respectively, not leftovers.
+
+**Logging:** `domain/auth`, the middleware, the handlers, the repository and `config` contain no
+`fmt.Print`/`log.Print` at all. Two genuine ones remained in `pkg/filesystem` (Google Drive),
+writing `Warning: ...` to stdout with no level. They now go through `slog` — not `pkg/logger`,
+because that package imports `config`, which imports `pkg/filesystem`.
+
+**Done when:** `golangci-lint` is clean and no unused functions remain. ✅
+
+`unused` is now enabled in `.golangci.yml`, so "no unused functions" is enforced rather than
+being a sweep that decays. It only sees unexported symbols, so exported dead code still needs a
+human — which is how everything in the table above was found.
+
+Net: **233 deletions against 37 insertions**, `golangci-lint` 0 issues, all 20 packages passing.
+
+Verified live that consolidating permission resolution changed no behaviour. A user with role
+`editor` granted `bar.list`, `bar.create`, `bar.delete`, plus a user-level **revoke** of
+`bar.delete` and a user-level **grant** of `foo.list`:
+
+| | Result |
+|---|---|
+| permissions in the login response | `[bar.create, bar.list, foo.list]` |
+| permissions in the refresh response | `[bar.create, bar.list, foo.list]` |
+| `GET /api/v1/bars` (`bar.list`, granted) | 200 |
+| `DELETE /api/v1/bars/:id` (`bar.delete`, revoked by override) | 403 |
+
+So the override semantics survive, and the list the client is handed agrees with what the
+enforcement path allows — which is the property the two implementations put at risk.
 
 ### T4.6 HTTP hardening: client IP and security headers · S — ✅ done
 - [x] Config `server.trusted_proxies` (IPs or CIDRs, validated at startup) and
