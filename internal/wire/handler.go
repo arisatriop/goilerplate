@@ -52,7 +52,8 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 
 // WireMiddleware creates all middleware components
 func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Infrastructure) *Middleware {
-	sessionService := auth.NewSessionService(repos.AuthRepo, infrastructure.SessionStore)
+	strictRevocation := cfg.Auth.RevocationMode() == config.RevocationStrict
+	sessionService := auth.NewSessionService(repos.AuthRepo, infrastructure.SessionStore, strictRevocation)
 	permissionService := auth.NewPermissionService(repos.AuthRepo, infrastructure.PermissionCache)
 
 	return &Middleware{

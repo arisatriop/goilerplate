@@ -73,19 +73,6 @@ type UserSession struct {
 // 	RefreshTokenExpiresAt time.Time
 // }
 
-// UserToken represents verification and reset tokens
-type UserToken struct {
-	ID        string
-	UserID    string
-	TokenHash string
-	TokenType string
-	ExpiresAt time.Time
-	UsedAt    *time.Time
-	IsRevoked bool
-	IPAddress string
-	UserAgent string
-}
-
 type Login struct {
 	User    *User
 	Token   *jwt.TokenPair
@@ -154,21 +141,6 @@ func (s *UserSession) IsExpired() bool {
 // IsValidSession checks if the session is valid and active
 func (s *UserSession) IsValidSession() bool {
 	return s.IsActive && !s.IsExpired()
-}
-
-// IsExpired checks if the token has expired
-func (t *UserToken) IsExpired() bool {
-	return utils.Now().After(t.ExpiresAt)
-}
-
-// IsUsed checks if the token has been used
-func (t *UserToken) IsUsed() bool {
-	return t.UsedAt != nil
-}
-
-// IsValid checks if the token is valid (not expired and not used)
-func (t *UserToken) IsValid() bool {
-	return !t.IsExpired() && !t.IsUsed()
 }
 
 // Login represents login request in domain layer

@@ -89,6 +89,8 @@ func TestConfig_Validate_Rules(t *testing.T) {
 		}, "auth.remember_me_expiry must not be shorter than auth.session_expiry"},
 		{"api key placeholder", func(c *Config) { c.Apikeys["partner1"] = "<API_KEY_PARTNER1>" }, "api_key.partner1 still contains the placeholder"},
 		{"db pool size zero", func(c *Config) { c.DB.MaxOpenConnections = 0 }, "db.max_open_connections must be at least 1, got 0"},
+		{"unknown revocation mode", func(c *Config) { c.Auth.Revocation = "sometimes" }, `auth.revocation must be strict or refresh_only, got "sometimes"`},
+		{"refresh_only revocation", func(c *Config) { c.Auth.Revocation = "refresh_only" }, ""},
 		{"unknown session cache", func(c *Config) { c.Auth.SessionCache = "memcached" }, `auth.session_cache must be auto, none, memory, or redis, got "memcached"`},
 		{"redis session cache without redis", func(c *Config) { c.Auth.SessionCache = "redis" }, "auth.session_cache=redis requires redis.enabled=true"},
 		{"memory session cache", func(c *Config) { c.Auth.SessionCache = "memory" }, ""},
@@ -207,4 +209,13 @@ func TestAuth_TTLDefaults(t *testing.T) {
 	custom := Auth{SessionCacheTTL: 5 * time.Second, PermissionCacheTTL: time.Minute}
 	assert.Equal(t, 5*time.Second, custom.SessionCacheTTLOrDefault())
 	assert.Equal(t, time.Minute, custom.PermissionCacheTTLOrDefault())
+}
+
+func TestAuth_RevocationMode(t *testing.T) {
+	// Unset and unknown values fall back to strict: revocation must be secure by default.
+	assert.Equal(t, RevocationStrict, Auth{}.RevocationMode())
+	assert.Equal(t, RevocationStrict, Auth{Revocation: "strict"}.RevocationMode())
+	assert.Equal(t, RevocationStrict, Auth{Revocation: "  STRICT  "}.RevocationMode())
+	assert.Equal(t, RevocationRefreshOnly, Auth{Revocation: "refresh_only"}.RevocationMode())
+	assert.Equal(t, RevocationRefreshOnly, Auth{Revocation: " Refresh_Only "}.RevocationMode())
 }

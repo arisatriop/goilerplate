@@ -131,6 +131,12 @@ func (c *Config) validateJWT(v *validation) {
 }
 
 func (c *Config) validateAuth(v *validation) {
+	switch strings.ToLower(strings.TrimSpace(c.Auth.Revocation)) {
+	case "", RevocationStrict, RevocationRefreshOnly:
+	default:
+		v.addf("auth.revocation must be strict or refresh_only, got %q", c.Auth.Revocation)
+	}
+
 	switch strings.ToLower(strings.TrimSpace(c.Auth.SessionCache)) {
 	case "", CacheModeAuto, CacheModeNone, CacheModeMemory:
 	case CacheModeRedis:

@@ -227,88 +227,6 @@ func (r *authRepository) DeactivateUserSessions(ctx context.Context, userID, rea
 	return nil
 }
 
-// Token operations
-func (r *authRepository) CreateToken(ctx context.Context, token *auth.UserToken) (*auth.UserToken, error) {
-	tokenModel := &model.UserToken{
-		ID:        token.ID,
-		UserID:    token.UserID,
-		TokenHash: token.TokenHash,
-		TokenType: token.TokenType,
-		ExpiresAt: token.ExpiresAt,
-		UsedAt:    token.UsedAt,
-		IPAddress: token.IPAddress,
-		UserAgent: token.UserAgent,
-	}
-
-	if err := r.db.WithContext(ctx).Create(tokenModel).Error; err != nil {
-		return nil, err
-	}
-
-	return token, nil
-}
-
-func (r *authRepository) GetTokenByHash(ctx context.Context, tokenHash string) (*auth.UserToken, error) {
-	var tokenModel model.UserToken
-	if err := r.db.WithContext(ctx).
-		Where("token_hash = ?", tokenHash).
-		First(&tokenModel).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return r.tokenModelToEntity(&tokenModel), nil
-}
-
-func (r *authRepository) DeleteTokenByHash(ctx context.Context, tokenHash string) error {
-	result := r.db.WithContext(ctx).
-		Where("token_hash = ?", tokenHash).
-		Delete(&model.UserToken{})
-
-	if result.Error != nil {
-		return result.Error
-	}
-
-	// Check if any rows were actually deleted
-	if result.RowsAffected == 0 {
-		return auth.ErrNotFound
-	}
-
-	return nil
-}
-
-func (r *authRepository) GetUserTokens(ctx context.Context, userID string) ([]auth.UserToken, error) {
-	var tokenModels []model.UserToken
-	err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Find(&tokenModels).Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert models to entities
-	tokens := make([]auth.UserToken, len(tokenModels))
-	for i, tokenModel := range tokenModels {
-		tokens[i] = *r.tokenModelToEntity(&tokenModel)
-	}
-
-	return tokens, nil
-}
-
-func (r *authRepository) DeleteUserTokens(ctx context.Context, userID string) error {
-	result := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Delete(&model.UserToken{})
-
-	if result.Error != nil {
-		return result.Error
-	}
-
-	return nil
-}
-
 // RevokeSession deactivates one session in a single conditional UPDATE, so concurrent
 // logouts cannot both report success. It returns auth.ErrNotFound when the session does not
 // belong to the user or was already revoked.
@@ -347,24 +265,6 @@ func (r *authRepository) GetUserByID(ctx context.Context, userID string) (*auth.
 	}
 
 	return r.userModelToEntity(&data), nil
-}
-
-func (r *authRepository) MarkTokenAsUsed(ctx context.Context, token string) error {
-	now := utils.Now()
-	result := r.db.WithContext(ctx).
-		Model(&model.UserToken{}).
-		Where("token_hash = ?", token).
-		Update("used_at", now)
-
-	if result.Error != nil {
-		return result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		return auth.ErrNotFound
-	}
-
-	return nil
 }
 
 // GetParentMenus retrieves all parent menus (menus without parent_id)
@@ -559,24 +459,6 @@ func (r *authRepository) userModelToEntity(m *model.User) *auth.User {
 		LastLoginAt:         m.LastLoginAt,
 		FailedLoginAttempts: m.FailedLoginAttempts,
 		LockedUntil:         m.LockedUntil,
-	}
-}
-
-// tokenModelToEntity converts model.UserToken to auth.UserToken entity
-func (r *authRepository) tokenModelToEntity(m *model.UserToken) *auth.UserToken {
-	if m == nil {
-		return nil
-	}
-
-	return &auth.UserToken{
-		ID:        m.ID,
-		UserID:    m.UserID,
-		TokenHash: m.TokenHash,
-		TokenType: m.TokenType,
-		ExpiresAt: m.ExpiresAt,
-		UsedAt:    m.UsedAt,
-		IPAddress: m.IPAddress,
-		UserAgent: m.UserAgent,
 	}
 }
 

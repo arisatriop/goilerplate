@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"goilerplate/pkg/constants"
 	"goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/utils"
@@ -28,9 +30,7 @@ func (e SessionExpiry) For(rememberMe bool) time.Duration {
 type authUseCase struct {
 	authRepo          Repository
 	jwtService        *jwt.JWTService
-	tokenService      *TokenService
 	userValidator     *UserValidator
-	tokenStorage      *TokenStorage
 	menuService       *MenuService
 	sessionService    *SessionService
 	permissionService *PermissionService
@@ -41,9 +41,9 @@ type authUseCase struct {
 type Usecase interface {
 	Register(ctx context.Context, entity *User) error
 	Login(ctx context.Context, credentials *LoginCredentials, deviceInfo *DeviceInfo) (*LoginResult, error)
-	Logout(ctx context.Context, userID string, tokenHash string, sessionID string) error
+	Logout(ctx context.Context, userID string, sessionID string) error
 	LogoutAll(ctx context.Context, userID string) error
-	RefreshToken(ctx context.Context, userID string, sessionID string, tokenHash string, refreshToken string, refreshTokenExpiresAt time.Time, deviceInfo *DeviceInfo) (*LoginResult, error)
+	RefreshToken(ctx context.Context, userID string, sessionID string, refreshToken string, refreshTokenExpiresAt time.Time, deviceInfo *DeviceInfo) (*LoginResult, error)
 }
 
 func NewUseCase(
@@ -53,17 +53,13 @@ func NewUseCase(
 	permissionService *PermissionService,
 	sessionExpiry SessionExpiry,
 ) Usecase {
-	tokenService := NewTokenService(authRepo)
 	userValidator := NewUserValidator(authRepo)
-	tokenStorage := NewTokenStorage(authRepo)
 	menuService := NewMenuService(authRepo)
 
 	return &authUseCase{
 		authRepo:          authRepo,
 		jwtService:        jwtService,
-		tokenService:      tokenService,
 		userValidator:     userValidator,
-		tokenStorage:      tokenStorage,
 		menuService:       menuService,
 		sessionService:    sessionService,
 		permissionService: permissionService,
@@ -133,12 +129,6 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	// Store tokens in database
-	err = uc.tokenStorage.StoreTokenPair(ctx, user.ID, sessionID, tokenPair, deviceInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store tokens: %w", err)
-	}
-
 	// Start the session with fresh permissions; the cache refills on the next check
 	if err := uc.permissionService.InvalidateUserPermissions(ctx, user.ID); err != nil {
 		logger.Error(ctx, err)
@@ -185,12 +175,16 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 	}, nil
 }
 
-// Logout invalidates both access and refresh tokens for the current user session
-// Note: Authentication is handled by middleware, userID, tokenHash, and sessionID come from context
-func (uc *authUseCase) Logout(ctx context.Context, userID string, tokenHash string, sessionID string) error {
-	// Delete tokens (no need to validate - already done in middleware)
-	if err := uc.tokenService.DeleteTokens(ctx, tokenHash, userID, sessionID); err != nil {
-		return err
+// Logout revokes the caller's session, which is what invalidates both of its tokens: the
+// access token stops passing the session check and the refresh token can no longer be
+// exchanged. Other devices keep their own sessions.
+// Note: Authentication is handled by middleware, userID and sessionID come from context.
+func (uc *authUseCase) Logout(ctx context.Context, userID string, sessionID string) error {
+	if err := uc.authRepo.RevokeSession(ctx, userID, sessionID, RevokedReasonLogout); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+		}
+		return fmt.Errorf("revoking session: %w", err)
 	}
 
 	uc.sessionService.Evict(ctx, sessionID)
@@ -201,10 +195,6 @@ func (uc *authUseCase) Logout(ctx context.Context, userID string, tokenHash stri
 // LogoutAll invalidates all tokens for a user (logout from all devices)
 // Note: Authentication is handled by middleware, userID comes from context
 func (uc *authUseCase) LogoutAll(ctx context.Context, userID string) error {
-	if err := uc.authRepo.DeleteUserTokens(ctx, userID); err != nil {
-		return fmt.Errorf("failed to delete user tokens: %w", err)
-	}
-
 	// Sessions are deactivated, not deleted, to keep an audit trail
 	if err := uc.authRepo.DeactivateUserSessions(ctx, userID, RevokedReasonLogoutAll); err != nil {
 		return fmt.Errorf("failed to deactivate user sessions: %w", err)
@@ -217,7 +207,7 @@ func (uc *authUseCase) LogoutAll(ctx context.Context, userID string) error {
 
 // RefreshToken generates new access token using refresh token
 // Note: Token validation is handled by AuthenticateRefreshToken middleware
-func (uc *authUseCase) RefreshToken(ctx context.Context, userID string, sessionID string, tokenHash string, refreshToken string, refreshTokenExpiresAt time.Time, deviceInfo *DeviceInfo) (*LoginResult, error) {
+func (uc *authUseCase) RefreshToken(ctx context.Context, userID string, sessionID string, refreshToken string, refreshTokenExpiresAt time.Time, deviceInfo *DeviceInfo) (*LoginResult, error) {
 	// Validate user is still allowed to refresh (not locked/disabled)
 	user, err := uc.userValidator.ValidateUserForRefresh(ctx, userID)
 	if err != nil {
@@ -235,15 +225,6 @@ func (uc *authUseCase) RefreshToken(ctx context.Context, userID string, sessionI
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate new access token: %w", err)
 	}
-
-	// Store new access token
-	err = uc.tokenStorage.StoreAccessToken(ctx, user.ID, accessTokenString, expiresAt, deviceInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store new access token: %w", err)
-	}
-
-	// Mark refresh token as used (async - for audit trail)
-	uc.markTokenAsUsedAsync(ctx, tokenHash)
 
 	// Refresh with fresh permissions; the cache refills on the next check
 	if err := uc.permissionService.InvalidateUserPermissions(ctx, user.ID); err != nil {
@@ -355,17 +336,6 @@ func (uc *authUseCase) buildActiveSession(sessionID, userID string, deviceInfo *
 		UserAgent:  deviceInfo.UserAgent,
 		IsActive:   true,
 	}
-}
-
-// markTokenAsUsedAsync marks a token as used in background for audit trail
-// Failures are logged but don't affect the main flow
-func (uc *authUseCase) markTokenAsUsedAsync(ctx context.Context, tokenHash string) {
-	bgCtx := context.WithoutCancel(ctx)
-	go func() {
-		if err := uc.authRepo.MarkTokenAsUsed(bgCtx, tokenHash); err != nil {
-			logger.Error(bgCtx, err)
-		}
-	}()
 }
 
 // filterMenuTreeByPermissions filters menu tree based on user permissions
