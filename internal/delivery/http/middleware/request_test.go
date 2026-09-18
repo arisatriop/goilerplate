@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"goilerplate/pkg/constants"
 	"goilerplate/pkg/redact"
 
 	"github.com/gofiber/fiber/v2"
@@ -130,4 +131,49 @@ func TestRequestLogger_ShouldOmitBody(t *testing.T) {
 	assert.True(t, rl.shouldOmitBody("/internal/users"))
 	assert.False(t, rl.shouldOmitBody("/api/v1/authors"))
 	assert.False(t, rl.shouldOmitBody("/api/v1/users"))
+}
+
+// The caller's identity has to reach the context, because security events are raised in the
+// auth domain, which has no access to the HTTP request. Without this the audit trail would
+// record every login attempt with an empty client IP.
+func TestRequestLogger_PutsCallerOnContext(t *testing.T) {
+	var gotIP, gotUserAgent, gotRequestID string
+
+	app := fiber.New()
+	app.Use(NewRequestLogger(nil).LogRequest())
+	app.Get("/", func(ctx *fiber.Ctx) error {
+		userCtx := ctx.UserContext()
+		gotIP, _ = userCtx.Value(constants.ContextKeyClientIP).(string)
+		gotUserAgent, _ = userCtx.Value(constants.ContextKeyUserAgent).(string)
+		gotRequestID, _ = userCtx.Value(constants.ContextKeyRequestID).(string)
+		return ctx.SendStatus(fiber.StatusNoContent)
+	})
+
+	doRequest(t, app, fiber.MethodGet, "/", "", map[string]string{"User-Agent": "audit-agent"})
+
+	assert.Equal(t, "audit-agent", gotUserAgent)
+	assert.NotEmpty(t, gotRequestID)
+	assert.NotEmpty(t, gotIP, "the client IP must be resolved before any handler runs")
+}
+
+// With no trusted proxies the app trusts nobody, so a client cannot choose the address its
+// security events are filed under — the same guarantee T4.6 gives c.IP().
+func TestRequestLogger_ContextIPIgnoresSpoofedHeader(t *testing.T) {
+	capture := func(headers map[string]string) string {
+		var got string
+		app := fiber.New()
+		app.Use(NewRequestLogger(nil).LogRequest())
+		app.Get("/", func(ctx *fiber.Ctx) error {
+			got, _ = ctx.UserContext().Value(constants.ContextKeyClientIP).(string)
+			return ctx.SendStatus(fiber.StatusNoContent)
+		})
+		doRequest(t, app, fiber.MethodGet, "/", "", headers)
+		return got
+	}
+
+	spoofed := capture(map[string]string{"X-Forwarded-For": "203.0.113.7"})
+	plain := capture(nil)
+
+	assert.NotEqual(t, "203.0.113.7", spoofed)
+	assert.Equal(t, plain, spoofed)
 }

@@ -59,6 +59,14 @@ func (uv *UserValidator) ValidateUserForLogin(ctx context.Context, email, passwo
 
 	if user == nil {
 		uv.spendPasswordCheckTime(password)
+		// No user_id to record, because no account was targeted — the attempted address is
+		// deliberately left out of the audit trail. What matters here is the client IP, which
+		// is what a burst of these is detected by.
+		logger.Security(ctx, logger.SecurityEvent{
+			Action:  logger.ActionLoginFailed,
+			Outcome: logger.OutcomeFailure,
+			Reason:  logger.ReasonUnknownEmail,
+		})
 		return nil, invalidCredentials()
 	}
 
@@ -74,15 +82,33 @@ func (uv *UserValidator) ValidateUserForLogin(ctx context.Context, email, passwo
 
 	if user.IsLocked() {
 		uv.spendPasswordCheckTime(password)
+		logger.Security(ctx, logger.SecurityEvent{
+			Action:  logger.ActionLoginFailed,
+			Outcome: logger.OutcomeFailure,
+			UserID:  user.ID,
+			Reason:  logger.ReasonAccountLocked,
+		})
 		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgAccountLocked)
 	}
 
 	if err := utils.CheckPassword(password, user.PasswordHash); err != nil {
+		logger.Security(ctx, logger.SecurityEvent{
+			Action:  logger.ActionLoginFailed,
+			Outcome: logger.OutcomeFailure,
+			UserID:  user.ID,
+			Reason:  logger.ReasonBadPassword,
+		})
 		uv.registerFailedLogin(ctx, user.ID)
 		return nil, invalidCredentials()
 	}
 
 	if !user.IsActive {
+		logger.Security(ctx, logger.SecurityEvent{
+			Action:  logger.ActionLoginFailed,
+			Outcome: logger.OutcomeFailure,
+			UserID:  user.ID,
+			Reason:  logger.ReasonAccountDisabled,
+		})
 		return nil, utils.ClientErr(http.StatusForbidden, constants.MsgAccountDisabled)
 	}
 
@@ -121,6 +147,12 @@ func (uv *UserValidator) registerFailedLogin(ctx context.Context, userID string)
 	}
 
 	if locked {
+		logger.Security(ctx, logger.SecurityEvent{
+			Action:  logger.ActionAccountLocked,
+			Outcome: logger.OutcomeFailure,
+			UserID:  userID,
+			Reason:  logger.ReasonBadPassword,
+		})
 		logger.Warn(ctx, fmt.Sprintf(
 			"account %s locked until %s after %d failed login attempts",
 			userID, lockUntil.Format(time.RFC3339), uv.lockout.MaxAttempts))

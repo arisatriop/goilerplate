@@ -155,6 +155,16 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 		return nil, err
 	}
 
+	// Logged after the commit, so the trail never claims a login that was rolled back. The IDs
+	// are passed explicitly because this request authenticated no one until a moment ago:
+	// the context still has no user or session on it.
+	logger.Security(ctx, logger.SecurityEvent{
+		Action:    logger.ActionLoginSucceeded,
+		Outcome:   logger.OutcomeSuccess,
+		UserID:    user.ID,
+		SessionID: sessionID,
+	})
+
 	// Cache writes happen only after the commit, so a rolled-back login cannot leave the
 	// cache describing a session that does not exist.
 	if err := uc.permissionService.InvalidateUserPermissions(ctx, user.ID); err != nil {
@@ -217,6 +227,14 @@ func (uc *authUseCase) Logout(ctx context.Context, userID string, sessionID stri
 
 	uc.sessionService.Evict(ctx, sessionID)
 
+	logger.Security(ctx, logger.SecurityEvent{
+		Action:    logger.ActionSessionRevoked,
+		Outcome:   logger.OutcomeSuccess,
+		UserID:    userID,
+		SessionID: sessionID,
+		Reason:    RevokedReasonLogout,
+	})
+
 	return nil
 }
 
@@ -229,6 +247,13 @@ func (uc *authUseCase) LogoutAll(ctx context.Context, userID string) error {
 	}
 
 	uc.sessionService.EvictUser(ctx, userID)
+
+	logger.Security(ctx, logger.SecurityEvent{
+		Action:  logger.ActionAllSessionsRevoked,
+		Outcome: logger.OutcomeSuccess,
+		UserID:  userID,
+		Reason:  RevokedReasonLogoutAll,
+	})
 
 	return nil
 }
@@ -282,6 +307,13 @@ func (uc *authUseCase) ChangePassword(ctx context.Context, userID, sessionID, cu
 	// on the next request, which is correct and costs one lookup.
 	uc.sessionService.EvictUser(ctx, userID)
 
+	logger.Security(ctx, logger.SecurityEvent{
+		Action:    logger.ActionPasswordChanged,
+		Outcome:   logger.OutcomeSuccess,
+		UserID:    userID,
+		SessionID: sessionID,
+	})
+
 	return nil
 }
 
@@ -309,6 +341,16 @@ func (uc *authUseCase) DeactivateUser(ctx context.Context, userID string) error 
 	}
 
 	uc.sessionService.EvictUser(ctx, userID)
+
+	// The subject is the account being disabled, not whoever asked for it. Once an admin
+	// endpoint calls this (it does not exist yet), the caller is identifiable through
+	// request_id in the matching request log.
+	logger.Security(ctx, logger.SecurityEvent{
+		Action:  logger.ActionAccountDeactivated,
+		Outcome: logger.OutcomeSuccess,
+		UserID:  userID,
+		Reason:  RevokedReasonAdmin,
+	})
 
 	return nil
 }
@@ -405,8 +447,16 @@ func (uc *authUseCase) resolveFailedRotation(ctx context.Context, userID, sessio
 	}
 	uc.sessionService.Evict(ctx, sessionID)
 
-	logger.Warn(ctx, fmt.Sprintf(
-		"refresh token reuse detected: session %s of user %s revoked", sessionID, userID))
+	// The jti that was replayed is deliberately not recorded: it is part of a bearer token, and
+	// the audit trail outlives the token by far. The session it belongs to is what an
+	// investigation needs anyway.
+	logger.Security(ctx, logger.SecurityEvent{
+		Action:    logger.ActionTokenReuseDetected,
+		Outcome:   logger.OutcomeFailure,
+		UserID:    userID,
+		SessionID: sessionID,
+		Reason:    RevokedReasonReuseDetected,
+	})
 
 	return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
 }

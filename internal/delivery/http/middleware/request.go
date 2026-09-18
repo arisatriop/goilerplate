@@ -68,8 +68,17 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		// Generate request ID
 		requestID := ctx.Get(constants.HeaderRequestID, uuid.New().String())
+		userAgent := ctx.Get("User-Agent")
+		// ctx.IP() resolves the forwarding header against the trusted-proxy list (see
+		// bootstrap.NewFiber), so this is the caller as the transport actually sees it and not
+		// whatever a client claimed.
+		remoteIP := ctx.IP()
 
+		// Carried in the context so security events raised deep in the domain can name the
+		// caller without reaching back for the HTTP request.
 		userCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyRequestID, requestID)
+		userCtx = context.WithValue(userCtx, constants.ContextKeyClientIP, remoteIP)
+		userCtx = context.WithValue(userCtx, constants.ContextKeyUserAgent, userAgent)
 		ctx.SetUserContext(userCtx)
 		ctx.Locals(string(constants.ContextKeyRequestID), requestID)
 
@@ -80,9 +89,7 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 		method := ctx.Method()
 		url := ctx.OriginalURL()
 		path := ctx.Path()
-		userAgent := ctx.Get("User-Agent")
 		contentType := ctx.Get("Content-Type")
-		remoteIP := ctx.IP()
 		protocol := ctx.Protocol()
 		hostname := ctx.Hostname()
 
