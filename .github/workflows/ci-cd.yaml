@@ -6,6 +6,14 @@ on:
       - develop
       - staging
       - main
+  # Without this the test job only ran after a merge, so a pull request was never checked by
+  # anything and a red build was found on main rather than on the branch that caused it.
+  # Only `test` runs here: `build` and the deploys are gated on github.event_name == 'push'.
+  pull_request:
+    branches:
+      - develop
+      - staging
+      - main
   workflow_dispatch:
 
 env:

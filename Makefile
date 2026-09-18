@@ -1,7 +1,7 @@
 # Makefile for Go Boilerplate
 
 # Build and run commands
-.PHONY: build run test clean migrate-up migrate-down migrate-status migrate-create db-seed
+.PHONY: build run test test-integration clean migrate-up migrate-down migrate-status migrate-create db-seed
 
 # Application
 build:
@@ -16,6 +16,16 @@ run:
 test:
 	@echo "Running tests..."
 	go test -v ./...
+
+# Integration tests need PostgreSQL and Redis. Without POSTGRES_TEST_DSN and REDIS_TEST_ADDR
+# they skip rather than fail, which is why `make test` alone can look green while the
+# repository and cache-mode suites never ran.
+TEST_POSTGRES_DSN ?= host=localhost port=5432 user=postgres dbname=goilerplate_test sslmode=disable timezone=UTC
+TEST_REDIS_ADDR ?= localhost:6379
+
+test-integration:
+	@echo "Running tests with PostgreSQL and Redis..."
+	POSTGRES_TEST_DSN="$(TEST_POSTGRES_DSN)" REDIS_TEST_ADDR="$(TEST_REDIS_ADDR)" go test ./...
 
 clean:
 	@echo "Cleaning build artifacts..."
@@ -100,7 +110,8 @@ help:
 	@echo "Available commands:"
 	@echo "  build          - Build the application"
 	@echo "  run            - Run the application"
-	@echo "  test           - Run tests"
+	@echo "  test           - Run tests (integration suites skip without a test DB)"
+	@echo "  test-integration - Run tests against PostgreSQL and Redis"
 	@echo "  clean          - Clean build artifacts"
 	@echo "  migrate-up     - Run database migrations"
 	@echo "  migrate-down   - Rollback last migration"

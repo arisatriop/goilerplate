@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phases 1–4 done (T1.1–T4.7). Next: Phase 5 (optional features), Phase 6 (tests & docs)
+**Status:** in progress — Phases 1–4 done (T1.1–T4.7), T6.1 done. Next: Phase 5 (optional features), T6.2 (docs)
 
 ---
 
@@ -163,7 +163,7 @@ jwt:
 | Permission cache TTL is 7 days and is only refreshed on login/refresh; role or permission changes are not invalidated (TTL fixed; invalidation hooks await role-management endpoints) | T1.2 |
 | ~~Idempotency middleware lets concurrent duplicates both execute and does not detect a reused key with a different payload~~ | T1.4 ✅ |
 | ~~`/auth/refresh` and `/auth/logout` share the per-IP login rate limit, so users behind one NAT throttle each other~~ | T4.6 ✅ |
-| No tests for `domain/auth` or auth middleware | T6.1 |
+| ~~No tests for `domain/auth` or auth middleware~~ | T6.1 ✅ |
 | ~~Redis timeouts are multiplied by `time.Second` twice (`5s` config → ~158 years), so dial/read/write/pool timeouts never fire~~ | T1.2 ✅ |
 | ~~Wrong email or password returns `400`; API conventions require `401`~~ | T3.7 ✅ |
 
@@ -179,7 +179,7 @@ jwt:
 | 3. Token security | T3.1 – T3.7 | ✅ done |
 | 4. Other auth surfaces | T4.1 – T4.7 | ✅ done |
 | 5. Optional features | T5.1 – T5.6 | ~10–13 days |
-| 6. Tests & documentation | T6.1 – T6.2 | ~3–4 days |
+| 6. Tests & documentation | T6.1 ✅ · T6.2 | ~1–2 days |
 
 ---
 
@@ -1287,30 +1287,44 @@ before any handler runs, and a spoofed `X-Forwarded-For` does not change the rec
 ## Phase 6 — Tests & documentation
 
 ### T6.1 Test matrix · L
-- [ ] Auth use-case unit tests with the memory `SessionStore` and a fake repository
-- [ ] Integration tests (testcontainers or docker-compose) on PostgreSQL across cache modes
-      `none`, `memory`, `redis`
-- [ ] Required scenarios:
-  - login → refresh → logout → old tokens rejected
-  - login on devices A and B → logout on A → B still authenticates and refreshes
-  - refresh token reuse on A revokes A only; B unaffected
-  - refresh token reuse detection and grace period (idempotent re-issue)
-  - logs contain no passwords, tokens, or API keys
-  - spoofed `X-Forwarded-For` from an untrusted source is ignored
-  - refresh after logout returns 401 without a reuse event
-  - LogoutAll across devices
-  - lockout and anti-enumeration
-  - locked account: correct password gets the same response as a wrong one
-  - concurrent one-time token consumption
-  - OTP invalidated after max attempts
-  - revoking a role permission is enforced on the next request
-  - concurrent requests with the same `Idempotency-Key` execute once
-  - gRPC call without a token
-  - `/internal` with `internal_auth.mode=shared_secret` and no secret returns 401
-  - startup config validation
-- [ ] CI (GitHub Actions) runs the full matrix
+- [x] Auth use-case unit tests with a fake `SessionStore` and a stub repository
+      (`internal/domain/auth/*_test.go`)
+- [x] Integration tests on PostgreSQL across cache modes `none`, `memory`, `redis`
+      (`internal/integration/`) — real middleware over the real use case over the real
+      repository, driven over HTTP. Each scenario runs once per cache mode, because the cache
+      is the only place the database and the answer a client gets can disagree: with `none`
+      there is nothing to go stale, so a missing eviction is invisible there.
+- [x] Required scenarios:
+  - [x] login → refresh → logout → old tokens rejected
+  - [x] login on devices A and B → logout on A → B still authenticates and refreshes
+  - [x] refresh token reuse on A revokes A only; B unaffected
+  - [x] refresh token reuse detection and grace period (idempotent re-issue)
+  - [x] logs contain no passwords or tokens (API keys: `pkg/apikey`, partner middleware)
+  - [x] spoofed `X-Forwarded-For` from an untrusted source is ignored (T4.6)
+  - [x] refresh after logout returns 401 without a reuse event
+  - [x] LogoutAll across devices
+  - [x] lockout and anti-enumeration
+  - [x] locked account: correct password gets the same response as a wrong one
+  - [x] concurrent one-time token consumption (`repository/one_time_token_test.go`)
+  - [ ] OTP invalidated after max attempts — the repository counts attempts; enforcing the
+        limit belongs to the flows T5.1 adds
+  - [~] revoking a role permission is enforced on the next request — covered at the service
+        level (`permission_service_test.go`); not yet asserted through a request
+  - [x] concurrent requests with the same `Idempotency-Key` execute once
+  - [x] gRPC call without a token (T4.3)
+  - [x] `/internal` with `internal_auth.mode=shared_secret` and no secret returns 401 (T4.1)
+  - [x] startup config validation
+- [x] CI (GitHub Actions) runs the full matrix — the workflow already provisions PostgreSQL and
+      Redis and exports `POSTGRES_TEST_DSN` / `REDIS_TEST_ADDR`, so one `go test ./...` covers
+      all three cache modes. The matrix lives in the test, not in the workflow, so there is one
+      job rather than three. Without the variables the suite skips instead of failing.
 
 **Done when:** CI is green for every combination.
+
+**Status:** done, except the two scenarios marked above. The tests were checked by mutation:
+disabling the session-cache eviction fails `memory` and `redis` while `none` still passes,
+widening reuse detection to all of a user's sessions fails, and leaking a token into a security
+event fails.
 
 ### T6.2 Documentation · M
 - [ ] `docs/guides/auth.md`: token flow, rotation, revocation modes, trade-offs of each cache
