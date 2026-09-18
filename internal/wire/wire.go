@@ -7,6 +7,7 @@ import (
 	"goilerplate/internal/bootstrap"
 	grpcmiddleware "goilerplate/internal/delivery/grpc/middleware"
 	"goilerplate/internal/domain/auth"
+	"goilerplate/internal/domain/job"
 
 	"google.golang.org/grpc"
 )
@@ -20,6 +21,7 @@ type ApplicationContainer struct {
 	Handlers            *Handlers
 	GrpcHandlers        *GrpcHandlers // nil when grpc.enabled is false
 	Middleware          *Middleware
+	CleanupJob          *job.Cleanup // nil when jobs.cleanup.enabled is false
 }
 
 // Init wires all dependencies following clean architecture layers
@@ -52,6 +54,7 @@ func Init(app *bootstrap.App) *ApplicationContainer {
 	}
 
 	return &ApplicationContainer{
+		CleanupJob:          wireCleanupJob(app, repositories, infrastructure),
 		Infrastructure:      infrastructure,
 		Repositories:        repositories,
 		UseCases:            useCases,
@@ -77,4 +80,20 @@ func wireGrpcServer(app *bootstrap.App, repos *Repositories, infra *Infrastructu
 	}
 
 	return server
+}
+
+// wireCleanupJob builds the background cleanup job, or nil when jobs.cleanup.enabled is false.
+func wireCleanupJob(app *bootstrap.App, repos *Repositories, infra *Infrastructure) *job.Cleanup {
+	cleanup := app.Config.Jobs.Cleanup
+	if !cleanup.Enabled {
+		return nil
+	}
+
+	return job.NewCleanup(
+		repos.CleanupRepo,
+		infra.Locker,
+		cleanup.IntervalOrDefault(),
+		cleanup.RetentionOrDefault(),
+		cleanup.BatchSizeOrDefault(),
+	)
 }

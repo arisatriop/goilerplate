@@ -191,6 +191,30 @@ internal_auth:
   mode: none
   secret: <INTERNAL_AUTH_SECRET>
 
+# Background jobs the application runs for itself.
+#
+# cleanup deletes rows that can no longer be used: revoked or expired user_sessions, and
+# one_time_tokens that were consumed or expired. Both are kept for `retention` past that
+# moment — a revoked session is the record of a logout, and an incident is usually
+# investigated well after it happened. They are removed because the tables would otherwise
+# grow without bound, not because the history stops being useful.
+#
+# Off by default: deleting rows is not something a boilerplate should start doing to a
+# deployment that never asked for it.
+#
+# With Redis, the job takes a lock so only one instance runs a pass. Without Redis the lock
+# is per process, which is correct for a single instance. The deletes are idempotent either
+# way, so an overlap wastes work rather than breaking anything.
+#
+# retention must be at least auth.session_expiry, or a session could be deleted while it is
+# still valid. Startup refuses a configuration where it is not.
+jobs:
+  cleanup:
+    enabled: false
+    interval: 1h
+    retention: 720h      # 30 days
+    batch_size: 1000     # rows per DELETE; the pass repeats until nothing eligible is left
+
 # External HTTP services (name: settings), available as config.Services.
 service:
   payment_gateway:
