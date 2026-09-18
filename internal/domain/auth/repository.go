@@ -23,6 +23,12 @@ type Repository interface {
 	IncrementFailedLoginAttempts(ctx context.Context, userID string) error
 	ResetExpiredLock(ctx context.Context, userID string) error
 
+	// One-time token operations (email verification, password reset, email change)
+	CreateOneTimeToken(ctx context.Context, token *OneTimeToken) error
+	GetLatestActiveOneTimeToken(ctx context.Context, userID, tokenType string) (*OneTimeToken, error)
+	ConsumeOneTimeToken(ctx context.Context, tokenHash, tokenType string) error
+	IncrementOneTimeTokenAttempts(ctx context.Context, tokenID string) (int, error)
+
 	// Token operations
 	CreateToken(ctx context.Context, token *UserToken) (*UserToken, error)
 	GetTokenByHash(ctx context.Context, tokenHash string) (*UserToken, error)

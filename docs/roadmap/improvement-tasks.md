@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2: T2.1, T2.2 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2: T2.1, T2.2, T2.4 done
 
 ---
 
@@ -142,7 +142,7 @@ jwt:
 | `user_sessions.is_active` / `expires_at` never checked; `RememberMe` has no effect | T3.2, T3.3 |
 | `user_tokens` grows unbounded (row per login and per refresh, no cleanup) | T3.2, T4.4 |
 | DB `UPDATE used_at` on every authenticated request | T3.2 |
-| `user_tokens` mixes session tokens with one-time tokens; `LogoutAll` would wipe pending reset/OTP tokens | T2.4, T3.5 |
+| `user_tokens` mixes session tokens with one-time tokens; `LogoutAll` would wipe pending reset/OTP tokens (`one_time_tokens` exists; `user_tokens` is dropped in T3.2) | T2.4 ✅, T3.5 |
 | Login writes (session, tokens, cache) are not transactional | T3.4 |
 | ~~`LogoutAll` scans every `token:*` / `session:*` key in Redis~~ | T1.2 ✅ |
 | ~~Redis-enabled validation reads cache only; expiry check skipped~~ | T1.2 ✅ |
@@ -378,17 +378,25 @@ response ends in `Z`, and user, session, and token IDs are UUIDv7.
 
 **Done when:** migrations apply and roll back cleanly and the model matches the schema.
 
-### T2.4 `one_time_tokens` table · M
-- [ ] Replace the `user_tokens` migration with `create_one_time_tokens_table`
-- [ ] `token_type` restricted by `CHECK` to `email_verification | password_reset | email_change`
-- [ ] Indexes: `token_hash` UNIQUE, `(user_id, token_type)`, `expires_at` — nothing else
-- [ ] `attempts` column (failed verification attempts, used by OTP limits in T5.1)
-- [ ] Accurate column/table comments; GORM model without MySQL-style `char(36)` / `datetime(3)` tags
-- [ ] Repository `ConsumeToken(hash, type)`:
+### T2.4 `one_time_tokens` table · M — ✅ done
+- [x] Add `create_one_time_tokens_table`. The `user_tokens` migration stays until T3.2 removes the
+      access/refresh token storage that still uses it; T3.2 drops that table and its migration.
+- [x] `token_type` restricted by `CHECK` to `email_verification | password_reset | email_change`
+- [x] Indexes: `token_hash` UNIQUE, `(user_id, token_type)`, `expires_at` — nothing else
+- [x] `attempts` column (failed verification attempts, used by OTP limits in T5.1)
+- [x] Accurate column/table comments; GORM model without MySQL-style `char(36)` / `datetime(3)` tags
+- [x] Repository `ConsumeOneTimeToken(hash, type)`:
       `UPDATE ... SET used_at = now WHERE token_hash = ? AND token_type = ? AND used_at IS NULL AND expires_at > now`,
       then require `RowsAffected == 1`
+- [x] Repository also has `CreateOneTimeToken`, `GetLatestActiveOneTimeToken` (newest unused,
+      unexpired token per user and type, for OTP verification), and `IncrementOneTimeTokenAttempts`
+- [x] `ip_address` is `INET`; empty values are stored as NULL
 
 **Done when:** two concurrent requests with the same token yield exactly one success (covered by a test).
+
+Covered by PostgreSQL integration tests (`POSTGRES_TEST_DSN`, skipped when unset; CI starts a
+PostgreSQL service): 20 concurrent consumers of one token yield exactly one success, and reuse,
+wrong type, unknown hash, and expired tokens are rejected.
 
 ---
 
@@ -422,6 +430,7 @@ and a token signed with a previous key still validates after rotating the active
 - [ ] Config `auth.revocation: strict | refresh_only`
 - [ ] Remove `TokenStorage`, access-token persistence, and `MarkTokenAsUsed`
       (blacklist and `CacheToken` / `GetToken` already removed in T1.2)
+- [ ] Drop the `user_tokens` table and its migration (replaced by `one_time_tokens` from T2.4)
 - [ ] Put `session_id` in context instead of `token_hash`
 
 **Done when:**
