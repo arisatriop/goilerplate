@@ -188,27 +188,20 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 // buildMenuAndPermissions resolves the user's effective permissions and the menu tree they
 // may see. Login and refresh both return it, so the client never has to reconcile the two.
 func (uc *authUseCase) buildMenuAndPermissions(ctx context.Context, userID string) ([]Menu, []string, error) {
+	// Resolved by the same service the per-request permission check uses. This function used to
+	// fetch the roles, role permissions and overrides itself and merge them with its own copy of
+	// the merge logic — so the list handed to the client at login and the list enforced on every
+	// request afterwards were computed by two implementations that were free to drift apart.
+	permissions, err := uc.permissionService.GetUserFinalPermissions(ctx, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to resolve user permissions: %w", err)
+	}
+
 	menus, err := uc.authRepo.GetParentMenus(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get user menus: %w", err)
 	}
 
-	userRoles, err := uc.authRepo.GetUserRolesByUserID(ctx, userID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get user roles: %w", err)
-	}
-
-	rolePermissions, err := uc.authRepo.GetRolePermissionsByRoleIDs(ctx, userRoles)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get role permissions: %w", err)
-	}
-
-	userPermissionOverrides, err := uc.authRepo.GetUserPermissionOverrides(ctx, userID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get user permission overrides: %w", err)
-	}
-
-	permissions := uc.mergePermissions(rolePermissions, userPermissionOverrides)
 	menuTree := uc.menuService.BuildMenuTree(ctx, menus)
 
 	return uc.filterMenuTreeByPermissions(menuTree, permissions), permissions, nil
@@ -592,33 +585,4 @@ func (uc *authUseCase) filterSingleMenu(menu Menu, permissionMap map[string]bool
 	}
 
 	return nil
-}
-
-// mergePermissions merges role permissions with user permission overrides
-// Returns final permission list after applying user-specific grants and revocations
-func (uc *authUseCase) mergePermissions(rolePermissions []string, userOverrides map[string]bool) []string {
-	// Start with role permissions as a set for efficient lookup
-	permissionSet := make(map[string]bool)
-	for _, permission := range rolePermissions {
-		permissionSet[permission] = true
-	}
-
-	// Apply user permission overrides
-	for permission, isGranted := range userOverrides {
-		if isGranted {
-			// Grant permission (add to set)
-			permissionSet[permission] = true
-		} else {
-			// Revoke permission (remove from set)
-			delete(permissionSet, permission)
-		}
-	}
-
-	// Convert set back to slice
-	finalPermissions := make([]string, 0, len(permissionSet))
-	for permission := range permissionSet {
-		finalPermissions = append(finalPermissions, permission)
-	}
-
-	return finalPermissions
 }

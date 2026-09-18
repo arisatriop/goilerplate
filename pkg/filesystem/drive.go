@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 
 	"golang.org/x/oauth2"
@@ -69,12 +70,6 @@ func NewDriveStorage(ctx context.Context, cfg DriveConfig) (*DriveStorage, error
 		if err != nil {
 			return nil, fmt.Errorf("failed to create drive service with OAuth: %w", err)
 		}
-
-		// Log token info
-		// isValid, expiresIn := tokenManager.TokenInfo()
-		// if isValid {
-		// 	fmt.Printf("OAuth token loaded successfully. Expires in: %v\n", expiresIn.Round(time.Second))
-		// }
 	} else if cfg.CredentialsFile != "" {
 		// Use Service Account authentication (no token management needed)
 		useOAuth = false
@@ -163,8 +158,10 @@ func (d *DriveStorage) uploadWithMetadata(reader io.Reader, filename string, fil
 			}
 			_, err := d.service.Permissions.Create(fileID, permission).SupportsAllDrives(true).Context(d.ctx).Do()
 			if err != nil {
-				// Log warning but don't fail the upload
-				fmt.Printf("Warning: failed to set public permission for %s: %v\n", fileID, err)
+				// Does not fail the upload, but it is a real failure and belongs in the logs
+				// with a level rather than on stdout. slog rather than pkg/logger: that
+				// package imports config, which imports this one.
+				slog.ErrorContext(d.ctx, "setting public permission on drive file", "file_id", fileID, "error", err)
 			}
 		}(driveFile.Id)
 	}
