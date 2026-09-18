@@ -90,6 +90,19 @@ func TestConfig_Validate_Rules(t *testing.T) {
 			c.Auth.RememberMeExpiry = time.Hour
 		}, "auth.remember_me_expiry must not be shorter than auth.session_expiry"},
 		{"api key placeholder", func(c *Config) { c.Apikeys["partner1"] = "<API_KEY_PARTNER1>" }, "api_key.partner1 still contains the placeholder"},
+		{"unknown internal auth mode", func(c *Config) {
+			c.InternalAuth = InternalAuth{Mode: "mtls"}
+		}, `internal_auth.mode must be none or shared_secret, got "mtls"`},
+		{"shared secret without a secret", func(c *Config) {
+			c.InternalAuth = InternalAuth{Mode: InternalAuthSharedSecret}
+		}, "internal_auth.secret is required"},
+		{"shared secret too short", func(c *Config) {
+			c.InternalAuth = InternalAuth{Mode: InternalAuthSharedSecret, Secret: "short"}
+		}, "internal_auth.secret must be at least 32 bytes, got 5"},
+		{"valid shared secret", func(c *Config) {
+			c.InternalAuth = InternalAuth{Mode: InternalAuthSharedSecret, Secret: validAccessSecret}
+		}, ""},
+		{"internal auth defaults to none", func(c *Config) { c.InternalAuth = InternalAuth{} }, ""},
 		{"api key digest too short", func(c *Config) {
 			c.Apikeys["partner1"] = apikey.HashPrefix + strings.Repeat("a", 63)
 		}, "api_key.partner1 must be sha256: followed by 64 hex characters, got 63"},
@@ -257,4 +270,25 @@ func TestConfig_Validate_ProductionSkipsEntropyChecksOnHashedAPIKeys(t *testing.
 	plain.Apikeys["default"] = weak
 	require.Error(t, plain.Validate())
 	assert.Contains(t, plain.Validate().Error(), `api_key.default looks like an example value`)
+}
+
+// /internal is kept off the public internet by the gateway's allowlist (D5) — one config file,
+// often owned by whoever runs the cluster. Starting without saying so in production would let
+// that assumption go unexamined. It stays a warning: requiring a secret by default would break
+// every in-cluster caller that was never given one.
+func TestConfig_Warnings_InternalAuthNoneInProduction(t *testing.T) {
+	production := validConfig()
+	production.App.Env = "production"
+	require.NoError(t, production.Validate())
+	assert.Contains(t, strings.Join(production.Warnings(), "\n"), "internal_auth.mode=none")
+
+	secured := validConfig()
+	secured.App.Env = "production"
+	secured.InternalAuth = InternalAuth{Mode: InternalAuthSharedSecret, Secret: validAccessSecret}
+	require.NoError(t, secured.Validate())
+	assert.Empty(t, secured.Warnings(), "a configured secret is the thing being asked for")
+
+	development := validConfig()
+	require.NoError(t, development.Validate())
+	assert.Empty(t, development.Warnings(), "only production is warned")
 }

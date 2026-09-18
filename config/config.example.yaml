@@ -83,3 +83,9 @@ filesystem:
 #
 # Generate one with: printf %s "<the key>" | shasum -a 256
 api_key: {}
+
+# Guards /internal (pod-to-pod only). none (default) leaves it to the gateway's routing rules;
+# shared_secret also requires an X-Internal-Secret header. See config.full.example.yaml.
+internal_auth:
+  mode: none
+  secret: ""

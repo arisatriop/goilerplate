@@ -8,20 +8,53 @@ import (
 )
 
 type Config struct {
-	App        App                `mapstructure:"app"`
-	Server     Server             `mapstructure:"server"`
-	GRPC       GRPC               `mapstructure:"grpc"`
-	DB         DB                 `mapstructure:"db"`
-	Redis      Redis              `mapstructure:"redis"`
-	JWT        JWT                `mapstructure:"jwt"`
-	Auth       Auth               `mapstructure:"auth"`
-	Log        *Logger            `mapstructure:"log"`
-	OTel       OTel               `mapstructure:"otel"`
-	RateLimit  RateLimit          `mapstructure:"rate_limit"`
-	FileSystem FileSystem         `mapstructure:"filesystem"`
-	Crypto     Crypto             `mapstructure:"crypto"`
-	Apikeys    map[string]string  `mapstructure:"api_key"`
-	Services   map[string]Service `mapstructure:"service"`
+	App          App                `mapstructure:"app"`
+	Server       Server             `mapstructure:"server"`
+	GRPC         GRPC               `mapstructure:"grpc"`
+	DB           DB                 `mapstructure:"db"`
+	Redis        Redis              `mapstructure:"redis"`
+	JWT          JWT                `mapstructure:"jwt"`
+	Auth         Auth               `mapstructure:"auth"`
+	Log          *Logger            `mapstructure:"log"`
+	OTel         OTel               `mapstructure:"otel"`
+	RateLimit    RateLimit          `mapstructure:"rate_limit"`
+	FileSystem   FileSystem         `mapstructure:"filesystem"`
+	Crypto       Crypto             `mapstructure:"crypto"`
+	Apikeys      map[string]string  `mapstructure:"api_key"`
+	Services     map[string]Service `mapstructure:"service"`
+	InternalAuth InternalAuth       `mapstructure:"internal_auth"`
+}
+
+// Internal auth modes. See InternalAuth.
+const (
+	InternalAuthNone         = "none"
+	InternalAuthSharedSecret = "shared_secret"
+)
+
+// InternalAuth guards the /internal routes, which are meant for pod-to-pod traffic only (D5).
+//
+// Keeping them off the public internet is the gateway's job: it forwards an explicit allowlist
+// and never a catch-all. `shared_secret` is a second lock for when that gateway config is owned
+// by another team, or changes often enough that one day it will be wrong.
+type InternalAuth struct {
+	// Mode is none or shared_secret. Default none.
+	Mode string `mapstructure:"mode"`
+	// Secret is compared against the X-Internal-Secret header. Required in shared_secret mode.
+	Secret string `mapstructure:"secret"`
+}
+
+// ModeOrDefault returns internal_auth.mode, or InternalAuthNone when unset.
+func (i InternalAuth) ModeOrDefault() string {
+	mode := strings.ToLower(strings.TrimSpace(i.Mode))
+	if mode == "" {
+		return InternalAuthNone
+	}
+	return mode
+}
+
+// RequiresSecret reports whether callers must present X-Internal-Secret.
+func (i InternalAuth) RequiresSecret() bool {
+	return i.ModeOrDefault() == InternalAuthSharedSecret
 }
 
 type RateLimit struct {

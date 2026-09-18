@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"goilerplate/config"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/pkg/apikey"
 	"goilerplate/pkg/constants"
+	"goilerplate/pkg/hash"
 	jwtService "goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/response"
@@ -26,9 +28,17 @@ type Auth struct {
 	sessionService    *auth.SessionService
 	permissionService *auth.PermissionService
 	apikeys           *apikey.Registry
+	// internalSecret is the digest of internal_auth.secret, or "" when the mode is none. Empty
+	// means /internal is open to whatever reaches it, which is what D5 leaves to the gateway.
+	internalSecret string
 }
 
-func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, sessionService *auth.SessionService, permissionService *auth.PermissionService, apikeys map[string]string) *Auth {
+func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, sessionService *auth.SessionService, permissionService *auth.PermissionService, apikeys map[string]string, internalAuth config.InternalAuth) *Auth {
+	internalSecret := ""
+	if internalAuth.RequiresSecret() {
+		internalSecret = hash.Token(internalAuth.Secret)
+	}
+
 	return &Auth{
 		jwtService:        jwtService,
 		authRepository:    authRepository,
@@ -36,7 +46,8 @@ func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, 
 		permissionService: permissionService,
 		// Built once, so the plaintext keys are reduced to digests at startup instead of being
 		// held in memory for the life of the process.
-		apikeys: apikey.NewRegistry(apikeys),
+		apikeys:        apikey.NewRegistry(apikeys),
+		internalSecret: internalSecret,
 	}
 }
 
@@ -142,22 +153,71 @@ func (m *Auth) RequiredPermission(permission string) fiber.Handler {
 	}
 }
 
-// InternalAuthenticate provides authentication for internal services
+// defaultInternalCaller is used when a caller does not name itself.
+const defaultInternalCaller = "system"
+
+// maxServiceNameLength bounds what an unverified header can put into every log line of a request.
+const maxServiceNameLength = 40
+
+// InternalAuthenticate guards the /internal routes, which are meant for pod-to-pod traffic only
+// (D5). Keeping them off the public internet is the gateway's job: it forwards an explicit
+// allowlist and never a catch-all.
+//
+// In shared_secret mode a caller must also present X-Internal-Secret. That is a second lock for
+// when the gateway config belongs to another team, or changes often enough that one day it will
+// be wrong — not a replacement for the allowlist, since the secret is shared by every caller and
+// travels on every request.
 func (m *Auth) InternalAuthenticate() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		userID := "system"
-		userName := "system"
+		if m.internalSecret != "" && !hash.Equal(ctx.Get(constants.HeaderInternalSecret), m.internalSecret) {
+			return response.Unauthorized(ctx, "")
+		}
 
-		userIdCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyUserID, userID)
-		userNameCtx := context.WithValue(userIdCtx, constants.ContextKeyUserName, userName)
+		caller := internalCallerName(ctx.Get(constants.HeaderServiceName))
+
+		userIdCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyUserID, caller)
+		userNameCtx := context.WithValue(userIdCtx, constants.ContextKeyUserName, caller)
 		ctx.SetUserContext(userNameCtx)
 
 		// Set in Locals (for Fiber context usage)
-		ctx.Locals(string(constants.ContextKeyUserID), userID)
-		ctx.Locals(string(constants.ContextKeyUserName), userName)
+		ctx.Locals(string(constants.ContextKeyUserID), caller)
+		ctx.Locals(string(constants.ContextKeyUserName), caller)
 
 		return ctx.Next()
 	}
+}
+
+// internalCallerName sanitises the X-Service-Name header.
+//
+// The name is an unverified claim — in shared_secret mode every caller holds the same secret, so
+// nothing distinguishes one from another. It is for attribution in logs, never for authorization.
+// It is bounded and restricted to a plain character set so that a header cannot pad every log
+// line a request produces.
+func internalCallerName(header string) string {
+	header = strings.TrimSpace(header)
+	if header == "" {
+		return defaultInternalCaller
+	}
+
+	cleaned := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			return r
+		case r == '-', r == '_', r == '.':
+			return r
+		default:
+			return -1
+		}
+	}, header)
+
+	if cleaned == "" {
+		return defaultInternalCaller
+	}
+	if len(cleaned) > maxServiceNameLength {
+		cleaned = cleaned[:maxServiceNameLength]
+	}
+
+	return cleaned
 }
 
 // PartnerAuthenticate provides authentication for partner services.

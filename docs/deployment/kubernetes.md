@@ -100,6 +100,110 @@ Project includes deployment files for various environments:
 
 ---
 
+## 🚪 Ingress: never expose `/internal`
+
+The app serves three route groups on one port:
+
+| Prefix | Who may reach it | Auth |
+|---|---|---|
+| `/api` | the public internet | Bearer JWT (or none, for login and register) |
+| `/partner` | named partners | `x-api-key` |
+| `/health`, `/healthcheck` | probes, the gateway | none |
+| `/internal` | **other pods only** | none by default |
+
+`/internal` has no user authentication. It is reachable by anything that can open a connection
+to the pod, so what keeps it private is the Ingress, and nothing else.
+
+### The rule
+
+**Forward an explicit allowlist. Never a catch-all `/`.**
+
+```yaml
+# ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: goilerplate
+spec:
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          # ✅ one rule per public prefix
+          - path: /api
+            pathType: Prefix
+            backend: { service: { name: goilerplate, port: { number: 3000 } } }
+          - path: /partner
+            pathType: Prefix
+            backend: { service: { name: goilerplate, port: { number: 3000 } } }
+          - path: /health
+            pathType: Exact
+            backend: { service: { name: goilerplate, port: { number: 3000 } } }
+
+          # ❌ never this — it publishes /internal along with everything else
+          # - path: /
+          #   pathType: Prefix
+```
+
+Where the controller supports it, deny `/internal` explicitly as well, so a later edit that adds
+a catch-all does not silently undo this:
+
+```yaml
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location ~* ^/internal { deny all; return 404; }
+```
+
+### Verify it
+
+From **outside** the cluster. The request must not reach the app:
+
+```bash
+curl -i https://api.example.com/internal/bars
+# want: 404 from the ingress controller, or a connection that never reaches a pod
+# BAD:  200, or any response carrying X-Request-Id (that header means the app answered)
+```
+
+Then confirm the route does work from inside, so you know the test above proved something:
+
+```bash
+kubectl run curl --rm -it --image=curlimages/curl --restart=Never -n <namespace> -- \
+  curl -s -o /dev/null -w '%{http_code}\n' http://goilerplate:3000/internal/bars
+# want: 200
+```
+
+`X-Request-Id` is the tell. Every response the app produces carries it; an ingress 404 does not.
+
+### Second lock: `internal_auth`
+
+An Ingress is one config file, often owned by whoever runs the cluster rather than by whoever
+owns this service. When that is the case — or the config changes often enough that one day it
+will be wrong — turn on the shared secret:
+
+```yaml
+internal_auth:
+  mode: shared_secret
+  secret: <a random value of at least 32 bytes>
+```
+
+Callers then send it:
+
+```
+X-Internal-Secret: <the secret>
+```
+
+The header is compared in constant time and is redacted from logs. In production the app logs a
+startup warning while `mode` is `none`, so the reliance on the gateway is at least stated out
+loud rather than assumed.
+
+This is a *second* lock, not a replacement for the allowlist: the secret is shared by every
+caller and travels on every request, so it proves "something in the cluster", not which service.
+`X-Service-Name` is recorded alongside it for attribution in logs and is an unverified claim —
+never use it for authorization.
+
+---
+
 ## 🚀 Deploy to Kubernetes
 
 ### 1. Update Image Reference
@@ -216,6 +320,7 @@ kubectl rollout undo deployment/goilerplate -n <namespace>
 ## 🔐 Best Practices
 
 ✅ **DO:**
+- Route an explicit allowlist at the Ingress; never a catch-all `/` (see above)
 - Use separate namespaces for each environment
 - Store secrets in Secret, not in ConfigMap
 - Use health checks (liveness & readiness probes)
@@ -224,6 +329,7 @@ kubectl rollout undo deployment/goilerplate -n <namespace>
 - Monitor logs and metrics
 
 ❌ **DON'T:**
+- Expose `/internal` through the public Ingress
 - Store secrets in ConfigMap
 - Hardcode values in YAML
 - Use `latest` tag in production

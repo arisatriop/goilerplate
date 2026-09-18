@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.2, T4.6, T4.7 done
+**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.1, T4.2, T4.6, T4.7 done
 
 ---
 
@@ -148,7 +148,7 @@ jwt:
 | ~~Redis-enabled validation reads cache only; expiry check skipped~~ | T1.2 ✅ |
 | ~~Logout errors printed with `fmt.Printf` and swallowed~~ (that code is gone) | T3.2 ✅, T3.5 ✅ |
 | ~~Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber~~ | T1.2 ✅, T1.6 ✅ |
-| `/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule | T4.1 |
+| ~~`/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule~~ | T4.1 ✅ |
 | ~~Partner API key compared with `==` (not constant time); raw key stored in context~~ | T4.2 ✅ |
 | gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
 | ~~Idempotency middleware becomes a no-op without Redis~~ | T1.4 ✅ |
@@ -209,7 +209,7 @@ jwt:
 - [x] Production-only rules (`app.env=production`): reject weak secrets (example markers such as
       `changeme` / `your_`, or fewer than 10 distinct characters) in JWT secrets, API keys, and
       the S3 secret key
-- [ ] Log a warning when `internal_auth.mode=none` → moved to T4.1 (the config key does not exist yet)
+- [x] Log a warning when `internal_auth.mode=none` → done in T4.1, via the new `config.Warnings()`
 - [x] Collect all errors and report them together; secret values never appear in messages
 
 `jwt.secret_key` was only checked for presence and placeholders; T3.1 removed the key.
@@ -692,26 +692,81 @@ Response-time medians over 8 requests each: unknown email 52.6 ms, existing acco
 
 ## Phase 4 — Other auth surfaces
 
-### T4.1 Gateway-controlled `/internal` routes · S
+### T4.1 Gateway-controlled `/internal` routes · S — ✅ done
 **Depends on:** T1.1
 
 `/internal` stays on the public port and is reachable only through in-cluster traffic (D5).
 
-- [ ] Gateway / Ingress rule documented and enforced: forward only an explicit allowlist
+- [x] Gateway / Ingress rule documented and enforced: forward only an explicit allowlist
       (`/api`, `/partner`, `/health`); never a catch-all `/`. Where the gateway supports it, add
       an explicit deny for `/internal`
-- [ ] Optional safety net: `internal_auth.mode: none | shared_secret` (default `none`);
+- [x] Optional safety net: `internal_auth.mode: none | shared_secret` (default `none`);
       `X-Internal-Secret` compared in constant time. Recommended when the gateway is managed by
       another team or its config changes often
-- [ ] Startup warning in production when `internal_auth.mode=none` (moved from T1.1)
-- [ ] Optional caller identity: record `X-Service-Name` in context and logs instead of a fixed
+- [x] Startup warning in production when `internal_auth.mode=none` (moved from T1.1)
+- [x] Optional caller identity: record `X-Service-Name` in context and logs instead of a fixed
       `system` user
-- [ ] `docs/deployment/kubernetes.md`: state the rule and a verification command
+- [x] `docs/deployment/kubernetes.md`: state the rule and a verification command
       (`curl -i https://<public-host>/internal/...` must not reach the app)
 
+The default stays `none`. Requiring a secret out of the box would break every in-cluster caller
+that was never given one, and D5 already puts the gateway in front. What was missing was saying
+so: `config.Warnings()` is a new non-fatal advisory channel, logged at startup, whose first entry
+is exactly this. Errors stop the app; warnings state an assumption that would otherwise go
+unexamined.
+
+The comparison reuses `hash.Equal`, so it is over two digests and does not reveal the secret's
+length. The secret is reduced to its digest at construction, and `X-Internal-Secret` was already
+in `redact.DefaultHeaders`.
+
+`X-Service-Name` replaces the hardcoded `system` caller. It is an **unverified claim** — in
+`shared_secret` mode every caller holds the same secret, so nothing distinguishes one from
+another — and it is for attribution in logs, never authorization. Because it lands in every log
+line the request produces, it is stripped to `[A-Za-z0-9._-]` and capped at 40 characters so a
+header cannot pad the logs.
+
 **Done when:**
-- a request to `/internal/*` through the public gateway does not reach the app
-- with `shared_secret` enabled, requests without the secret get 401
+- a request to `/internal/*` through the public gateway does not reach the app — enforced by the
+  Ingress allowlist now documented in `docs/deployment/kubernetes.md`, with a verification
+  command and the `X-Request-Id` tell (only the app emits it, so an ingress 404 is
+  distinguishable from an app 404)
+- with `shared_secret` enabled, requests without the secret get 401 ✅
+
+Verified live:
+
+| Request | `mode: none` | `mode: shared_secret` |
+|---|---|---|
+| `GET /internal/bars`, no header | 200 | **401** |
+| with the correct `X-Internal-Secret` | 200 | 200 |
+| wrong secret | — | 401 |
+| secret + one extra character | — | 401 |
+| secret minus the last character | — | 401 |
+| `/health` | 200 | 200 |
+| `/api/v1/auth/login` | 400 (no creds) | 400 |
+
+In production with `mode: none`, startup logs:
+
+```json
+{"level":"WARN","msg":"configuration","warning":"internal_auth.mode=none: /internal is protected
+only by the gateway's routing rules. Set internal_auth.mode=shared_secret for a second lock if
+that config is not yours to control."}
+```
+
+With `shared_secret` configured: zero warnings. Startup refuses bad config outright —
+`internal_auth.mode must be none or shared_secret, got "mtls"`, `internal_auth.secret is
+required`, `internal_auth.secret must be at least 32 bytes, got 5` — and no message contains the
+value.
+
+Caller attribution, read back from `application-log`:
+
+| `X-Service-Name` sent | recorded `user_id` |
+|---|---|
+| *(none)* | `system` |
+| `billing-worker` | `billing-worker` |
+| `bad"name{}` | `badname` |
+| 80 × `z` | 40 × `z` |
+
+The secret appeared 0 times in the server log; the header logs as `[REDACTED]`.
 
 ### T4.2 Harden partner API keys · S — ✅ done
 - [x] `subtle.ConstantTimeCompare`, over two SHA-256 digests rather than the raw strings.

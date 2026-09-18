@@ -40,6 +40,9 @@ func Init() *App {
 		log.Error("invalid configuration", "errors", strings.Split(err.Error(), "\n"))
 		os.Exit(1)
 	}
+	for _, warning := range cfg.Warnings() {
+		log.Warn("configuration", "warning", warning)
+	}
 
 	var tp *sdktrace.TracerProvider
 	var mp *sdkmetric.MeterProvider

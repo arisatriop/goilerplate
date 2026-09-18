@@ -42,8 +42,38 @@ func (c *Config) Validate() error {
 	c.validateAuth(v)
 	c.validateFileSystem(v)
 	c.validateAPIKeys(v)
+	c.validateInternalAuth(v)
 
 	return v.err()
+}
+
+// Warnings reports configurations that are allowed but worth saying out loud at startup. They
+// are not errors: each one is a legitimate choice in some deployment, and refusing to start
+// would make the safe option unusable where it does not apply.
+func (c *Config) Warnings() []string {
+	var warnings []string
+
+	// /internal is kept off the public internet by the gateway's allowlist (D5). That is one
+	// config file, owned by whoever runs the cluster, and a single catch-all rule exposes every
+	// internal route with no authentication in front of it.
+	if c.IsProduction() && !c.InternalAuth.RequiresSecret() {
+		warnings = append(warnings,
+			"internal_auth.mode=none: /internal is protected only by the gateway's routing rules. "+
+				"Set internal_auth.mode=shared_secret for a second lock if that config is not yours to control.")
+	}
+
+	return warnings
+}
+
+func (c *Config) validateInternalAuth(v *validation) {
+	switch c.InternalAuth.ModeOrDefault() {
+	case InternalAuthNone:
+		return
+	case InternalAuthSharedSecret:
+		v.secret("internal_auth.secret", c.InternalAuth.Secret, MinSecretBytes, c.IsProduction())
+	default:
+		v.addf("internal_auth.mode must be none or shared_secret, got %q", c.InternalAuth.Mode)
+	}
 }
 
 // IsProduction reports whether the app runs with app.env=production.

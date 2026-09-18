@@ -149,6 +149,22 @@ crypto:
 api_key:
   partner1: <API_KEY_PARTNER1>
 
+# Guards the /internal routes, which are meant for pod-to-pod traffic only.
+#
+# Keeping them off the public internet is the gateway's job: forward an explicit allowlist
+# (/api, /partner, /health) and never a catch-all "/". This is a second lock for when that
+# config belongs to another team, or changes often enough that one day it will be wrong.
+#
+#   none          (default) no check; the gateway is the only thing standing in front
+#   shared_secret callers must send X-Internal-Secret, compared in constant time
+#
+# The secret is shared by every caller and travels on every request, so it identifies
+# "something in the cluster", not which service. X-Service-Name is recorded for attribution
+# in logs and is an unverified claim — never use it for authorization.
+internal_auth:
+  mode: none
+  secret: <INTERNAL_AUTH_SECRET>
+
 # External HTTP services (name: settings), available as config.Services.
 service:
   payment_gateway:
