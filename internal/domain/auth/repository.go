@@ -18,6 +18,7 @@ type Repository interface {
 	DeactivateUserSessions(ctx context.Context, userID, reason string) error
 	RevokeSession(ctx context.Context, userID, sessionID, reason string) error
 	RotateRefreshJTI(ctx context.Context, sessionID, currentJTI, newJTI string) error
+	RevokeOtherUserSessions(ctx context.Context, userID, keepSessionID, reason string) error
 
 	// User operations
 	CreateUser(ctx context.Context, user *User) (*User, error)
@@ -27,6 +28,8 @@ type Repository interface {
 	UpdateUserLoginInfo(ctx context.Context, userID string, resetFailedAttempts bool) error
 	RegisterFailedLogin(ctx context.Context, userID string, maxAttempts int, lockUntil time.Time) (bool, error)
 	ResetExpiredLock(ctx context.Context, userID string) error
+	UpdateUserPassword(ctx context.Context, userID, passwordHash string) error
+	SetUserActive(ctx context.Context, userID string, active bool) error
 
 	// One-time token operations (email verification, password reset, email change)
 	CreateOneTimeToken(ctx context.Context, token *OneTimeToken) error

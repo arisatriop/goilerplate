@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1–T3.5, T3.7 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3 done (T3.1–T3.7)
 
 ---
 
@@ -134,7 +134,7 @@ jwt:
 | **HTTP request logger writes secrets to logs unfiltered**: `Authorization` / `x-api-key` headers, login passwords (request payload), and issued tokens (response body) | T1.7 |
 | Client IP taken from `X-Forwarded-For` without a trusted-proxy check (spoofable); behind a load balancer `c.IP()` is the proxy, so per-IP rate limits are shared by all users | T4.6 |
 | No security response headers | T4.6 |
-| No change-password endpoint; no maximum password length (bcrypt rejects > 72 bytes, surfacing as a 500) | T3.6, T3.7 |
+| ~~No change-password endpoint; no maximum password length (bcrypt rejects > 72 bytes, surfacing as a 500)~~ | T3.6 ✅, T3.7 ✅ |
 | Registration reveals whether an email is already registered | T5.1 |
 | No security audit events (login failures, lockouts, token reuse, password resets) | T4.7 |
 | ~~Logout does not revoke access tokens issued by earlier refreshes~~ (fixed by the session check) | T1.2 ✅ |
@@ -176,7 +176,7 @@ jwt:
 | 0. Decision | T0.1 | ✅ decided |
 | 1. Optional-component foundation | T1.1 – T1.7 | ~8–10 days |
 | 2. Schema & database | T2.1 – T2.4 | ✅ done |
-| 3. Token security | T3.1 – T3.7 | ~9–12 days |
+| 3. Token security | T3.1 – T3.7 | ✅ done |
 | 4. Other auth surfaces | T4.1 – T4.7 | ~6–8 days |
 | 5. Optional features | T5.1 – T5.6 | ~10–13 days |
 | 6. Tests & documentation | T6.1 – T6.2 | ~3–4 days |
@@ -597,16 +597,48 @@ empty reason.
 consulted. Already tracked for T4.6; the runs above raised the limit to isolate the behaviour
 under test.
 
-### T3.6 Revoke sessions on user state changes · S
+### T3.6 Revoke sessions on user state changes · S — ✅ done
 **Depends on:** T3.5
-- [ ] User deactivated → LogoutAll
-- [ ] Add `PUT /users/me/password`: requires the current password; revokes every other session
-      and keeps the current one
-- [ ] Password reset (T5.1) → LogoutAll including the current session
-- [ ] Refresh keeps rejecting inactive users
+- [x] User deactivated → all sessions revoked. `DeactivateUser` flips `is_active` and revokes
+      every session (`revoked_reason = admin`) **in one transaction**, then evicts the user from
+      the session cache. Doing only the first would leave API access alive until the sessions
+      expired, because the per-request check reads the session, not the account.
+- [x] `PUT /users/me/password`: requires the current password; revokes every other session and
+      keeps the current one. Both the user ID and the kept session ID come from the middleware,
+      so a caller can only change their own password and only keep the session they are using.
+      The new password goes through `pkg/password` (T3.7), and the update clears any lockout —
+      the person proved they own the account, so making them wait out someone else's failed
+      guesses would punish the wrong party.
+- [ ] Password reset → LogoutAll including the current session — belongs to T5.1, which owns the
+      reset flow. `RevokeOtherUserSessions(userID, "", reason)` already revokes all of them.
+- [x] Refresh keeps rejecting inactive users (`ValidateUserForRefresh`)
 
 **Done when:** a deactivated user loses API access immediately, and changing the password
 logs out every other device.
+
+Verified live. Password change on device A, with B and C signed in:
+
+| Case | Result |
+|---|---|
+| Wrong current password | `401 "Invalid credential"`, nothing revoked |
+| New password too short / 73 bytes | `400` / `400 "at most 72 bytes"`, nothing revoked |
+| Valid change | `200` |
+| A (made the change) | refresh `200` — stays signed in |
+| B and C | refresh `401`, access token `401` |
+| Login with the old password | `401` |
+| Login with the new password | `200` |
+
+`revoked_reason` afterwards: 4 rows `password_change`, other users untouched. Repository tests
+cover that another user's sessions are never included, and that an empty `keepSessionID` revokes
+all of them. Domain tests cover the deactivation transaction and the three refusal paths.
+
+**Caveat, verified rather than assumed:** "immediately" holds when deactivation goes through
+`DeactivateUser`. Flipping `users.is_active` directly in the database bypasses the revocation:
+`/auth/refresh` does reject the user (403, confirmed), but an already-issued **access token keeps
+working until it expires** — measured at 200 on an authenticated route after a direct DB update.
+This is the same class of caveat as `auth.session_cache_ttl` ("bounds staleness if the DB is
+changed directly"). No admin endpoint calls `DeactivateUser` yet; that waits on the
+user-management endpoints, alongside the permission-invalidation hooks noted in T1.2.
 
 ### T3.7 Atomic lockout + anti-enumeration · M — ✅ done (one bullet deferred)
 - [x] Single statement via `RegisterFailedLogin`, which returns whether the account is now locked:

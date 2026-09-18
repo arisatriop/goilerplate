@@ -548,6 +548,63 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/users/me/password": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires the current password. Revokes every other session; the caller stays signed in.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Change password",
+                "parameters": [
+                    {
+                        "description": "Password change payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dtorequest.ChangePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -580,6 +637,22 @@ const docTemplate = `{
                 "code": {
                     "type": "string",
                     "minLength": 3
+                }
+            }
+        },
+        "dtorequest.ChangePasswordRequest": {
+            "type": "object",
+            "required": [
+                "currentPassword",
+                "newPassword"
+            ],
+            "properties": {
+                "currentPassword": {
+                    "type": "string"
+                },
+                "newPassword": {
+                    "type": "string",
+                    "minLength": 8
                 }
             }
         },

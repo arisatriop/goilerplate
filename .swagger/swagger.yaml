@@ -22,6 +22,17 @@ definitions:
     - bar
     - code
     type: object
+  dtorequest.ChangePasswordRequest:
+    properties:
+      currentPassword:
+        type: string
+      newPassword:
+        minLength: 8
+        type: string
+    required:
+    - currentPassword
+    - newPassword
+    type: object
   dtorequest.LoginRequest:
     properties:
       email:
@@ -521,6 +532,43 @@ paths:
       summary: Update bar
       tags:
       - bars
+  /api/v1/users/me/password:
+    put:
+      consumes:
+      - application/json
+      description: Requires the current password. Revokes every other session; the
+        caller stays signed in.
+      parameters:
+      - description: Password change payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dtorequest.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - auth
 securityDefinitions:
   ApiKeyAuth:
     description: Partner API key.

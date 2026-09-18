@@ -2,9 +2,11 @@ package auth
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
+	"goilerplate/pkg/password"
 	"goilerplate/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -173,4 +175,115 @@ func TestSessionExpiry_For(t *testing.T) {
 
 	assert.Equal(t, 168*time.Hour, expiry.For(false))
 	assert.Equal(t, 720*time.Hour, expiry.For(true), "remember_me must use the longer lifetime")
+}
+
+// stateRepo records what DeactivateUser and ChangePassword did to the user and their sessions.
+type stateRepo struct {
+	Repository
+	user          *User
+	activeSet     *bool
+	passwordHash  string
+	revokedKeep   string
+	revokedReason string
+	revokeCalls   int
+}
+
+func (r *stateRepo) WithTx(context.Context) Repository { return r }
+
+func (r *stateRepo) GetUserByID(context.Context, string) (*User, error) {
+	if r.user == nil {
+		return nil, nil
+	}
+	copied := *r.user
+	return &copied, nil
+}
+
+func (r *stateRepo) SetUserActive(_ context.Context, _ string, active bool) error {
+	r.activeSet = &active
+	return nil
+}
+
+func (r *stateRepo) UpdateUserPassword(_ context.Context, _, hash string) error {
+	r.passwordHash = hash
+	return nil
+}
+
+func (r *stateRepo) RevokeOtherUserSessions(_ context.Context, _, keepSessionID, reason string) error {
+	r.revokeCalls++
+	r.revokedKeep = keepSessionID
+	r.revokedReason = reason
+	return nil
+}
+
+// inlineTx runs the function without a real transaction; the repository stub ignores WithTx.
+type inlineTx struct{}
+
+func (inlineTx) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
+
+func newStateUseCase(repo *stateRepo) *authUseCase {
+	return &authUseCase{
+		authRepo:       repo,
+		sessionService: NewSessionService(repo, newFakeSessionStore(), true),
+		txManager:      inlineTx{},
+		passwordPolicy: password.NewPolicy(nil),
+	}
+}
+
+// Deactivating an account must revoke its sessions too. Flipping the flag alone would leave the
+// user with API access until their sessions expired, because the per-request check reads the
+// session, not the account.
+func TestDeactivateUser_RevokesEverySession(t *testing.T) {
+	repo := &stateRepo{}
+	uc := newStateUseCase(repo)
+
+	require.NoError(t, uc.DeactivateUser(context.Background(), "u1"))
+
+	require.NotNil(t, repo.activeSet)
+	assert.False(t, *repo.activeSet)
+	assert.Equal(t, 1, repo.revokeCalls)
+	assert.Empty(t, repo.revokedKeep, "no session is kept when the account is disabled")
+	assert.Equal(t, RevokedReasonAdmin, repo.revokedReason)
+}
+
+func TestChangePassword_RequiresTheCurrentPassword(t *testing.T) {
+	hash, err := utils.HashPassword("the-current-password")
+	require.NoError(t, err)
+	repo := &stateRepo{user: &User{ID: "u1", PasswordHash: hash, IsActive: true}}
+	uc := newStateUseCase(repo)
+
+	err = uc.ChangePassword(context.Background(), "u1", "s1", "not-the-password", "a-new-strong-password")
+
+	assertUnauthorized(t, err)
+	assert.Zero(t, repo.revokeCalls, "nothing is revoked when the change is refused")
+	assert.Empty(t, repo.passwordHash)
+}
+
+func TestChangePassword_KeepsTheCallersSession(t *testing.T) {
+	hash, err := utils.HashPassword("the-current-password")
+	require.NoError(t, err)
+	repo := &stateRepo{user: &User{ID: "u1", PasswordHash: hash, IsActive: true}}
+	uc := newStateUseCase(repo)
+
+	err = uc.ChangePassword(context.Background(), "u1", "s1", "the-current-password", "a-new-strong-password")
+
+	require.NoError(t, err)
+	assert.NotEmpty(t, repo.passwordHash)
+	assert.NotEqual(t, hash, repo.passwordHash, "the stored hash is replaced")
+	assert.Equal(t, "s1", repo.revokedKeep, "the device making the change stays signed in")
+	assert.Equal(t, RevokedReasonPasswordChange, repo.revokedReason)
+}
+
+// A weak new password is a validation error, and must not revoke anything on the way out.
+func TestChangePassword_RejectsWeakNewPassword(t *testing.T) {
+	hash, err := utils.HashPassword("the-current-password")
+	require.NoError(t, err)
+	repo := &stateRepo{user: &User{ID: "u1", PasswordHash: hash, IsActive: true}}
+	uc := newStateUseCase(repo)
+
+	err = uc.ChangePassword(context.Background(), "u1", "s1", "the-current-password", "short")
+
+	var clientErr *utils.ClientError
+	require.ErrorAs(t, err, &clientErr)
+	assert.Equal(t, http.StatusBadRequest, clientErr.Code)
+	assert.Zero(t, repo.revokeCalls)
 }

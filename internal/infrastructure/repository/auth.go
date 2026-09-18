@@ -275,6 +275,70 @@ func (r *authRepository) RotateRefreshJTI(ctx context.Context, sessionID, curren
 	return nil
 }
 
+// RevokeOtherUserSessions revokes every active session of a user except keepSessionID. It is
+// what a password change uses: the device making the change stays signed in, every other one is
+// turned out. Pass an empty keepSessionID to revoke all of them.
+func (r *authRepository) RevokeOtherUserSessions(ctx context.Context, userID, keepSessionID, reason string) error {
+	query := r.db.WithContext(ctx).
+		Model(&model.UserSession{}).
+		Where("user_id = ? AND is_active", userID)
+
+	if keepSessionID != "" {
+		query = query.Where("id <> ?", keepSessionID)
+	}
+
+	return query.Updates(map[string]any{
+		"is_active":      false,
+		"revoked_at":     utils.Now(),
+		"revoked_reason": reason,
+	}).Error
+}
+
+// UpdateUserPassword stores a new password hash and stamps password_changed_at, which is the
+// record of when every other session was turned out.
+func (r *authRepository) UpdateUserPassword(ctx context.Context, userID, passwordHash string) error {
+	now := utils.Now()
+
+	result := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ? AND deleted_at IS NULL", userID).
+		Updates(map[string]any{
+			"password_hash":         passwordHash,
+			"password_changed_at":   now,
+			"failed_login_attempts": 0,
+			"locked_until":          nil,
+			"updated_at":            now,
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return auth.ErrNotFound
+	}
+
+	return nil
+}
+
+// SetUserActive flips the account's active flag. Revoking the user's sessions is the caller's
+// job, and must happen in the same transaction: a deactivated account with live sessions would
+// keep API access until they expired.
+func (r *authRepository) SetUserActive(ctx context.Context, userID string, active bool) error {
+	result := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ? AND deleted_at IS NULL", userID).
+		Updates(map[string]any{"is_active": active, "updated_at": utils.Now()})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return auth.ErrNotFound
+	}
+
+	return nil
+}
+
 // RevokeSession deactivates one session in a single conditional UPDATE, so concurrent
 // logouts cannot both report success. It returns auth.ErrNotFound when the session does not
 // belong to the user or was already revoked.
