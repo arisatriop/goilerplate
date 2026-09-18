@@ -73,21 +73,33 @@ func (r *authRepository) GetUserByEmail(ctx context.Context, email string) (*aut
 	return r.userModelToEntity(&data), nil
 }
 
-func (r *authRepository) IncrementFailedLoginAttempts(ctx context.Context, userID string) error {
-	result := r.db.WithContext(ctx).
-		Model(&model.User{}).
-		Where("id = ? AND deleted_at IS NULL", userID).
-		Update("failed_login_attempts", gorm.Expr("failed_login_attempts + 1"))
-
-	if result.Error != nil {
-		return result.Error
+// RegisterFailedLogin counts one failed attempt and, on the attempt that reaches maxAttempts,
+// locks the account — in a single statement, so simultaneous guesses cannot each read the same
+// stale counter and skip past the threshold. The CASE compares the post-increment value, so the
+// lock lands exactly on attempt N rather than N+1. It returns whether the account is now locked.
+func (r *authRepository) RegisterFailedLogin(ctx context.Context, userID string, maxAttempts int, lockUntil time.Time) (bool, error) {
+	var row struct {
+		FailedLoginAttempts int
+		LockedUntil         *time.Time
 	}
 
-	if result.RowsAffected == 0 {
-		return auth.ErrNotFound
+	err := r.db.WithContext(ctx).Raw(`
+		UPDATE users
+		   SET failed_login_attempts = failed_login_attempts + 1,
+		       locked_until = CASE WHEN failed_login_attempts + 1 >= ? THEN ? ELSE locked_until END,
+		       updated_at = ?
+		 WHERE id = ? AND deleted_at IS NULL
+		RETURNING failed_login_attempts, locked_until`,
+		maxAttempts, lockUntil, utils.Now(), userID,
+	).Scan(&row).Error
+	if err != nil {
+		return false, err
+	}
+	if row.FailedLoginAttempts == 0 {
+		return false, auth.ErrNotFound
 	}
 
-	return nil
+	return row.LockedUntil != nil && row.LockedUntil.After(utils.Now()), nil
 }
 
 func (r *authRepository) LockUser(ctx context.Context, userID string, lockedUntil *time.Time) error {

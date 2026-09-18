@@ -57,8 +57,9 @@ func NewUseCase(
 	sessionExpiry SessionExpiry,
 	refreshReuseGrace time.Duration,
 	txManager transaction.Transaction,
+	lockout Lockout,
 ) Usecase {
-	userValidator := NewUserValidator(authRepo)
+	userValidator := NewUserValidator(authRepo, lockout)
 	menuService := NewMenuService(authRepo)
 
 	return &authUseCase{

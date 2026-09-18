@@ -9,6 +9,7 @@ import (
 	"goilerplate/internal/domain/user"
 	"goilerplate/internal/domain/userrole"
 	"goilerplate/pkg/auditctx"
+	"goilerplate/pkg/password"
 	"goilerplate/pkg/utils"
 	"net/http"
 )
@@ -18,11 +19,12 @@ type ApplicationService interface {
 }
 
 type applicationService struct {
-	cfg          *config.Config
-	txManager    transaction.Transaction
-	userRepo     user.Repository
-	roleRepo     role.Repository
-	userRoleRepo userrole.Repository
+	cfg            *config.Config
+	txManager      transaction.Transaction
+	userRepo       user.Repository
+	roleRepo       role.Repository
+	userRoleRepo   userrole.Repository
+	passwordPolicy password.Policy
 }
 
 func NewApplicationService(
@@ -31,17 +33,25 @@ func NewApplicationService(
 	userRepo user.Repository,
 	roleRepo role.Repository,
 	userRoleRepo userrole.Repository,
+	passwordPolicy password.Policy,
 ) ApplicationService {
 	return &applicationService{
-		cfg:          cfg,
-		txManager:    txManager,
-		userRepo:     userRepo,
-		roleRepo:     roleRepo,
-		userRoleRepo: userRoleRepo,
+		cfg:            cfg,
+		txManager:      txManager,
+		userRepo:       userRepo,
+		roleRepo:       roleRepo,
+		userRoleRepo:   userRoleRepo,
+		passwordPolicy: passwordPolicy,
 	}
 }
 
 func (s *applicationService) Register(ctx context.Context, register *Register) error {
+	// The plaintext password still sits in PasswordHash at this point; HashPassword replaces it
+	// below. Checking the policy first means bcrypt never silently truncates an over-long one.
+	if err := s.passwordPolicy.Validate(register.User.PasswordHash); err != nil {
+		return err
+	}
+
 	if err := s.checkExistingEmail(ctx, register.User.Email); err != nil {
 		return fmt.Errorf("failed to register new user: %w", err)
 	}

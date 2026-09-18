@@ -25,7 +25,7 @@ type Repository interface {
 	GetUserByID(ctx context.Context, userID string) (*User, error)
 	LockUser(ctx context.Context, userID string, lockedUntil *time.Time) error
 	UpdateUserLoginInfo(ctx context.Context, userID string, resetFailedAttempts bool) error
-	IncrementFailedLoginAttempts(ctx context.Context, userID string) error
+	RegisterFailedLogin(ctx context.Context, userID string, maxAttempts int, lockUntil time.Time) (bool, error)
 	ResetExpiredLock(ctx context.Context, userID string) error
 
 	// One-time token operations (email verification, password reset, email change)

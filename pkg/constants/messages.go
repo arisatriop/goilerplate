@@ -14,7 +14,7 @@ const (
 	MsgForbidden             = "Forbidden"
 	MsgResourceNotFound      = "Not found"
 	MsgInternalServerError   = "Whoops! Something went wrong"
-	MsgAccountLocked         = "Account is temporarily locked due to multiple failed login attempts"
+	MsgAccountLocked         = "Too many failed attempts, please try again later"
 	MsgAccountDisabled       = "Account is disabled"
 	MsgInvalidCredential     = "Invalid credential"
 	MsgFeatureNotImplemented = "Feature not implemented"
