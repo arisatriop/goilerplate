@@ -100,6 +100,32 @@ grpc:
   enabled: true
   port: 50051 # must differ from server.port
 
+  # Publishes the whole service surface to anyone who can reach the port, so it stays off
+  # unless asked for. Clients import the proto module instead (see docs/guides/grpc.md).
+  reflection: false
+
+  # What a call must prove before a handler runs.
+  #
+  #   token         (default) the same access token HTTP uses, checked against the same
+  #                 session store, so handlers get the same user context either way
+  #   shared_secret service-to-service calls with no user behind them; callers send the
+  #                 secret in the x-internal-secret metadata key
+  #   none          nothing is checked — only defensible when the port is reachable
+  #                 in-cluster only, and logged as a warning in production
+  #
+  # public_methods exempts full method names, or a whole service with a trailing /*.
+  auth:
+    mode: token
+    secret: <GRPC_AUTH_SECRET>
+    public_methods:
+      - /grpc.health.v1.Health/*
+
+  # Terminate TLS on the gRPC port itself, for deployments where it leaves the cluster.
+  tls:
+    enabled: false
+    cert_file: ""
+    key_file: ""
+
 # Optional. Traces are exported over OTLP gRPC; Prometheus metrics are served at /metrics.
 otel:
   enabled: true

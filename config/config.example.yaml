@@ -48,6 +48,10 @@ redis:
 
 grpc:
   enabled: false
+  reflection: false
+  auth:
+    mode: token          # token | shared_secret | none — see config.full.example.yaml
+    public_methods: []
 
 otel:
   enabled: false

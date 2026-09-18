@@ -203,7 +203,33 @@ This means any use-case that reads the caller identity from context will work fo
 
 ## Local Testing with grpcurl
 
-Server reflection is **disabled** (production mode). You must provide the proto files explicitly when using grpcurl.
+Server reflection is **off by default**, in every environment. It publishes the whole service
+surface to anyone who can reach the port, and "not production" is not the same question as "safe
+to enumerate". Provide the proto files explicitly, or turn it on deliberately for a local
+session:
+
+```yaml
+grpc:
+  reflection: true
+```
+
+### Authentication
+
+Calls are authenticated by `grpc.auth.mode`, which defaults to `token` — so a call with no
+credentials gets `Unauthenticated`, not a response:
+
+```bash
+# token mode: the same access token the HTTP API issues
+grpcurl -plaintext -H "authorization: Bearer $ACCESS_TOKEN" ... 
+
+# shared_secret mode: for service-to-service calls with no user behind them
+grpcurl -plaintext -H "x-internal-secret: $SECRET" ...
+```
+
+`token` mode checks the token against the **same session store as HTTP**, so logging out revokes
+a login on both transports at once. Exempt health checks and similar through
+`grpc.auth.public_methods`. See `config/config.full.example.yaml` for every option.
+
 
 ### Install grpcurl
 

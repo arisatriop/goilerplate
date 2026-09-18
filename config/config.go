@@ -77,6 +77,50 @@ type OTel struct {
 type GRPC struct {
 	Enabled bool `mapstructure:"enabled"`
 	Port    int  `mapstructure:"port"`
+	// Reflection lets a client discover services without the proto module. Off by default:
+	// it publishes the full service surface to anyone who can reach the port.
+	Reflection bool     `mapstructure:"reflection"`
+	TLS        GRPCTLS  `mapstructure:"tls"`
+	Auth       GRPCAuth `mapstructure:"auth"`
+}
+
+// gRPC auth modes. See GRPCAuth.
+const (
+	GRPCAuthToken        = "token"
+	GRPCAuthSharedSecret = "shared_secret"
+	GRPCAuthNone         = "none"
+)
+
+// GRPCAuth decides what a gRPC call must prove before a handler runs.
+//
+//	token         the same access token HTTP uses, checked against the same session store, so
+//	              handlers get the same user context either way
+//	shared_secret service-to-service calls with no user behind them
+//	none          nothing is checked; only defensible when the port is reachable in-cluster
+//	              only, which is the D5 argument applied to gRPC
+type GRPCAuth struct {
+	Mode   string `mapstructure:"mode"`
+	Secret string `mapstructure:"secret"`
+	// PublicMethods are exempt, as full method names ("/pkg.Service/Method") or a whole
+	// service ("/pkg.Service/*"). Health checks and similar belong here.
+	PublicMethods []string `mapstructure:"public_methods"`
+}
+
+// ModeOrDefault returns grpc.auth.mode, or GRPCAuthToken when unset. The default is the strict
+// one: a port that answers before it has been told what to require should refuse, not serve.
+func (a GRPCAuth) ModeOrDefault() string {
+	mode := strings.ToLower(strings.TrimSpace(a.Mode))
+	if mode == "" {
+		return GRPCAuthToken
+	}
+	return mode
+}
+
+// GRPCTLS terminates TLS on the gRPC port itself, for deployments where it leaves the cluster.
+type GRPCTLS struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	CertFile string `mapstructure:"cert_file"`
+	KeyFile  string `mapstructure:"key_file"`
 }
 
 type App struct {

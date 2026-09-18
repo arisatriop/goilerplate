@@ -147,12 +147,6 @@ func (m *Auth) RequiredPermission(permission string) fiber.Handler {
 	}
 }
 
-// defaultInternalCaller is used when a caller does not name itself.
-const defaultInternalCaller = "system"
-
-// maxServiceNameLength bounds what an unverified header can put into every log line of a request.
-const maxServiceNameLength = 40
-
 // InternalAuthenticate guards the /internal routes, which are meant for pod-to-pod traffic only
 // (D5). Keeping them off the public internet is the gateway's job: it forwards an explicit
 // allowlist and never a catch-all.
@@ -167,7 +161,7 @@ func (m *Auth) InternalAuthenticate() fiber.Handler {
 			return response.Unauthorized(ctx, "")
 		}
 
-		caller := internalCallerName(ctx.Get(constants.HeaderServiceName))
+		caller := utils.ServiceName(ctx.Get(constants.HeaderServiceName))
 
 		userIdCtx := context.WithValue(ctx.UserContext(), constants.ContextKeyUserID, caller)
 		userNameCtx := context.WithValue(userIdCtx, constants.ContextKeyUserName, caller)
@@ -179,39 +173,6 @@ func (m *Auth) InternalAuthenticate() fiber.Handler {
 
 		return ctx.Next()
 	}
-}
-
-// internalCallerName sanitises the X-Service-Name header.
-//
-// The name is an unverified claim — in shared_secret mode every caller holds the same secret, so
-// nothing distinguishes one from another. It is for attribution in logs, never for authorization.
-// It is bounded and restricted to a plain character set so that a header cannot pad every log
-// line a request produces.
-func internalCallerName(header string) string {
-	header = strings.TrimSpace(header)
-	if header == "" {
-		return defaultInternalCaller
-	}
-
-	cleaned := strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-			return r
-		case r == '-', r == '_', r == '.':
-			return r
-		default:
-			return -1
-		}
-	}, header)
-
-	if cleaned == "" {
-		return defaultInternalCaller
-	}
-	if len(cleaned) > maxServiceNameLength {
-		cleaned = cleaned[:maxServiceNameLength]
-	}
-
-	return cleaned
 }
 
 // PartnerAuthenticate provides authentication for partner services.
