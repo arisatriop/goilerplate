@@ -14,6 +14,14 @@ type LoginRequest struct {
 	RememberMe bool   `json:"rememberMe"`
 }
 
+// ChangePasswordRequest represents a password change by the signed-in user.
+// The length ceiling is enforced by pkg/password, which counts bytes rather than characters
+// because that is where bcrypt truncates.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword" validate:"required"`
+	NewPassword     string `json:"newPassword" validate:"required,min=8"`
+}
+
 // RefreshTokenRequest represents the refresh token request
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refreshToken" validate:"required"`

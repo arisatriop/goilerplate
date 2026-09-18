@@ -7,6 +7,7 @@ import (
 	"goilerplate/internal/domain/bar"
 	"goilerplate/internal/domain/foo"
 	"goilerplate/internal/infrastructure/transaction"
+	"goilerplate/pkg/password"
 )
 
 // UseCases contains all use case implementations
@@ -42,6 +43,9 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 				MaxAttempts: app.Config.Auth.Lockout.MaxAttemptsOrDefault(),
 				Duration:    app.Config.Auth.Lockout.DurationOrDefault(),
 			},
+			// Same policy as registration; supply a CommonChecker to enable the
+			// common-password check (roadmap T3.7).
+			password.NewPolicy(nil),
 		),
 		FooUC: foo.NewUseCase(repos.FooRepo),
 		BarUC: bar.NewUseCase(repos.BarRepo),

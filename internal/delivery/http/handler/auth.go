@@ -149,6 +149,41 @@ func (h *Auth) LogoutAll(ctx *fiber.Ctx) error {
 	return response.Success(ctx, nil, response.WithMessage("Logout from all devices successful"))
 }
 
+// ChangePassword changes the signed-in user's password
+// @Summary      Change password
+// @Description  Requires the current password. Revokes every other session; the caller stays signed in.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.ChangePasswordRequest  true  "Password change payload"
+// @Success      200  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse
+// @Failure      401  {object}  response.BaseResponse
+// @Failure      500  {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/users/me/password [put]
+func (h *Auth) ChangePassword(ctx *fiber.Ctx) error {
+	var req dtorequest.ChangePasswordRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return response.BadRequest(ctx, constants.MsgInvalidRequestBody, nil)
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
+
+	// Both come from the middleware, so the caller can only ever change their own password and
+	// can only keep the session they are actually using.
+	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+	sessionID := ctx.Locals(string(constants.ContextKeySessionID)).(string)
+
+	if err := h.usecase.ChangePassword(ctx.UserContext(), userID, sessionID, req.CurrentPassword, req.NewPassword); err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	return response.Success(ctx, nil, response.WithMessage("Password changed successfully"))
+}
+
 // RefreshToken handles token refresh using refresh token
 // @Summary      Refresh access token
 // @Tags         auth

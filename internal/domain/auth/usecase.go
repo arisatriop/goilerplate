@@ -8,6 +8,7 @@ import (
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
+	"goilerplate/pkg/password"
 	"goilerplate/pkg/utils"
 	"net/http"
 	"time"
@@ -38,6 +39,7 @@ type authUseCase struct {
 	sessionExpiry     SessionExpiry
 	refreshReuseGrace time.Duration
 	txManager         transaction.Transaction
+	passwordPolicy    password.Policy
 }
 
 // Usecase defines the authentication use case interface
@@ -46,6 +48,8 @@ type Usecase interface {
 	Login(ctx context.Context, credentials *LoginCredentials, deviceInfo *DeviceInfo) (*LoginResult, error)
 	Logout(ctx context.Context, userID string, sessionID string) error
 	LogoutAll(ctx context.Context, userID string) error
+	ChangePassword(ctx context.Context, userID, sessionID, currentPassword, newPassword string) error
+	DeactivateUser(ctx context.Context, userID string) error
 	RefreshToken(ctx context.Context, userID, sessionID, refreshJTI string, deviceInfo *DeviceInfo) (*LoginResult, error)
 }
 
@@ -58,6 +62,7 @@ func NewUseCase(
 	refreshReuseGrace time.Duration,
 	txManager transaction.Transaction,
 	lockout Lockout,
+	passwordPolicy password.Policy,
 ) Usecase {
 	userValidator := NewUserValidator(authRepo, lockout)
 	menuService := NewMenuService(authRepo)
@@ -72,6 +77,7 @@ func NewUseCase(
 		sessionExpiry:     sessionExpiry,
 		refreshReuseGrace: refreshReuseGrace,
 		txManager:         txManager,
+		passwordPolicy:    passwordPolicy,
 	}
 }
 
@@ -220,6 +226,86 @@ func (uc *authUseCase) LogoutAll(ctx context.Context, userID string) error {
 	// Sessions are deactivated, not deleted, to keep an audit trail
 	if err := uc.authRepo.DeactivateUserSessions(ctx, userID, RevokedReasonLogoutAll); err != nil {
 		return fmt.Errorf("failed to deactivate user sessions: %w", err)
+	}
+
+	uc.sessionService.EvictUser(ctx, userID)
+
+	return nil
+}
+
+// ChangePassword replaces the caller's password and turns every other device out. The session
+// making the change is kept, so the user is not logged out of the browser they are using.
+//
+// Knowing the current password is required: an access token alone is enough to be signed in,
+// but not enough to take over an account someone else left signed in.
+func (uc *authUseCase) ChangePassword(ctx context.Context, userID, sessionID, currentPassword, newPassword string) error {
+	user, err := uc.authRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user == nil || !user.IsActive {
+		return utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+	}
+
+	if err := utils.CheckPassword(currentPassword, user.PasswordHash); err != nil {
+		return utils.ClientErr(http.StatusUnauthorized, constants.MsgInvalidCredential)
+	}
+
+	if err := uc.passwordPolicy.Validate(newPassword); err != nil {
+		return err
+	}
+
+	hash, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("hashing new password: %w", err)
+	}
+
+	// The new password and the revocation commit together: a password changed without the
+	// revocation would leave a thief signed in on another device with no sign anything happened.
+	err = uc.txManager.Do(ctx, func(txCtx context.Context) error {
+		repo := uc.authRepo.WithTx(txCtx)
+
+		if err := repo.UpdateUserPassword(txCtx, userID, hash); err != nil {
+			return fmt.Errorf("updating password: %w", err)
+		}
+		if err := repo.RevokeOtherUserSessions(txCtx, userID, sessionID, RevokedReasonPasswordChange); err != nil {
+			return fmt.Errorf("revoking other sessions: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// Evicting the whole user drops the surviving session too; it is re-read from the database
+	// on the next request, which is correct and costs one lookup.
+	uc.sessionService.EvictUser(ctx, userID)
+
+	return nil
+}
+
+// DeactivateUser disables an account and revokes its sessions in the same transaction. Doing
+// only the first would leave the user with API access until their sessions expired, because the
+// per-request check reads the session, not the account.
+//
+// This is the supported way to disable an account. Flipping users.is_active directly in the
+// database bypasses it and leaves live sessions working.
+func (uc *authUseCase) DeactivateUser(ctx context.Context, userID string) error {
+	err := uc.txManager.Do(ctx, func(txCtx context.Context) error {
+		repo := uc.authRepo.WithTx(txCtx)
+
+		if err := repo.SetUserActive(txCtx, userID, false); err != nil {
+			return fmt.Errorf("deactivating user: %w", err)
+		}
+		if err := repo.RevokeOtherUserSessions(txCtx, userID, "", RevokedReasonAdmin); err != nil {
+			return fmt.Errorf("revoking sessions: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	uc.sessionService.EvictUser(ctx, userID)

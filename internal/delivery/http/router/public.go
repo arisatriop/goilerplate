@@ -25,6 +25,10 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 	api := route.Group("api").Use(r.Wired.Middleware.Auth.Authenticate(), r.Wired.Middleware.RateLimit.User)
 	v1 := api.Group("v1")
 
+	// Changing a password needs the current one, so it is rate limited per user like any other
+	// authenticated route rather than per IP.
+	v1.Put("/users/me/password", r.Wired.Handlers.Auth.ChangePassword)
+
 	r.foo(v1)
 	r.bar(v1)
 }
