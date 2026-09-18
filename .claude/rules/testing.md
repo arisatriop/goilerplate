@@ -8,6 +8,9 @@
 ## What to Test
 - Business logic in the use-case (application) layer is the highest priority
 - Repository layer: test with real DB or integration tests, not mocks
+- Behaviour that only emerges from layers agreeing (revocation, auth lifecycle) belongs in
+  `internal/integration/`, driven over HTTP against the real middleware, use case and
+  repository — a stub repository would only prove the stub's semantics
 - Handler layer: test HTTP status codes and response shapes
 - Financial calculations must have dedicated unit tests with edge cases
 

@@ -55,6 +55,7 @@ storage/        Uploaded file storage
 ```bash
 make run              # run application via air (hot reload)
 make test             # go test -v ./...
+make test-integration # go test ./... against a real PostgreSQL + Redis
 make lint             # golangci-lint run
 make migrate-up       # run pending migrations
 make migrate-down     # rollback last migration
@@ -63,6 +64,10 @@ make migrate-create name=<name>  # create new migration files
 
 Config file: `config/config.yaml` (copy from `config/config.example.yaml`)
 Secrets: `config/.env` (copy from `config/.env.example`)
+
+The repository, cache and `internal/integration` suites need `POSTGRES_TEST_DSN` and
+`REDIS_TEST_ADDR`. Without them they **skip**, so plain `make test` can be green while they
+never ran — use `make test-integration` before trusting a result. CI sets both.
 
 ## Branching & Commit Convention
 - Branches: `feat/<topic>`, `fix/<topic>`, `chore/<topic>`
