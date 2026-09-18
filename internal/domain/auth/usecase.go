@@ -10,10 +10,20 @@ import (
 	"time"
 )
 
-const (
-	SessionDuration    = 7 * 24 * time.Hour  // 7 days default - exported for use in other files
-	rememberMeDuration = 30 * 24 * time.Hour // 30 days for remember me
-)
+// SessionExpiry holds the absolute session lifetimes, from auth.session_expiry and
+// auth.remember_me_expiry. A session never extends past it, however often it is refreshed.
+type SessionExpiry struct {
+	Default    time.Duration
+	RememberMe time.Duration
+}
+
+// For reports the lifetime a session gets, honouring the remember-me choice.
+func (e SessionExpiry) For(rememberMe bool) time.Duration {
+	if rememberMe {
+		return e.RememberMe
+	}
+	return e.Default
+}
 
 type authUseCase struct {
 	authRepo          Repository
@@ -24,6 +34,7 @@ type authUseCase struct {
 	menuService       *MenuService
 	sessionService    *SessionService
 	permissionService *PermissionService
+	sessionExpiry     SessionExpiry
 }
 
 // Usecase defines the authentication use case interface
@@ -35,7 +46,13 @@ type Usecase interface {
 	RefreshToken(ctx context.Context, userID string, sessionID string, tokenHash string, refreshToken string, refreshTokenExpiresAt time.Time, deviceInfo *DeviceInfo) (*LoginResult, error)
 }
 
-func NewUseCase(authRepo Repository, jwtService *jwt.JWTService, sessionService *SessionService, permissionService *PermissionService) Usecase {
+func NewUseCase(
+	authRepo Repository,
+	jwtService *jwt.JWTService,
+	sessionService *SessionService,
+	permissionService *PermissionService,
+	sessionExpiry SessionExpiry,
+) Usecase {
 	tokenService := NewTokenService(authRepo)
 	userValidator := NewUserValidator(authRepo)
 	tokenStorage := NewTokenStorage(authRepo)
@@ -50,6 +67,7 @@ func NewUseCase(authRepo Repository, jwtService *jwt.JWTService, sessionService 
 		menuService:       menuService,
 		sessionService:    sessionService,
 		permissionService: permissionService,
+		sessionExpiry:     sessionExpiry,
 	}
 }
 
@@ -92,21 +110,24 @@ func (uc *authUseCase) Login(ctx context.Context, credentials *LoginCredentials,
 		return nil, fmt.Errorf("failed to update user login info: %w", err)
 	}
 
-	// Generate session and tokens
+	// Generate session and tokens. The refresh token expires with the session, so the
+	// session's absolute lifetime is decided here and handed to the signer.
 	sessionID := utils.GenerateUUID()
+	expiry := uc.sessionExpiry.For(credentials.RememberMe)
 	tokenPair, err := uc.jwtService.GenerateTokenPair(
 		user.ID,
 		user.Name,
 		user.Email,
 		sessionID,
 		deviceInfo.DeviceID,
+		expiry,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token pair: %w", err)
 	}
 
 	// Create user session
-	session := uc.createUserSession(sessionID, user.ID, tokenPair.RefreshTokenID, deviceInfo, credentials.RememberMe)
+	session := uc.createUserSession(sessionID, user.ID, tokenPair.RefreshTokenID, deviceInfo, expiry)
 	createdSession, err := uc.authRepo.CreateSession(ctx, session)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
@@ -284,12 +305,7 @@ func (uc *authUseCase) RefreshToken(ctx context.Context, userID string, sessionI
 // createUserSession creates a new user session with device information.
 // refreshJTI is the jti of the refresh token this session starts with; rotation (T3.3)
 // replaces it on every refresh.
-func (uc *authUseCase) createUserSession(sessionID, userID, refreshJTI string, deviceInfo *DeviceInfo, rememberMe bool) *UserSession {
-	expirationDuration := SessionDuration
-	if rememberMe {
-		expirationDuration = rememberMeDuration
-	}
-
+func (uc *authUseCase) createUserSession(sessionID, userID, refreshJTI string, deviceInfo *DeviceInfo, expiry time.Duration) *UserSession {
 	now := utils.Now()
 
 	return &UserSession{
@@ -302,7 +318,7 @@ func (uc *authUseCase) createUserSession(sessionID, userID, refreshJTI string, d
 		IPAddress:  deviceInfo.IPAddress,
 		UserAgent:  deviceInfo.UserAgent,
 		IsActive:   true,
-		ExpiresAt:  now.Add(expirationDuration),
+		ExpiresAt:  now.Add(expiry),
 		LastUsedAt: now,
 	}
 }

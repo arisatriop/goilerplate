@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4)
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4); Phase 3: T3.1 done
 
 ---
 
@@ -157,7 +157,7 @@ jwt:
 | ~~GORM models use MySQL column types; redundant/unused indexes~~ | T2.3 ✅, T2.4 ✅ |
 | Lockout off-by-one (uses pre-increment attempt count) | T3.7 |
 | Login reveals account existence (disabled status returned before password check) | T3.7 |
-| JWT validation uses `ParseUnverified` to pick a secret, with a generic fallback secret; no `aud`/`iss` checks | T3.1 |
+| ~~JWT validation uses `ParseUnverified` to pick a secret, with a generic fallback secret; no `aud`/`iss` checks~~ | T3.1 ✅ |
 | CORS config exists but the middleware is commented out; 100MB body limit hardcoded | T5.4 |
 | S3 driver: no path-style option, public-read only, extra `HeadObject` per upload | T5.3 |
 | Permission cache TTL is 7 days and is only refreshed on login/refresh; role or permission changes are not invalidated (TTL fixed; invalidation hooks await role-management endpoints) | T1.2 |
@@ -212,7 +212,7 @@ jwt:
 - [ ] Log a warning when `internal_auth.mode=none` → moved to T4.1 (the config key does not exist yet)
 - [x] Collect all errors and report them together; secret values never appear in messages
 
-`jwt.secret_key` is only checked for presence and placeholders because T3.1 removes it.
+`jwt.secret_key` was only checked for presence and placeholders; T3.1 removed the key.
 
 **Done when:** invalid config stops the app with a clear list of errors; each rule has a unit test.
 
@@ -419,24 +419,42 @@ wrong type, unknown hash, and expired tokens are rejected.
 
 ## Phase 3 — Token security
 
-### T3.1 JWT hardening · M
-- [ ] Remove `ValidateToken` (`ParseUnverified` + `secretKey` fallback); use explicit
-      `ValidateAccessToken` / `ValidateRefreshToken`
-- [ ] Parser options: `WithValidMethods` (configured algorithm only), `WithIssuer`,
-      `WithAudience`, small leeway
-- [ ] Key rotation: `kid` header on every token; config holds one active signing key plus
-      optional previous verification keys, so secrets rotate without logging everyone out
-- [ ] Optional, may be deferred until a second service needs to verify tokens:
-      `jwt.algorithm: HS256 | EdDSA` (default `HS256`); `EdDSA` lets other services verify with
-      only the public key
-- [ ] `aud` claim from new `jwt.audience` config
-- [ ] `jti` on both access and refresh tokens
-- [ ] Remove `jwt.secret_key` and `jwt.refresh_token_expiry` from config (replaced by
-      `auth.session_expiry` / `auth.remember_me_expiry`)
-- [ ] Single `pkg/hash.Token()` helper replacing the four `hashToken` copies
+### T3.1 JWT hardening · M — ✅ done
+- [x] Remove `ValidateToken` (`ParseUnverified` + `secretKey` fallback); use explicit
+      `ValidateAccessToken` / `ValidateRefreshToken`. Each offers only the secret of the type
+      it expects, so a refresh token cannot authenticate a request even though the middleware
+      no longer checks `claims.Type` itself — the jwt package owns that check now.
+- [x] Parser options: `WithValidMethods` (HS256 only), `WithIssuer`, `WithAudience`,
+      `WithLeeway` (`jwt.leeway`, default 30s), `WithExpirationRequired`
+- [x] Key rotation: `kid` header on every token; `jwt.key_id` names the active key and
+      `jwt.previous_keys` lists retired ones, accepted for verification only. An unknown or
+      missing `kid` is rejected rather than falling back to the active key.
+- [ ] Deferred: `jwt.algorithm: HS256 | EdDSA`. Nothing outside this service verifies tokens
+      yet, and `SigningMethod` in `pkg/jwt` is the single place to widen when that changes.
+- [x] `aud` claim from new `jwt.audience` config
+- [x] `jti` on both access and refresh tokens (`TokenPair.AccessTokenID` / `RefreshTokenID`)
+- [x] Remove `jwt.secret_key` and `jwt.refresh_token_expiry` from config. The refresh token
+      now expires with its session: `auth.session_expiry` (default 168h) and
+      `auth.remember_me_expiry` (default 720h) replace the hardcoded `SessionDuration` /
+      `rememberMeDuration` constants and are passed to the signer per login.
+- [x] Single `pkg/hash.Token()` helper replacing the `hashToken` copies in the auth
+      middleware, `TokenStorage`, and `pkg/utils` (the use case's copy went in T2.3)
+- [x] `wire` builds one JWT service shared by the use case and the middleware; a second
+      instance could have drifted to a different key or issuer
 
 **Done when:** tokens with the wrong issuer, audience, algorithm, or secret are rejected (one test each),
 and a token signed with a previous key still validates after rotating the active key.
+
+Covered by `pkg/jwt/jwt_test.go`: wrong issuer, wrong audience, `alg=none` and `alg=HS512`,
+wrong secret, unknown and missing `kid`, swapped token types, expired token, and rotation —
+a token signed with the previous key validates after the active key moves on, and stops
+validating once that key is dropped. Config rules are covered in `config/validate_test.go`.
+
+Verified live against a scratch database and a real server: login issues `kid=v1`, HS256,
+`iss=goilerplate`, `aud=goilerplate-api`, `type` and `jti` on both tokens; an access token is
+rejected at `/auth/refresh` (401) and a refresh token at `/auth/logout` (401). After restarting
+with `key_id: v2` and the old key moved to `previous_keys`, new logins sign with `kid=v2`
+while the v1 access and refresh tokens issued before the rotation still work (200).
 
 ### T3.2 Stateless access token + session check · L
 **Depends on:** T1.2, T2.3, T3.1

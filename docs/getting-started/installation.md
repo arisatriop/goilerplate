@@ -240,7 +240,11 @@ db:
   password: postgres
 
 jwt:
-  secret_key: local-dev-key-only
+  key_id: v1
+  access_secret: local-dev-access-secret-at-least-32-bytes
+  refresh_secret: local-dev-refresh-secret-at-least-32-byte
+  issuer: goilerplate
+  audience: goilerplate-api
 ```
 
 ### Full Configuration

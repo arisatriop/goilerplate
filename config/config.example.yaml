@@ -33,12 +33,12 @@ db:
 # Development-only secrets. Startup validation rejects them when app.env=production;
 # generate real ones with: openssl rand -base64 48
 jwt:
-  secret_key: dev-only-changeme-secret-key-0000000000
+  key_id: v1
   access_secret: dev-only-changeme-access-secret-000000000
   refresh_secret: dev-only-changeme-refresh-secret-00000000
   access_token_expiry: 15m
-  refresh_token_expiry: 168h
   issuer: goilerplate
+  audience: goilerplate-api
 
 log:
   level: debug

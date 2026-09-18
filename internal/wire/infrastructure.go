@@ -43,15 +43,12 @@ func WireInfrastructure(app *bootstrap.App) *Infrastructure {
 		panic("Failed to initialize filesystem manager: " + err.Error())
 	}
 
-	// Initialize JWT service from config
-	jwtService := jwt.NewJWTService(
-		app.Config.JWT.SecretKey,
-		app.Config.JWT.AccessSecret,
-		app.Config.JWT.RefreshSecret,
-		app.Config.JWT.Issuer,
-		app.Config.JWT.AccessTokenExpiry,
-		app.Config.JWT.RefreshTokenExpiry,
-	)
+	// Initialize JWT service from config. config.Validate() has already run, so anything
+	// rejected here is a bug in the mapping rather than bad user input.
+	jwtService, err := newJWTService(app.Config)
+	if err != nil {
+		panic("Failed to initialize JWT service: " + err.Error())
+	}
 
 	cacheService := cache.NewRedisService(app.Redis)
 	sessionStore, permissionCache, locker := wireAuthCaches(app)
@@ -116,4 +113,30 @@ func wireIdempotencyStore(app *bootstrap.App) fiber.Storage {
 	app.Log.Warn("redis is disabled: Idempotency-Key deduplication is per instance; " +
 		"with more than one instance, duplicates that reach different instances are processed again")
 	return pkgcache.NewMemoryStorage()
+}
+
+// newJWTService maps the JWT config onto the signing keys the service verifies with:
+// one active key that signs, plus any retired keys that are still accepted.
+func newJWTService(cfg *config.Config) (*jwt.JWTService, error) {
+	previous := make([]jwt.Key, 0, len(cfg.JWT.PreviousKeys))
+	for _, key := range cfg.JWT.PreviousKeys {
+		previous = append(previous, jwt.Key{
+			ID:            key.KeyID,
+			AccessSecret:  key.AccessSecret,
+			RefreshSecret: key.RefreshSecret,
+		})
+	}
+
+	return jwt.NewJWTService(jwt.Config{
+		Active: jwt.Key{
+			ID:            cfg.JWT.KeyID,
+			AccessSecret:  cfg.JWT.AccessSecret,
+			RefreshSecret: cfg.JWT.RefreshSecret,
+		},
+		Previous:     previous,
+		Issuer:       cfg.JWT.Issuer,
+		Audience:     cfg.JWT.Audience,
+		AccessExpiry: cfg.JWT.AccessTokenExpiry,
+		Leeway:       cfg.JWT.Leeway,
+	})
 }

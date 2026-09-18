@@ -5,7 +5,6 @@ import (
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/bar"
 	"goilerplate/internal/domain/foo"
-	"goilerplate/pkg/jwt"
 )
 
 // UseCases contains all use case implementations
@@ -21,21 +20,18 @@ type UseCases struct {
 
 // WireUseCases creates all use case implementations
 func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure) *UseCases {
-	// Create JWT service for auth use case
-	jwtService := jwt.NewJWTService(
-		app.Config.JWT.SecretKey,
-		app.Config.JWT.AccessSecret,
-		app.Config.JWT.RefreshSecret,
-		app.Config.JWT.Issuer,
-		app.Config.JWT.AccessTokenExpiry,
-		app.Config.JWT.RefreshTokenExpiry,
-	)
-
+	// The middleware verifies the tokens this use case issues, so both must share one
+	// service: a second instance could drift to a different key or issuer.
 	sessionService := auth.NewSessionService(repos.AuthRepo, infra.SessionStore)
 	permissionService := auth.NewPermissionService(repos.AuthRepo, infra.PermissionCache)
 
+	sessions := auth.SessionExpiry{
+		Default:    app.Config.Auth.SessionExpiryOrDefault(),
+		RememberMe: app.Config.Auth.RememberMeExpiryOrDefault(),
+	}
+
 	return &UseCases{
-		AuthUC: auth.NewUseCase(repos.AuthRepo, jwtService, sessionService, permissionService),
+		AuthUC: auth.NewUseCase(repos.AuthRepo, infra.JWTService, sessionService, permissionService, sessions),
 		FooUC:  foo.NewUseCase(repos.FooRepo),
 		BarUC:  bar.NewUseCase(repos.BarRepo),
 		// Future use cases will be added here:

@@ -70,6 +70,13 @@ func TestConfigExample_FullDocumentsEveryOption(t *testing.T) {
 	assert.NotEmpty(t, cfg.Crypto.EncryptionKey)
 	assert.NotEmpty(t, cfg.Apikeys)
 	assert.NotEmpty(t, cfg.Services)
+
+	// previous_keys is a slice of structs, which configKeys only checks as a single key;
+	// assert the nested fields actually decode so a rotation example cannot silently rot.
+	require.Len(t, cfg.JWT.PreviousKeys, 1)
+	assert.NotEmpty(t, cfg.JWT.PreviousKeys[0].KeyID)
+	assert.NotEmpty(t, cfg.JWT.PreviousKeys[0].AccessSecret)
+	assert.NotEmpty(t, cfg.JWT.PreviousKeys[0].RefreshSecret)
 }
 
 // configKeys lists the dotted key of every struct field; maps count as a single key.

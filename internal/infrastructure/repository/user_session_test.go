@@ -25,7 +25,7 @@ func newSession(userID string) *auth.UserSession {
 		IPAddress:  "203.0.113.7",
 		UserAgent:  "test-agent",
 		IsActive:   true,
-		ExpiresAt:  now.Add(auth.SessionDuration),
+		ExpiresAt:  now.Add(7 * 24 * time.Hour),
 		LastUsedAt: now,
 		CreatedAt:  now,
 	}
