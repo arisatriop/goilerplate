@@ -71,4 +71,15 @@ filesystem:
     base_url: http://localhost:3000/storage
 
 # Partner API keys (name: key). Empty = no partner can authenticate.
+# The name is the partner's identity: it is what reaches the context and the logs. The key
+# authenticates the request and goes no further.
+#
+# A value may be the key itself, or its SHA-256 digest written as "sha256:<64 hex chars>" for
+# deployments that would rather not keep a usable credential in a config file. The server only
+# ever compares digests, so both forms behave identically:
+#
+#   api_key:
+#     acme: sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+#
+# Generate one with: printf %s "<the key>" | shasum -a 256
 api_key: {}

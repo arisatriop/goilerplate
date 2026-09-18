@@ -20,5 +20,6 @@ const (
 
 const (
 	HeaderRequestID   = "X-Request-Id"
+	HeaderAPIKey      = "x-api-key"
 	HeaderServiceName = "X-Service-Name"
 )
