@@ -76,7 +76,6 @@ func ToSessionResponse(session *auth.UserSession) dtoresponse.SessionResponse {
 		DeviceName: session.DeviceName,
 		IPAddress:  session.IPAddress,
 		UserAgent:  session.UserAgent,
-		Location:   session.Location,
 		IsActive:   session.IsActive,
 		ExpiresAt:  session.ExpiresAt,
 		LastUsedAt: session.LastUsedAt,

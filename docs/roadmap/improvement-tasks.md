@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2: T2.1, T2.2, T2.4 done
+**Status:** in progress — Phase 1 done (T1.1–T1.7); Phase 2 done (T2.1–T2.4)
 
 ---
 
@@ -154,7 +154,7 @@ jwt:
 | ~~Idempotency middleware becomes a no-op without Redis~~ | T1.4 ✅ |
 | ~~Migrations are PostgreSQL-only although MySQL is a supported driver~~ | T2.1 ✅ |
 | ~~Time columns use `TIMESTAMP` without timezone~~ | T2.2 ✅ |
-| GORM models use MySQL column types; redundant/unused indexes | T2.3, T2.4 |
+| ~~GORM models use MySQL column types; redundant/unused indexes~~ | T2.3 ✅, T2.4 ✅ |
 | Lockout off-by-one (uses pre-increment attempt count) | T3.7 |
 | Login reveals account existence (disabled status returned before password check) | T3.7 |
 | JWT validation uses `ParseUnverified` to pick a secret, with a generic fallback secret; no `aud`/`iss` checks | T3.1 |
@@ -175,7 +175,7 @@ jwt:
 |---|---|---|
 | 0. Decision | T0.1 | ✅ decided |
 | 1. Optional-component foundation | T1.1 – T1.7 | ~8–10 days |
-| 2. Schema & database | T2.1 – T2.4 | ~3–5 days |
+| 2. Schema & database | T2.1 – T2.4 | ✅ done |
 | 3. Token security | T3.1 – T3.7 | ~9–12 days |
 | 4. Other auth surfaces | T4.1 – T4.7 | ~6–8 days |
 | 5. Optional features | T5.1 – T5.6 | ~10–13 days |
@@ -367,16 +367,33 @@ Verified on an empty database: up → down ×12 (no tables left) → up again; n
 time zone` columns and no `id` defaults; with `TZ=Asia/Jakarta`, every timestamp in the login
 response ends in `Z`, and user, session, and token IDs are UUIDv7.
 
-### T2.3 `user_sessions` schema · M
-- [ ] Columns: `id`, `user_id`, `refresh_jti`, `previous_refresh_jti`, `rotated_at`,
+### T2.3 `user_sessions` schema · M — ✅ done
+- [x] Columns: `id`, `user_id`, `refresh_jti`, `previous_refresh_jti`, `rotated_at`,
       `device_name`, `device_type`, `device_id`, `ip_address`, `user_agent`, `is_active`,
       `expires_at`, `last_used_at`, `revoked_at`, `revoked_reason`, `created_at`
-- [ ] No `refresh_token_hash` (replaced by `refresh_jti`)
-- [ ] `ip_address` as `INET`
-- [ ] Indexes: `(user_id, is_active)` and `expires_at` only
-- [ ] Align the GORM model with the schema
+- [x] No `refresh_token_hash` (replaced by `refresh_jti`)
+- [x] `ip_address` as `INET`; empty values are stored as NULL
+- [x] Indexes: `(user_id, is_active)` and `expires_at` only; `location` is dropped from the
+      table, the entity, and the session response DTO
+- [x] Align the GORM model with the schema (no `location`, no MySQL-style tags)
+- [x] Refresh tokens carry a `jti` (`jwt.TokenPair.RefreshTokenID`), stored as the session's
+      `refresh_jti` at login. Rotation into `previous_refresh_jti` / `rotated_at` is T3.3.
+- [x] `DeleteTokensBySession` (which looked the session up by `refresh_token_hash`) is replaced
+      by `RevokeSession(userID, sessionID, reason)`: one conditional `UPDATE ... WHERE
+      id = ? AND user_id = ? AND is_active` that also writes `revoked_at` / `revoked_reason`.
+      Revoking the session is what invalidates its refresh token — the refresh middleware
+      already requires an active session. `DeactivateUserSessions` takes a reason the same way.
+- [x] Revocation reasons are constants in `domain/auth`: `logout`, `logout_all`,
+      `password_change`, `reuse_detected`, `admin`
 
 **Done when:** migrations apply and roll back cleanly and the model matches the schema.
+
+Verified on an empty database: up → down ×13 (only `migrations` left) → up again; the live
+schema matches the column list above with exactly the two indexes. Covered by PostgreSQL
+integration tests (`POSTGRES_TEST_DSN`): session round-trip including NULL `ip_address`,
+revoking one device leaving the user's other sessions active, a second revoke reporting
+`ErrNotFound`, another user's ID failing to revoke the session, and `DeactivateUserSessions`
+stamping the reason on every active row.
 
 ### T2.4 `one_time_tokens` table · M — ✅ done
 - [x] Add `create_one_time_tokens_table`. The `user_tokens` migration stays until T3.2 removes the

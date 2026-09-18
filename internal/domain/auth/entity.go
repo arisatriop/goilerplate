@@ -40,20 +40,25 @@ type User struct {
 	RememberMe          bool
 }
 
-// UserSession represents a user session/device
+// UserSession represents one login (per device/browser). Every token issued for the login
+// carries the session ID, so revoking the session revokes those tokens.
 type UserSession struct {
-	ID               string
-	UserID           string
-	RefreshTokenHash string
-	DeviceName       string
-	DeviceType       string
-	DeviceID         string
-	IPAddress        string
-	UserAgent        string
-	Location         string
-	IsActive         bool
-	ExpiresAt        time.Time
-	LastUsedAt       time.Time
+	ID                 string
+	UserID             string
+	RefreshJTI         string
+	PreviousRefreshJTI string
+	RotatedAt          *time.Time
+	DeviceName         string
+	DeviceType         string
+	DeviceID           string
+	IPAddress          string
+	UserAgent          string
+	IsActive           bool
+	ExpiresAt          time.Time
+	LastUsedAt         time.Time
+	RevokedAt          *time.Time
+	RevokedReason      string
+	CreatedAt          time.Time
 }
 
 // TokenPair represents token pair in domain layer
@@ -94,6 +99,15 @@ const (
 	TokenTypeEmailChange       = "email_change"
 	TokenTypeRefresh           = jwt.RefreshToken
 	TokenTypeAccess            = jwt.AccessToken
+)
+
+// Session revocation reasons, stored in user_sessions.revoked_reason
+const (
+	RevokedReasonLogout         = "logout"
+	RevokedReasonLogoutAll      = "logout_all"
+	RevokedReasonPasswordChange = "password_change"
+	RevokedReasonReuseDetected  = "reuse_detected"
+	RevokedReasonAdmin          = "admin"
 )
 
 // Device types

@@ -42,7 +42,6 @@ type SessionResponse struct {
 	DeviceName string    `json:"deviceName"`
 	IPAddress  string    `json:"ipAddress"`
 	UserAgent  string    `json:"userAgent"`
-	Location   string    `json:"location"`
 	IsActive   bool      `json:"isActive"`
 	ExpiresAt  time.Time `json:"expiresAt"`
 	LastUsedAt time.Time `json:"lastUsedAt"`

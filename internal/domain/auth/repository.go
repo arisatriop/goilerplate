@@ -12,7 +12,8 @@ type Repository interface {
 	CreateSession(ctx context.Context, session *UserSession) (*UserSession, error)
 	GetSessionByID(ctx context.Context, sessionID string) (*UserSession, error)
 	DeleteUserSessions(ctx context.Context, userID string) error
-	DeactivateUserSessions(ctx context.Context, userID string) error
+	DeactivateUserSessions(ctx context.Context, userID, reason string) error
+	RevokeSession(ctx context.Context, userID, sessionID, reason string) error
 
 	// User operations
 	CreateUser(ctx context.Context, user *User) (*User, error)
@@ -35,7 +36,6 @@ type Repository interface {
 	GetUserTokens(ctx context.Context, userID string) ([]UserToken, error)
 	DeleteTokenByHash(ctx context.Context, tokenHash string) error
 	DeleteUserTokens(ctx context.Context, userID string) error
-	DeleteTokensBySession(ctx context.Context, userID, sessionID string) error
 	MarkTokenAsUsed(ctx context.Context, token string) error
 
 	// Menu Operations
