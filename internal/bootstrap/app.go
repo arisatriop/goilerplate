@@ -19,6 +19,9 @@ import (
 // App holds only infrastructure dependencies (Clean Architecture compliant).
 // Optional components are nil when disabled: GrpcServer (grpc.enabled), Redis (redis.enabled),
 // TracerProvider and MeterProvider (otel.enabled).
+//
+// GrpcServer is set by the wire layer rather than here: its auth interceptor needs the token
+// validator and session store, which do not exist until the infrastructure layer is wired.
 type App struct {
 	DB             *bootstrap.DB
 	Log            *slog.Logger
@@ -62,18 +65,12 @@ func Init() *App {
 
 	db := initializeDatabase(cfg, log)
 
-	var grpcServer *grpc.Server
-	if cfg.GRPC.Enabled {
-		grpcServer = NewGrpcServer(cfg)
-	}
-
 	logComponents(cfg, log)
 
 	return &App{
 		Config:         cfg,
 		Log:            log,
 		WebServer:      fiber,
-		GrpcServer:     grpcServer,
 		DB:             db,
 		Redis:          redis,
 		Validator:      validator,

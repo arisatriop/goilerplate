@@ -71,13 +71,15 @@ func RequestLogger() grpc.UnaryServerInterceptor {
 	}
 }
 
+// extractCaller reads the caller's self-declared name. Unverified, bounded, and stripped for
+// the same reason as over HTTP — see utils.ServiceName.
 func extractCaller(ctx context.Context) string {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if values := md.Get(constants.HeaderServiceName); len(values) > 0 && values[0] != "" {
-			return values[0]
+		if values := md.Get(constants.HeaderServiceName); len(values) > 0 {
+			return utils.ServiceName(values[0])
 		}
 	}
-	return "system"
+	return utils.DefaultServiceName
 }
 
 func extractOrGenerateRequestID(ctx context.Context) string {

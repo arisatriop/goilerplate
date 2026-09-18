@@ -45,7 +45,8 @@ storage/        Uploaded file storage
 
 ## gRPC
 - Proto contract lives in a separate repo: [github.com/arisatriop/goilerplate-proto](https://github.com/arisatriop/goilerplate-proto)
-- Server reflection is **disabled** — clients must import the proto module
+- Server reflection is **off by default** (`grpc.reflection`) — clients import the proto module
+- Calls are authenticated by `grpc.auth.mode` (default `token`, sharing HTTP's validator and session store)
 - gRPC port: `50051` (configured in `config/config.yaml` under `grpc.port`)
 - When adding a new gRPC service: add proto to goilerplate-proto → tag new version → `go get github.com/arisatriop/goilerplate-proto@<version>` → write handler → register → wire
 - See [docs/guides/grpc.md](docs/guides/grpc.md) for full guide

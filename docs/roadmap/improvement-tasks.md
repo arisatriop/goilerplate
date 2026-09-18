@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: T4.1, T4.2, T4.5, T4.6, T4.7 done (T4.3, T4.4 remain)
+**Status:** in progress — Phases 1–3 done (T1.1–T3.7); Phase 4: all but T4.4 (cleanup job) done
 
 ---
 
@@ -150,7 +150,7 @@ jwt:
 | ~~Redis cache implementation lives in `domain/auth`; domain imports GORM and Fiber~~ | T1.2 ✅, T1.6 ✅ |
 | ~~`/internal` (intended for pod-to-pod only) relies solely on gateway path rules; no safety net if the gateway is misconfigured, and the deployment docs do not state the rule~~ | T4.1 ✅ |
 | ~~Partner API key compared with `==` (not constant time); raw key stored in context~~ | T4.2 ✅ |
-| gRPC server has no auth interceptor; reflection toggled by `app.env` | T4.3 |
+| ~~gRPC server has no auth interceptor; reflection toggled by `app.env`~~ | T4.3 ✅ |
 | ~~Idempotency middleware becomes a no-op without Redis~~ | T1.4 ✅ |
 | ~~Migrations are PostgreSQL-only although MySQL is a supported driver~~ | T2.1 ✅ |
 | ~~Time columns use `TIMESTAMP` without timezone~~ | T2.2 ✅ |
@@ -827,19 +827,114 @@ the Go context and Fiber locals.
 against the API key are not rate limited at all. Keying the limiter by API key would not help, as
 an attacker gets a fresh bucket per guess; this needs a per-IP limit on partner routes.
 
-### T4.3 gRPC auth interceptor · M
+### T4.3 gRPC auth interceptor · M — ✅ done
 **Depends on:** T1.3, T3.2
-- [ ] Config `grpc.auth.mode: token | shared_secret | none` (default `token`)
-  - `token`: unary and stream interceptors read `authorization` from metadata and reuse the same
-    validator and `SessionStore` as HTTP, so handlers get the same user context
-  - `shared_secret`: service-to-service calls without user context
-  - `none`: acceptable only when the gRPC port is reachable in-cluster only (same reasoning as D5)
-- [ ] Config allowlist for public methods (e.g. health)
-- [ ] Reflection controlled by `grpc.reflection` (default off), not by `app.env`
-- [ ] Optional `grpc.tls` for deployments where the port leaves the cluster
+- [x] Config `grpc.auth.mode: token | shared_secret | none` (default `token`)
+  - [x] `token`: unary **and stream** interceptors read `authorization` from metadata and reuse
+        the same validator and `SessionStore` as HTTP, so handlers get the same user context
+  - [x] `shared_secret`: service-to-service calls without user context, via the
+        `x-internal-secret` metadata key and the same constant-time digest compare as T4.1/T4.2
+  - [x] `none`: acceptable only when the gRPC port is reachable in-cluster only (same reasoning
+        as D5), and logged as a startup warning in production
+- [x] Config allowlist for public methods (e.g. health) — full method names, or a whole service
+      with a trailing `/*`
+- [x] Reflection controlled by `grpc.reflection` (default off), not by `app.env`
+- [x] `grpc.tls` for deployments where the port leaves the cluster
+
+**The gRPC port had no authentication at all.** Anything that could open a connection could call
+every method.
+
+**Structural change:** the gRPC server is now built in the wire layer instead of
+`bootstrap.Init()`. Interceptors can only be handed to `grpc.NewServer`, and the auth interceptor
+needs the token validator and session store, which do not exist until infrastructure is wired.
+`app.GrpcServer` is assigned there; `app.Config.GRPC.Enabled` replaces `app.GrpcServer != nil` as
+the "is gRPC on" test during wiring.
+
+`token` mode reuses `ValidateAccessToken` and `EnsureActiveForRequest` rather than reimplementing
+either. Two auth paths that disagree about what a token means is how a revoked session keeps
+working on one of them.
+
+**Streams are covered too.** An interceptor that only handled unary calls would leave every
+streaming method open while looking like it protected the server. A stream is checked once, when
+it opens — there is no later point at which the client can be asked again, so a long-lived stream
+outlives a revocation until it closes.
+
+**Reflection is off by default in every environment**, not just production. It publishes the whole
+service surface to anyone who can reach the port, and "not production" is not the same question as
+"safe to enumerate". This matches what `CLAUDE.md` already claimed the behaviour was.
+
+`X-Service-Name` sanitisation is now shared with HTTP as `utils.ServiceName`: the gRPC request
+logger had the same unbounded, unsanitised header that T4.1 fixed on the HTTP side.
 
 **Done when:** in `token` mode, gRPC calls without a valid token get `codes.Unauthenticated`,
-and allowlisted methods still work.
+and allowlisted methods still work. ✅
+
+Verified live against a running server, with a client that imports the proto module.
+
+| `grpc.auth.mode: token` (the default) | Result |
+|---|---|
+| no metadata | `Unauthenticated` |
+| valid access token | **OK** |
+| token without the `Bearer` scheme | `Unauthenticated` |
+| tampered token | `Unauthenticated` |
+| `Basic` instead of `Bearer` | `Unauthenticated` |
+
+Cross-transport revocation, which is the point of sharing the session store:
+
+```
+gRPC before logout                 -> OK
+POST /auth/logout (over HTTP)      -> 200
+gRPC with the same token           -> Unauthenticated
+HTTP with the same token           -> 401
+```
+
+| `grpc.auth.mode: shared_secret` | Result |
+|---|---|
+| no metadata | `Unauthenticated` |
+| correct secret | **OK** |
+| wrong secret | `Unauthenticated` |
+| secret + one extra character | `Unauthenticated` |
+| secret minus the last character | `Unauthenticated` |
+| a bearer token instead | `Unauthenticated` |
+
+With `public_methods: ["/hello.v1.HelloService/SayHello"]`, that method answered **OK** with no
+metadata at all while the secret was still required everywhere else.
+
+Reflection, both with `app.env: local` — the setting the old code keyed off:
+
+```
+grpc.reflection unset  ->  "server does not support the reflection API"
+grpc.reflection: true  ->  bar.v1.BarService, foo.v1.FooService, hello.v1.HelloService, …
+```
+
+TLS, with a generated certificate:
+
+| Client | Result |
+|---|---|
+| plaintext against the TLS port | `Unavailable` |
+| TLS, trusting the certificate | **OK** |
+| TLS, not trusting it | `x509: certificate signed by unknown authority` |
+
+Startup validation refuses bad config, and no message contains a secret:
+
+```
+grpc.auth.mode must be token, shared_secret, or none, got "mtls"
+grpc.auth.secret is required
+grpc.auth.public_methods[0] "SayHello" must be a full method name like /pkg.Service/Method or /pkg.Service/*
+grpc.tls.cert_file is required
+grpc.tls.key_file is required
+```
+
+In production with `mode: none`, startup warns rather than refusing, alongside the `internal_auth`
+warning from T4.1. A named certificate that cannot be read stops startup instead of quietly
+serving plaintext on a port the operator believes is encrypted.
+
+Tests: token mode accepting a valid token and setting the same context keys as HTTP; eight
+rejection cases; a case-insensitive scheme; a **revoked session** rejected; a **refresh token**
+rejected; shared-secret accept and five rejects; `none` checking nothing; the allowlist matching
+exactly, by wildcard, and *not* matching a sibling method, a different service, or a service that
+merely shares a prefix; streams rejected without a token and carrying the authenticated context
+when accepted; reflection registered only when configured; an unreadable certificate failing.
 
 ### T4.4 Cleanup job · M
 **Depends on:** T1.2, T2.3, T2.4

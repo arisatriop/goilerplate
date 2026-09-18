@@ -62,6 +62,14 @@ func (c *Config) Warnings() []string {
 				"Set internal_auth.mode=shared_secret for a second lock if that config is not yours to control.")
 	}
 
+	// Same argument as internal_auth: the port is assumed to be in-cluster only, and that
+	// assumption lives in someone else's network config.
+	if c.IsProduction() && c.GRPC.Enabled && c.GRPC.Auth.ModeOrDefault() == GRPCAuthNone {
+		warnings = append(warnings,
+			"grpc.auth.mode=none: the gRPC port accepts any caller that can reach it. "+
+				"Use token or shared_secret unless the port is reachable in-cluster only.")
+	}
+
 	return warnings
 }
 
@@ -135,6 +143,27 @@ func (c *Config) validateGRPC(v *validation) {
 	v.port("grpc.port", c.GRPC.Port)
 	if c.GRPC.Port == c.Server.Port {
 		v.addf("grpc.port must differ from server.port (both are %d)", c.GRPC.Port)
+	}
+
+	switch c.GRPC.Auth.ModeOrDefault() {
+	case GRPCAuthToken, GRPCAuthNone:
+	case GRPCAuthSharedSecret:
+		v.secret("grpc.auth.secret", c.GRPC.Auth.Secret, MinSecretBytes, c.IsProduction())
+	default:
+		v.addf("grpc.auth.mode must be token, shared_secret, or none, got %q", c.GRPC.Auth.Mode)
+	}
+
+	// A method name that never matches would look like a working allowlist entry while the
+	// method it was meant to exempt keeps returning Unauthenticated.
+	for i, method := range c.GRPC.Auth.PublicMethods {
+		if !strings.HasPrefix(strings.TrimSpace(method), "/") {
+			v.addf("grpc.auth.public_methods[%d] %q must be a full method name like /pkg.Service/Method or /pkg.Service/*", i, method)
+		}
+	}
+
+	if c.GRPC.TLS.Enabled {
+		v.required("grpc.tls.cert_file", c.GRPC.TLS.CertFile)
+		v.required("grpc.tls.key_file", c.GRPC.TLS.KeyFile)
 	}
 }
 

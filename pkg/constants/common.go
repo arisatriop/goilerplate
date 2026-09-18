@@ -26,3 +26,9 @@ const (
 	// internal_auth.mode=shared_secret. Already redacted from logs (see pkg/redact).
 	HeaderInternalSecret = "X-Internal-Secret"
 )
+
+// gRPC metadata keys. gRPC lowercases metadata keys, so these are the lowercase forms of the
+// headers above and must stay in step with them.
+const (
+	MetadataInternalSecret = "x-internal-secret"
+)

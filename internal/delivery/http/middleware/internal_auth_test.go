@@ -98,31 +98,3 @@ func TestInternalAuthenticate_RecordsTheCallingService(t *testing.T) {
 	require.Equal(t, fiber.StatusOK, got.status)
 	assert.Equal(t, "billing-worker", got.caller)
 }
-
-// X-Service-Name is an unverified claim that lands in every log line the request produces, so it
-// is bounded and stripped rather than taken as given.
-func TestInternalCallerName_SanitisesTheHeader(t *testing.T) {
-	long := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" // 60 chars
-
-	tests := []struct {
-		name   string
-		header string
-		want   string
-	}{
-		{"empty falls back", "", defaultInternalCaller},
-		{"whitespace only falls back", "   ", defaultInternalCaller},
-		{"plain name", "billing-worker", "billing-worker"},
-		{"dots and underscores kept", "billing_worker.v2", "billing_worker.v2"},
-		{"surrounding space trimmed", "  billing-worker  ", "billing-worker"},
-		{"newlines stripped", "billing\nworker", "billingworker"},
-		{"quotes and braces stripped", `bill"ing{}`, "billing"},
-		{"nothing usable falls back", `{"":}`, defaultInternalCaller},
-		{"over-long name truncated", long, long[:maxServiceNameLength]},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, internalCallerName(tc.header))
-		})
-	}
-}
