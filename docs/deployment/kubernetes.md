@@ -84,9 +84,15 @@ kubectl create secret generic goilerplate-secret -n <namespace> \
   --from-literal=DB_USERNAME=postgres \
   --from-literal=DB_PASSWORD=your-secret-password \
   --from-literal=REDIS_HOST=your-redis-host:6379 \
-  --from-literal=JWT_SECRET_KEY=your-secret-key \
+  --from-literal=JWT_ACCESS_SECRET=... \
+  --from-literal=JWT_REFRESH_SECRET=... \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
+
+The access and refresh tokens are signed with **separate** secrets, so that an attacker who
+obtains one cannot mint the other. There is no combined `JWT_SECRET_KEY`. Generate each with
+`openssl rand -base64 48`; startup validation rejects anything under 32 bytes, and with
+`app.env=production` it also rejects the example secrets that ship in `config.example.yaml`.
 
 ---
 

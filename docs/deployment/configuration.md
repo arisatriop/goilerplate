@@ -1,221 +1,236 @@
 # Configuration Guide
 
-Guide for setting up environment variables and configuration for development and production.
+Three profiles, from "PostgreSQL and nothing else" to everything switched on, and how secrets are
+supplied in each.
+
+← [Back to Documentation](../README.md)
 
 ---
 
-## 📋 Local Development
+## ⚡ Minimal profile — from clone to first login
 
-### Quick Setup
-
-Copy `config.example.yaml` to `config.yaml` and point `db` at your database:
+PostgreSQL only. No Redis, no gRPC, no OTel, no S3.
 
 ```bash
-cp config/config.example.yaml config/config.yaml
+cp config/config.example.yaml config/config.yaml   # edit the `db` block
+make migrate-up
+make run
 ```
 
-`config.example.yaml` is the **minimal profile**: PostgreSQL only, with Redis, gRPC, OTel off and
-`local` storage. Every available option is documented in `config/config.full.example.yaml`; copy
-the sections you need from there.
+Then create the first account:
 
-The config is validated at startup (`config/validate.go`). The app exits with a list of every
-problem, such as missing settings for an enabled feature, `<...>` placeholders, or JWT secrets
-shorter than 32 bytes. With `app.env: production`, example or low-entropy secrets (including the
-development secrets in `config.example.yaml`) are rejected too.
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"First User","email":"first@example.test","password":"a-strong-password"}'
 
-### Auth cache modes
-
-`auth.session_cache` selects how sessions and permissions are cached. The database is always the
-source of truth; a cache only saves lookups.
-
-| Mode | Behavior | Use for |
-|---|---|---|
-| `auto` (default) | `redis` when `redis.enabled`, otherwise `none` | Most setups |
-| `none` | Every request reads the session and permissions from the database | Minimal profile |
-| `memory` | In-process cache; with several instances, logout and permission changes can take up to `session_cache_ttl` / `permission_cache_ttl` to reach other instances (a startup warning is logged) | Single instance without Redis |
-| `redis` | Shared by every instance; requires `redis.enabled` | Standard / Full profiles |
-
-You don't need a `.env` file for local development, everything is in `config.yaml`.
-
-### Configuration File: `config/config.yaml`
-
-```yaml
-app:
-  env: local # Environment: local, development, production
-  name: Goilerplate
-  version: 1.0.0
-
-server:
-  host: localhost
-  port: 3000
-  prefork: false # Enable prefork for production
-  read_timeout: 5s
-  write_timeout: 5s
-  idle_timeout: 120s
-  enable_cors: true
-
-db: # PostgreSQL only
-  host: localhost
-  port: 5432
-  sslmode: disable # disable | require | verify-ca | verify-full (applies to both GORM and pgx)
-  name: postgres
-  username: postgres
-  password: postgres
-  min_open_connections: 10
-  max_open_connections: 100
-
-redis:
-  enabled: true # Set false to disable Redis (rate limiting and idempotency fall back to per-instance memory)
-  host: localhost:6379
-  password: ""
-  db: 0
-
-jwt:
-  key_id: v1 # published as each token's "kid" header
-  access_token_expiry: 15m
-  issuer: goilerplate
-  audience: goilerplate-api
-  # previous_keys: retired keys still accepted for verification while rotating secrets
-
-auth:
-  session_expiry: 168h # absolute session lifetime, and the refresh token's lifetime
-  remember_me_expiry: 720h # absolute lifetime when the client logs in with remember_me
-
-log:
-  level: debug # debug, info, warn, error
-  source: false # Include source code location
-
-otel:
-  enabled: false          # Set true to enable distributed tracing
-  endpoint: localhost:4317 # OTLP gRPC endpoint of your backend
-  insecure: true          # Disable TLS — set false in production
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"first@example.test","password":"a-strong-password"}'
 ```
+
+That is the whole Minimal profile. `config.example.yaml` already has development JWT secrets in it,
+so **no `.env` file is needed** for local work. The `owner` role that registration assigns is
+created by a migration, so `make migrate-up` is enough — there is no seeding step.
+
+What you get: HTTP API, JWT auth with server-side sessions, RBAC, local file storage, per-instance
+rate limiting and idempotency. `auth.session_cache` resolves to `none`, so every check reads the
+database.
 
 ---
 
-## 🌍 Environment Variables
+## 🏗️ Standard profile — more than one instance
 
-Override config values with environment variables:
+Add Redis. It is the only change that matters once you run more than one replica, because three
+things are per-process without it:
+
+| Without Redis | Consequence with several instances |
+|---|---|
+| Rate limiting | each instance counts separately, so the effective limit is `max × instances` |
+| Idempotency | a duplicate that lands on another instance is processed again |
+| Session / permission cache | `memory` mode lets one instance serve a session another revoked, for up to `session_cache_ttl` |
+
+```yaml
+redis:
+  enabled: true
+  host: redis:6379
+  password: ${REDIS_PASSWORD}
+  db: 0
+
+auth:
+  session_cache: auto   # resolves to redis once redis.enabled is true
+  revocation: strict
+```
+
+Also set, for anything behind a load balancer or ingress:
+
+```yaml
+server:
+  trusted_proxies: ["10.0.0.0/8"]   # empty means trust nobody
+  proxy_header: X-Forwarded-For
+```
+
+Leaving `trusted_proxies` empty is the safe default — the client IP is then the peer that actually
+connected. Setting it to a range you do not control lets a caller spoof their own IP and defeat
+per-IP rate limiting.
+
+---
+
+## 🧰 Full profile — every optional component
+
+[`config/config.full.example.yaml`](../../config/config.full.example.yaml) documents **every**
+available key, with a comment on each. It is kept in sync by a test
+(`config/example_test.go`), which fails if an option exists in code but is not documented there.
+
+Top-level sections: `app`, `server`, `db`, `redis`, `jwt`, `auth`, `log`, `grpc`, `otel`,
+`rate_limit`, `filesystem`, `crypto`, `api_key`, `internal_auth`, `jobs`, `service`.
+
+Copy the sections you need; anything you leave out falls back to its default.
+
+---
+
+## ✅ Startup validation
+
+The config is validated before anything starts (`config/validate.go`). On a problem the app prints
+every one of them and exits:
+
+```json
+{"level":"ERROR","msg":"invalid configuration","errors":[
+  "jwt.access_secret looks like an example value (contains \"changeme\"); use a randomly generated secret in production"
+]}
+```
+
+It catches missing settings for an enabled feature, `<...>` placeholders left in, and secrets
+shorter than 32 bytes. With `app.env: production` it additionally rejects the example and
+low-entropy secrets that ship in `config.example.yaml` — so the development config **cannot** be
+promoted to production by accident.
+
+Non-fatal advisories are logged as warnings rather than blocking startup, for example
+`internal_auth.mode=none` in production.
+
+---
+
+## 🔐 Secrets
+
+### The naming rule
+
+Any config key can be overridden by an environment variable: **take the path and replace dots with
+underscores.**
+
+| Config key | Environment variable |
+|---|---|
+| `db.password` | `DB_PASSWORD` |
+| `jwt.access_secret` | `JWT_ACCESS_SECRET` |
+| `jwt.refresh_secret` | `JWT_REFRESH_SECRET` |
+| `redis.password` | `REDIS_PASSWORD` |
+| `internal_auth.secret` | `INTERNAL_AUTH_SECRET` |
+| `grpc.auth.secret` | `GRPC_AUTH_SECRET` |
+| `crypto.encryption_key` | `CRYPTO_ENCRYPTION_KEY` |
+
+There is **no** `JWT_SECRET_KEY`: the access and refresh tokens are signed with separate secrets,
+so that an attacker who obtains one cannot mint the other. There is no `DB_DRIVER` either —
+PostgreSQL is the only supported database.
+
+### Generating them
+
+```bash
+openssl rand -base64 48   # jwt.access_secret, jwt.refresh_secret, internal_auth.secret
+```
+
+Use a different value for each. Minimum 32 bytes, enforced at startup.
+
+### ⚠️ `config/.env` is **not** read by the application
+
+This surprises people, so it is worth being blunt: nothing in the server loads `config/.env`.
+There is no dotenv dependency and no code that reads the file. Putting `DB_NAME` in it and
+starting the app has no effect — the value in `config.yaml` is used instead, silently.
+
+The file exists for the **MCP servers** in [`.mcp.json`](../../.mcp.json), which source it
+themselves for the PostgreSQL, GitHub and Jira integrations.
+
+If you want those values to reach the application, export them yourself:
+
+```bash
+set -a && . config/.env && set +a && make run
+```
+
+For the Minimal profile you need none of this: `config.yaml` carries everything.
+
+### Production
+
+Supply secrets as environment variables — never in `config.yaml`:
 
 ```bash
 export APP_ENV=production
-export SERVER_PORT=8080
-export DB_HOST=your-db-host
-export DB_PORT=5432
-export DB_NAME=your_database
-export DB_USERNAME=your_username
-export DB_PASSWORD=your_password
-export REDIS_HOST=your-redis-host
-export JWT_SECRET_KEY=your-super-secret-jwt-key
+export DB_HOST=prod-db-host
+export DB_PASSWORD=...
+export JWT_ACCESS_SECRET=...
+export JWT_REFRESH_SECRET=...
 ```
 
 ---
 
-## 🚀 Production Configuration
+## 🔑 Rotating JWT secrets
 
-### Setup in Production
+Move the current key into `previous_keys` and set a new active one. Previous keys verify but never
+sign, so nobody is signed out mid-rotation:
 
-1. **Copy and edit config**
-   ```bash
-   cp config/config.example.yaml config/config.yaml
-   ```
+```yaml
+jwt:
+  key_id: v2
+  access_secret: ${JWT_ACCESS_SECRET}
+  refresh_secret: ${JWT_REFRESH_SECRET}
+  previous_keys:
+    - key_id: v1
+      access_secret: ${JWT_PREVIOUS_ACCESS_SECRET}
+      refresh_secret: ${JWT_PREVIOUS_REFRESH_SECRET}
+```
 
-2. **Set environment variables** (safer for secrets):
-   ```bash
-   export APP_ENV=production
-   export SERVER_PORT=3000
-   export DB_HOST=prod-db-host
-   export REDIS_HOST=prod-redis-host
-   export JWT_SECRET_KEY=your-secret-key
-   ```
+Retire the old key once no token it signed can still be alive — `auth.session_expiry` after the
+rotation, not `jwt.access_token_expiry`, because the refresh token lives as long as the session.
 
-3. **Run server**
-   ```bash
-   go run cmd/server/main.go
-   ```
+See the [Authentication Guide](../guides/auth.md#-rotating-jwt-secrets).
 
 ---
 
-## ☸️ Kubernetes Configuration
+## ☸️ Kubernetes
 
-For Kubernetes deployment, use **ConfigMap** for non-sensitive config and **Secret** for sensitive values.
+ConfigMap for the non-sensitive config, Secret for the values above. See the
+[Kubernetes Deployment Guide](./kubernetes.md) — including why `/internal` must never be exposed
+through the ingress.
 
-See: [Kubernetes Deployment Guide](./kubernetes.md)
-
-### Quick Commands
-
-**Create ConfigMap from file:**
 ```bash
 kubectl create configmap goilerplate-config -n <namespace> \
-  --from-file=config.yaml=./config/config.example.yaml \
+  --from-file=config.yaml=./config/config.yaml \
   --dry-run=client -o yaml | kubectl apply -f -
-```
 
-**Create Secret from .env file:**
-```bash
 kubectl create secret generic goilerplate-secret -n <namespace> \
-  --from-env-file=./config/.env \
-  --dry-run=client -o yaml | kubectl apply -f -
-```
-
-**Create Secret from literal values:**
-```bash
-kubectl create secret generic goilerplate-secret -n <namespace> \
-  --from-literal=DB_HOST=prod-db \
-  --from-literal=DB_PASSWORD=secret123 \
+  --from-literal=DB_PASSWORD=... \
+  --from-literal=JWT_ACCESS_SECRET=... \
+  --from-literal=JWT_REFRESH_SECRET=... \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ---
 
-## 🔐 Best Practices
+## 🧭 Choosing between the profiles
 
-✅ **DO:**
-- Use `.env` file for local development (gitignored)
-- Use environment variables for production
-- Use ConfigMap for non-sensitive config in K8s
-- Use Secret for sensitive values in K8s
-- Rotate JWT secrets periodically
-- Enable Redis in production — rate limiting and idempotency are in-memory only when Redis is disabled, which means limits are not shared across instances
+| | Minimal | Standard | Full |
+|---|---|---|---|
+| PostgreSQL | ✅ | ✅ | ✅ |
+| Redis | ❌ | ✅ | ✅ |
+| More than one instance | ❌ not safe | ✅ | ✅ |
+| gRPC, OTel, S3 | ❌ | optional | ✅ |
+| Session cache | `none` | `redis` | `redis` |
 
-❌ **DON'T:**
-- Don't commit `.env` file to git
-- Don't hardcode secrets in code
-- Don't expose database credentials in logs
-- Don't use default passwords in production
-- Don't disable Redis in multi-instance deployments — idempotency and rate limiting will not work correctly
-
----
-
-## 📝 Example `.env` File
-
-Create `config/.env` for local development (gitignored):
-
-```env
-APP_ENV=local
-SERVER_HOST=localhost
-SERVER_PORT=3000
-
-DB_DRIVER=postgres
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=goilerplate
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-
-REDIS_ENABLED=true
-REDIS_HOST=localhost:6379
-REDIS_PASSWORD=
-
-JWT_ACCESS_EXPIRY=15m
-JWT_REFRESH_EXPIRY=168h
-JWT_SECRET_KEY=local-secret-key-only-for-dev
-```
+The honest summary: **Minimal is for one process.** Rate limiting, idempotency and cache
+invalidation are all per-process without Redis, and each of them silently does the wrong thing
+rather than failing loudly when you scale past one replica.
 
 ---
 
 ## 🔗 Related
 
-- [Main Configuration Example](../../config/config.example.yaml)
-- [Kubernetes Guide](./kubernetes.md) - Deploy with ConfigMap & Secret
-- [Development Setup](../getting-started/development.md) - Local development workflow
+- [Authentication Guide](../guides/auth.md) — revocation modes and cache-mode trade-offs in detail
+- [Minimal config](../../config/config.example.yaml) · [Every option](../../config/config.full.example.yaml)
+- [Kubernetes Guide](./kubernetes.md) · [Development Setup](../getting-started/development.md)
