@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"context"
 	"fmt"
 	"goilerplate/pkg/utils"
 	"log"
@@ -22,9 +23,54 @@ type Migration struct {
 	Timestamp time.Time
 }
 
+// advisoryLockKey names the lock every migration run takes before touching the schema. The
+// value is arbitrary, but must be the same in every process.
+const advisoryLockKey int64 = 7_263_845_190_113_002
+
 // Migrator handles database migrations
 type Migrator struct {
 	db *gorm.DB
+}
+
+// withAdvisoryLock runs fn while holding a PostgreSQL advisory lock, so two processes cannot
+// migrate the same database at once.
+//
+// Without it, concurrent runs collide before the migration bookkeeping even starts: CREATE
+// TABLE IF NOT EXISTS is not concurrency-safe in PostgreSQL, and two sessions creating the
+// migrations table together fail with a duplicate key on pg_type_typname_nsp_index. Runs that
+// got past that would each read the same pending list and apply the same migration twice.
+//
+// This is reached in ordinary use rather than in theory: `go test ./...` runs packages in
+// parallel, and two test packages sharing one database both migrate it as they start.
+//
+// The lock is held on one dedicated connection, because an advisory lock belongs to the session
+// that took it. That connection goes back to the pool afterwards, so the unlock has to be
+// explicit rather than left to the session ending.
+func (m *Migrator) withAdvisoryLock(fn func() error) error {
+	sqlDB, err := m.db.DB()
+	if err != nil {
+		return fmt.Errorf("failed to access the connection pool: %w", err)
+	}
+
+	ctx := context.Background()
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to reserve a connection for the migration lock: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", advisoryLockKey); err != nil {
+		return fmt.Errorf("failed to acquire the migration lock: %w", err)
+	}
+	defer func() {
+		// Logged rather than returned: whatever fn did is the caller's answer, and the lock is
+		// dropped when the connection's session ends regardless.
+		if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", advisoryLockKey); err != nil {
+			log.Printf("Failed to release the migration lock: %v", err)
+		}
+	}()
+
+	return fn()
 }
 
 // NewMigrator creates a new migrator instance
@@ -215,8 +261,12 @@ func (m *Migrator) executeSQL(tx *gorm.DB, sql string) error {
 	return nil
 }
 
-// Up runs pending migrations
+// Up runs pending migrations.
 func (m *Migrator) Up(migrationDir string) error {
+	return m.withAdvisoryLock(func() error { return m.up(migrationDir) })
+}
+
+func (m *Migrator) up(migrationDir string) error {
 	if err := m.CreateMigrationsTable(); err != nil {
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
@@ -274,6 +324,10 @@ func (m *Migrator) Up(migrationDir string) error {
 
 // Down rolls back the last migration
 func (m *Migrator) Down(migrationDir string) error {
+	return m.withAdvisoryLock(func() error { return m.down(migrationDir) })
+}
+
+func (m *Migrator) down(migrationDir string) error {
 	executed, err := m.GetExecutedMigrations()
 	if err != nil {
 		return fmt.Errorf("failed to get executed migrations: %w", err)

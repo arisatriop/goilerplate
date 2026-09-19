@@ -9,7 +9,7 @@ Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundat
 - **gRPC**: google.golang.org/grpc, proto contract at [goilerplate-proto](https://github.com/arisatriop/goilerplate-proto)
 - **Database**: PostgreSQL only, via GORM + pgx
 - **Cache**: Redis (go-redis/v9)
-- **Config**: Viper (YAML — `config/config.yaml`) + `.env` for secrets
+- **Config**: Viper (YAML — `config/config.yaml`), overridden by environment variables (dots become underscores: `jwt.access_secret` → `JWT_ACCESS_SECRET`)
 - **Auth**: JWT (golang-jwt/jwt v5), access + refresh tokens
 - **Migration**: golang-migrate (SQL files in `internal/migrations/`)
 - **Decimal**: shopspring/decimal (use for all financial calculations — never float64)
@@ -20,7 +20,7 @@ Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundat
 ## Project Structure
 ```
 cmd/            Entry points (server, migrate, seed)
-config/         YAML config + .env secrets
+config/         YAML config (.env here is for the MCP servers, not the app)
 internal/
   application/  Use-case implementations (app services)
   bootstrap/    App initialization (Fiber, DB, Redis, gRPC, Viper)
@@ -63,7 +63,9 @@ make migrate-create name=<name>  # create new migration files
 ```
 
 Config file: `config/config.yaml` (copy from `config/config.example.yaml`)
-Secrets: `config/.env` (copy from `config/.env.example`)
+Secrets: environment variables. **`config/.env` is not read by the application** — no dotenv
+dependency exists; the file is sourced by the MCP servers in `.mcp.json`. To make it reach the
+app: `set -a && . config/.env && set +a`. See [docs/deployment/configuration.md](docs/deployment/configuration.md).
 
 The repository, cache and `internal/integration` suites need `POSTGRES_TEST_DSN` and
 `REDIS_TEST_ADDR`. Without them they **skip**, so plain `make test` can be green while they
@@ -79,7 +81,9 @@ never ran — use `make test-integration` before trusting a result. CI sets both
 ## Important Rules
 Detailed coding rules live in `.claude/rules/` (`code-style.md`, `api-conventions.md`, `testing.md`) and are always in effect — financial values, error handling, Clean Architecture boundaries, naming, and API conventions are defined there. Project-specific notes not covered by those rules:
 
-- Config secrets come from `config/.env`; never hardcode credentials
+- Secrets come from environment variables (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `DB_PASSWORD`, ...); never hardcode credentials and never put them in `config.yaml`. There is no `JWT_SECRET_KEY` — access and refresh tokens are signed with separate secrets
+- Auth behaviour (rotation, revocation modes, cache-mode trade-offs, client contract) is documented in [docs/guides/auth.md](docs/guides/auth.md) — read it before changing anything under `domain/auth` or the auth middleware
+- Baseline rows that the application cannot start without (e.g. the `owner` role registration assigns) belong in a migration, not a seeder
 - When adding a new domain: create `domain/<name>/`, `application/<name>/`, `infrastructure/repository/<name>.go`, `delivery/http/handler/<name>.go`, then wire it up in `internal/wire/`
 - Migration files live in `internal/migrations/` — use `make migrate-create` to generate them
 

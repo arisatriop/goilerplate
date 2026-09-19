@@ -5,7 +5,7 @@ boilerplate. Based on a review of the current implementation (`user_tokens`, `us
 auth middleware, bootstrap, and wiring).
 
 **Sizing:** S = ≤ ½ day · M = 1–2 days · L = 3–5 days
-**Status:** in progress — Phases 1–4 done (T1.1–T4.7), T6.1 done. Next: Phase 5 (optional features), T6.2 (docs)
+**Status:** in progress — Phases 1–4 and 6 done (T1.1–T4.7, T6.1–T6.2). Next: Phase 5 (optional features)
 
 ---
 
@@ -179,7 +179,7 @@ jwt:
 | 3. Token security | T3.1 – T3.7 | ✅ done |
 | 4. Other auth surfaces | T4.1 – T4.7 | ✅ done |
 | 5. Optional features | T5.1 – T5.6 | ~10–13 days |
-| 6. Tests & documentation | T6.1 ✅ · T6.2 | ~1–2 days |
+| 6. Tests & documentation | T6.1 – T6.2 | ✅ done |
 
 ---
 
@@ -1327,13 +1327,36 @@ widening reuse detection to all of a user's sessions fails, and leaking a token 
 event fails.
 
 ### T6.2 Documentation · M
-- [ ] `docs/guides/auth.md`: token flow, rotation, revocation modes, trade-offs of each cache
-      mode, client contract
-- [ ] `docs/deployment/configuration.md`: Minimal / Standard / Full profiles with example configs
-- [ ] Update `CLAUDE.md` and `.claude/rules/` for changed conventions (PostgreSQL only,
-      Null Object pattern, `one_time_tokens`)
+- [x] `docs/guides/auth.md`: token flow, rotation and the reuse grace, revocation modes,
+      cache-mode trade-offs, lockout and anti-enumeration, the client contract, secret rotation
+- [x] `docs/deployment/configuration.md`: rewritten around Minimal / Standard / Full profiles
+- [x] Update `CLAUDE.md` and `.claude/rules/` for changed conventions
 
 **Done when:** a new developer can run the Minimal profile using only the docs.
+**Verified:** a dropped-and-recreated database, `make migrate-up`, `config.example.yaml`
+unedited except `db`, then register → login, both `200`/`201`.
+
+Writing it surfaced four things the docs asserted that were not true, each of which would have
+cost a new developer time:
+
+1. **Registration failed on any fresh database** with a 500 (`failed to get role: record not
+   found`). Nothing created the `owner` role that registration assigns: no migration, and
+   `make db-seed` pointed at `cmd/seed/main.go`, which does not exist. The role is now created by
+   a migration — it is not sample data, the application cannot serve a first account without it —
+   and the dead Make target is gone. This alone blocked the "done when" above.
+2. **`config/.env` is not read by the application.** There is no dotenv dependency and no code
+   that opens it; `.mcp.json` sources it for the MCP servers. The old guide had a whole section
+   telling people to put `DB_*` and JWT secrets there, where they are silently ignored.
+   Confirmed by running with `DB_NAME=this-database-does-not-exist` in the file: the app started
+   normally against the database named in `config.yaml`.
+3. **`JWT_SECRET_KEY` does not exist** (nor `DB_DRIVER`, nor `JWT_REFRESH_EXPIRY`). Following the
+   old production instructions verbatim exits at startup: access and refresh tokens take separate
+   secrets, `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`. The Kubernetes guide had the same stale
+   literal in its `kubectl create secret` example.
+4. **Registration still leaks whether an email is registered** (`400 "email is already
+   registered"` vs `201`), undoing on one endpoint what login is careful about on another. Not
+   fixed here — it belongs to T5.1 — but it is now written down in the auth guide instead of
+   being an undocumented hole.
 
 ---
 

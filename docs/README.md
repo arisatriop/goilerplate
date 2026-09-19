@@ -20,6 +20,7 @@ Guides to start development and setup the project.
 
 In-depth guides for features and how the system works.
 
+- **[Authentication](./guides/auth.md)** - Token flow, rotation, revocation modes, cache trade-offs, client contract
 - **[CRUD Operations](./guides/crud-operations.md)** - Step-by-step guide to create new CRUD
 - **[gRPC Guide](./guides/grpc.md)** - Proto setup, code generation, adding services, testing with grpcurl
 - **[Observability Guide](./guides/observability.md)** - OpenTelemetry tracing setup and configuration
@@ -81,6 +82,7 @@ Technical documentation and special setup.
 | Topic | Link |
 |-------|------|
 | Main README | [README.md](../README.md) |
+| Authentication | [guides/auth.md](./guides/auth.md) |
 | gRPC Guide | [guides/grpc.md](./guides/grpc.md) |
 | Observability | [guides/observability.md](./guides/observability.md) |
 | Project Structure | [README.md#-project-structure](../README.md#-project-structure) |
