@@ -1,7 +1,7 @@
 # Makefile for Go Boilerplate
 
 # Build and run commands
-.PHONY: build run test test-integration clean migrate-up migrate-down migrate-status migrate-create db-seed
+.PHONY: build run test test-integration clean migrate-up migrate-down migrate-status migrate-create
 
 # Application
 build:
@@ -99,11 +99,6 @@ docker-run-local:
 up:
 	@echo "Starting development environment..."
 	docker-compose up --build
-
-# Database helpers
-db-seed:
-	@echo "Seeding database..."
-	go run cmd/seed/main.go
 
 # Help
 help:
