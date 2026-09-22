@@ -260,7 +260,7 @@ be both shared and transactional move into a domain service.
 **Done when:** one description of the layer exists, its example follows it, and the example is
 achievable with the interfaces the project actually has.
 
-### A2 One pagination contract · M
+### A2 One pagination contract · M — ✅ done
 **Evidence:** `pkg/response/format.go:31-38,183`, `pkg/pagination/paginator.go:27-50`,
 `internal/delivery/http/handler/bar.go:134,153`, `.claude/rules/api-conventions.md`
 
@@ -284,12 +284,22 @@ Recommended shape, as the common REST convention and the one that keeps `data` a
   "meta": { "page": 1, "limit": 10, "total": 42, "totalPages": 5, "hasNext": true, "hasPrev": false } }
 ```
 
-- [ ] Implement it once in `pkg/response`; delete the loser
-- [ ] Keep `pagination.ParsePagination` and `PaginationRequest` — request parsing is a separate,
-      used concern
-- [ ] Update the `bar` handler, its Swagger annotation, and regenerate `.swagger/`
-- [ ] Rewrite the pagination section of `.claude/rules/api-conventions.md` to match the code
-- [ ] Handler test asserting the exact marshalled shape
+- [x] Implemented once in `pkg/response`; both losers deleted. `Pagination` is embedded in
+      `Meta` **by pointer**, so its fields flatten into `meta` on a list response and are absent
+      everywhere else. Embedding rather than tagging each field `omitempty` is what keeps `0`
+      and `false` meaningful — `"total": 0` on an empty page has to survive
+- [x] `data` is always an array: a nil slice is normalised to `[]`, so a client can iterate it
+      without a nil check to tell "no results" from "no field"
+- [x] `pagination.ParsePagination` and `PaginationRequest` kept; the response type removed
+- [x] `bar` handler, its Swagger annotation, and `.swagger/` regenerated — the spec now
+      describes what the endpoint actually sends
+- [x] Pagination section of `.claude/rules/api-conventions.md` rewritten against the code
+- [x] `TestPaginated_ExactShape` and `TestBarList_ReturnsTheDocumentedShape` assert the body
+      byte for byte, plus counter tables and handler tests for paging pass-through and errors
+- [x] **Found while rewriting the parser:** `limit` had no maximum, so `?limit=1000000` was a
+      request for a million rows and the cost of refusing it fell on the database. Now capped
+      at 100. Out-of-range values are clamped rather than rejected — a page past the end is a
+      reasonable thing to ask for, and an empty page answers it better than a 400
 
 **Done when:** one shape exists in code, docs and Swagger, and a test fails if they diverge.
 
