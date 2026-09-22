@@ -22,17 +22,28 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 
 ## Summary
 
-| Phase | Theme | Tasks | Estimate |
+| Phase | Theme | Tasks | Status |
 |---|---|---|---|
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
-| [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ~4–6 days |
-| [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ~5–7 days |
+| [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | A4 open |
+| [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | H2 open |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 
-Recommended order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**.
-D1 and D2 are live defects; H1 (`-race`, stronger linters) is placed early because it changes
-what every later task is checked against.
+**Everything that could be done without a decision from the maintainer is done.** The two
+remaining non-feature tasks are both open because each needs a call that is not the
+implementer's to make:
+
+- **[H2](#h2-close-the-supply-chain-gaps-in-ci--m)** — 27 reachable vulnerabilities, all with
+  fixes, but taking them means moving grpc 1.80→1.83, pgx 5.7→5.9 and aws-sdk s3 1.89→1.97 in
+  one go. `govulncheck` runs on every PR today with `continue-on-error: true`, so the number
+  cannot quietly grow while the decision waits
+- **[A4](#a4-decide-what-to-do-about-the-hand-rolled-migrator--m)** — adopt golang-migrate and
+  delete 537 lines, or keep them and write the tests they have never had. Genuinely a
+  trade-off, and the wrong answer costs a half-applied production schema
+
+Original order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**. H2 was
+deferred and A3–A5 pulled forward; everything else was done in this order.
 
 ---
 
