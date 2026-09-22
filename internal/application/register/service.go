@@ -3,7 +3,6 @@ package register
 import (
 	"context"
 	"fmt"
-	"goilerplate/config"
 	"goilerplate/internal/domain/role"
 	"goilerplate/internal/domain/transaction"
 	"goilerplate/internal/domain/user"
@@ -15,11 +14,10 @@ import (
 )
 
 type ApplicationService interface {
-	Register(ctx context.Context, regiter *Register) error
+	Register(ctx context.Context, register *Register) error
 }
 
 type applicationService struct {
-	cfg            *config.Config
 	txManager      transaction.Transaction
 	userRepo       user.Repository
 	roleRepo       role.Repository
@@ -28,7 +26,6 @@ type applicationService struct {
 }
 
 func NewApplicationService(
-	cfg *config.Config,
 	txManager transaction.Transaction,
 	userRepo user.Repository,
 	roleRepo role.Repository,
@@ -36,7 +33,6 @@ func NewApplicationService(
 	passwordPolicy password.Policy,
 ) ApplicationService {
 	return &applicationService{
-		cfg:            cfg,
 		txManager:      txManager,
 		userRepo:       userRepo,
 		roleRepo:       roleRepo,

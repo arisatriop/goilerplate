@@ -171,37 +171,87 @@ JSON response sent to client
 
 **File location:** `internal/application/`
 
-Orchestrates use cases that involve multiple domains or complex business logic.
+Orchestrates flows that span **more than one domain**, usually inside a single transaction.
+
+This layer is deliberately small. Most endpoints never touch it: a flow that stays inside one
+domain goes straight from the handler to that domain's `Usecase`. Creating an
+`internal/application/<name>/` package for every domain is not the pattern — add one only when a
+flow genuinely crosses domains.
+
+`internal/application/register/` is the reference implementation. Registration has to create a
+user and assign the owner role atomically, which spans `user`, `role` and `userrole`:
 
 ```go
-type CreateOrderService struct {
-    userUsecase    user.Usecase
-    productUsecase product.Usecase
-    orderUsecase   order.Usecase
+type applicationService struct {
+    txManager      transaction.Transaction
+    userRepo       user.Repository
+    roleRepo       role.Repository
+    userRoleRepo   userrole.Repository
+    passwordPolicy password.Policy
 }
 
-func (s *CreateOrderService) Execute(ctx context.Context, req *CreateOrderRequest) (*Order, error) {
-    // Validate user exists
-    user, err := s.userUsecase.GetByID(ctx, req.UserID)
+func (s *applicationService) Register(ctx context.Context, register *Register) error {
+    // Validation and reads that do not need the transaction happen first, so a rejected
+    // request never opens one.
+    if err := s.passwordPolicy.Validate(register.User.PasswordHash); err != nil {
+        return err
+    }
+    if err := s.checkExistingEmail(ctx, register.User.Email); err != nil {
+        return fmt.Errorf("failed to register new user: %w", err)
+    }
+    role, err := s.roleRepo.GetRoleBySlug(ctx, role.OwnerRoleSlug)
+    if err != nil {
+        return fmt.Errorf("failed to get role: %w", err)
+    }
 
-    // Validate products available
-    products, err := s.productUsecase.GetByIDs(ctx, req.ProductIDs)
+    return s.txManager.Do(ctx, func(txCtx context.Context) error {
+        // The orchestrator owns the audit identity for the whole unit of work.
+        txCtx = auditctx.WithAuditInfo(txCtx, "system", "system")
 
-    // Create order (multi-domain orchestration)
-    order, err := s.orderUsecase.Create(ctx, &order.Order{...})
+        txUserRepo := s.userRepo.WithTx(txCtx)
+        txUserRoleRepo := s.userRoleRepo.WithTx(txCtx)
 
-    return order, nil
+        createdUser, err := txUserRepo.CreateUser(txCtx, register.User)
+        if err != nil {
+            return fmt.Errorf("failed to create user: %w", err)
+        }
+
+        txCtx = auditctx.WithAuditInfo(txCtx, createdUser.ID.String(), createdUser.Name)
+        return txUserRoleRepo.CreateUserRole(txCtx, &userrole.UserRole{
+            UserID: createdUser.ID,
+            RoleID: role.ID,
+        })
+    })
 }
 ```
 
-**When to use Application layer:**
-- API requires data from multiple domains
-- Business logic is complex & involves several steps
-- Coordination between services
+**Why the transaction body calls repositories, not use cases**
 
-**When NOT to use Application layer:**
-- Simple CRUD operations
-- Single domain involved
+`WithTx(ctx) Repository` is defined on `Repository`, not on `Usecase`. A use case therefore
+cannot be enlisted in a transaction its caller opened: calling one inside `txManager.Do` would
+run its writes on a different connection and outside the transaction, so a rollback would leave
+them committed.
+
+So the rule is:
+
+- **Outside the transaction** — compose whatever reads most clearly, use cases included. The
+  lookups above are ordinary calls.
+- **Inside `txManager.Do`** — go through `WithTx` repositories only. This is the one place the
+  application layer is allowed to reach past a use case, and it is why it may depend on
+  `domain/<name>.Repository` as well as `domain/<name>.Usecase`.
+
+If a cross-domain flow needs business rules that live in a use case *and* must be transactional,
+extract those rules into a domain service the orchestrator can call, rather than calling the use
+case inside the transaction.
+
+**When to use the Application layer**
+- The flow reads from or writes to more than one domain
+- Several domains must commit or roll back together
+- Coordination logic belongs to no single domain
+
+**When NOT to use it**
+- Simple CRUD
+- Anything contained within one domain — put it in that domain's `Usecase`
 
 ---
 
@@ -490,10 +540,13 @@ No need for Application layer or complex orchestration.
 For operations involving multiple domains:
 
 ```
-Handler → Application Service → Multiple Usecases → Repositories → Database
+Handler → Application Service → txManager.Do → WithTx Repositories → Database
 ```
 
-Application Service orchestrates multiple domain usecases.
+The Application Service owns the transaction boundary and the audit identity. Reads and
+validation that do not need the transaction run before it opens; everything inside goes through
+`WithTx` repositories, because `WithTx` is defined on `Repository` and not on `Usecase`. See the
+Application Layer section above.
 
 ### Pattern 3: Complex Business Logic
 
