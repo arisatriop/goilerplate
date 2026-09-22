@@ -182,7 +182,7 @@ this is cheap to fix now and expensive to fix after someone reaches for it.
 Nothing here is broken at runtime. Each item is a place where the code teaches a reader something
 untrue — which, in a boilerplate whose product *is* the example, is the expensive kind of wrong.
 
-### A1 Make the application layer's purpose unambiguous · S — 🟡 partly done
+### A1 Make the application layer's purpose unambiguous · S — ✅ done
 **Evidence:** `docs/guides/architecture.md` (Application Layer), `CLAUDE.md:25,39-40,87-88`,
 `internal/application/bar/service.go`, `internal/application/register/service.go`
 
@@ -204,10 +204,13 @@ What is wrong is everything written *about* the layer:
   `application/<name>/`, a repository and a handler. Under the real design, most new domains
   should have **no** `application/` package at all.
 
-`application/bar` then demonstrates the pattern badly. Its own comment says "handles multi-domain
-orchestration" while it touches exactly one domain, so it shows the layer being used where it is
-not needed. It also injects `barUC bar.Usecase`, never reads that field, and calls
-`barRepo.CreateBar` directly — the reverse of the guide's example, which composes use cases.
+`application/bar` demonstrated the pattern badly. Its own comment said "handles multi-domain
+orchestration" while it touched exactly one domain, so it showed the layer being used where it is
+not needed. It also injected `barUC bar.Usecase`, never read that field, and called
+`barRepo.CreateBar` directly. It was wired into the container and consumed by no handler.
+
+It is deleted rather than repaired: `register` is a real, correct, cross-domain example, and a
+fabricated second one that contradicts the rule is worse than none.
 
 That last point exposed a real design gap rather than a typo. The guide's original example
 orchestrated `Usecase` values, but both real services reach for repositories inside the
@@ -224,10 +227,11 @@ be both shared and transactional move into a domain service.
       `register` service, with the transaction rule and its reasoning stated
 - [x] `CLAUDE.md` corrected — the layer is described as cross-domain orchestration,
       `application/<name>/` is now conditional, and the `WithTx` rule is recorded
-- [ ] Fix `application/bar`: make it genuinely cross-domain, or delete it and point at `register`
-      as the only example. Drop the unused `barUC` field either way
-- [ ] Replace the `*config.Config` dependency in `register` (`service.go:6`) with a narrow options
-      struct, so the layer does not depend on the whole configuration surface
+- [x] `internal/application/bar/` deleted, along with `BarSvc` and the two parameters
+      `WireApplicationServices` no longer needed
+- [x] The `*config.Config` dependency is gone from `register`. It turned out to be stored and
+      never read, so no options struct was needed — the field and its constructor argument were
+      simply removed
 
 **Done when:** one description of the layer exists, its example follows it, and the example is
 achievable with the interfaces the project actually has.
@@ -560,7 +564,8 @@ injection seam for substituting `Storage` in tests, and H4 will use it.
 ### C3 Remove leftovers · S
 
 - [ ] The commented-out CORS block at `internal/bootstrap/fiber.go:42-46` — superseded by F4
-- [ ] `internal/domain/baz/` — an empty directory, untracked by git, present only on disk
+- [ ] `internal/domain/baz/` and `internal/application/product/` — empty directories, untracked by
+      git, present only on disk
 - [ ] `postgres: goilerplate.session.sql` in the repository root — an editor scratch file;
       untracked, so add the pattern to `.gitignore`
 - [ ] Translate the Indonesian comment in `deploy/k8s/deployment.prod.yaml:73`
