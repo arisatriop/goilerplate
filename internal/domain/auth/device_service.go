@@ -1,4 +1,3 @@
-// Package auth provides authentication domain services and entities.
 package auth
 
 import (

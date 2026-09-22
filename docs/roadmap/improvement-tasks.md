@@ -22,17 +22,28 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 
 ## Summary
 
-| Phase | Theme | Tasks | Estimate |
+| Phase | Theme | Tasks | Status |
 |---|---|---|---|
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
-| [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ~4–6 days |
-| [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ~5–7 days |
+| [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | A4 open |
+| [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | H2 open |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 
-Recommended order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**.
-D1 and D2 are live defects; H1 (`-race`, stronger linters) is placed early because it changes
-what every later task is checked against.
+**Everything that could be done without a decision from the maintainer is done.** The two
+remaining non-feature tasks are both open because each needs a call that is not the
+implementer's to make:
+
+- **[H2](#h2-close-the-supply-chain-gaps-in-ci--m)** — 27 reachable vulnerabilities, all with
+  fixes, but taking them means moving grpc 1.80→1.83, pgx 5.7→5.9 and aws-sdk s3 1.89→1.97 in
+  one go. `govulncheck` runs on every PR today with `continue-on-error: true`, so the number
+  cannot quietly grow while the decision waits
+- **[A4](#a4-decide-what-to-do-about-the-hand-rolled-migrator--m)** — adopt golang-migrate and
+  delete 537 lines, or keep them and write the tests they have never had. Genuinely a
+  trade-off, and the wrong answer costs a half-applied production schema
+
+Original order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**. H2 was
+deferred and A3–A5 pulled forward; everything else was done in this order.
 
 ---
 
@@ -303,7 +314,7 @@ Recommended shape, as the common REST convention and the one that keeps `data` a
 
 **Done when:** one shape exists in code, docs and Swagger, and a test fails if they diverge.
 
-### A3 Split the 588-line auth use case · M
+### A3 Split the 588-line auth use case · M — ✅ done
 **Evidence:** `internal/domain/auth/usecase.go`
 
 The largest file in the repo carries login, refresh, logout, logout-all and password change in
@@ -314,9 +325,22 @@ seams exist; the orchestrator simply never shrank.
 At 588 LOC it is the file most likely to be copied as the model for a new domain, which
 propagates the shape.
 
-- [ ] Split by flow: sign-in, token lifecycle, credential management
-- [ ] Keep the public `Usecase` interface unchanged so no caller moves
-- [ ] Coverage for `internal/domain/auth` is 48.4%; the split should not lower it
+- [x] Split by flow, all four files on the same `authUseCase` type:
+
+      | File | LOC | Holds |
+      |---|---|---|
+      | `usecase.go` | 89 | the type, the `Usecase` interface, `NewUseCase`, `SessionExpiry` |
+      | `usecase_signin.go` | 215 | `Login`, `Logout`, `LogoutAll`, menu/permission assembly |
+      | `usecase_token.go` | 195 | `RefreshToken`, rotation, reuse detection, token minting |
+      | `usecase_credentials.go` | 139 | `Register`, `ChangePassword`, `DeactivateUser` |
+
+- [x] The `Usecase` interface is untouched, so no caller moved
+- [x] **Every declaration moved byte for byte.** Verified mechanically: the file was parsed
+      into its top-level declarations before the split and re-parsed from the four files after,
+      then compared by name and by body — nothing missing, nothing added, no body changed
+- [x] Coverage is still exactly 48.4%, which is the other half of the same proof
+- [x] The package doc now describes the layout. `device_service.go` also carried one, so the
+      two were being concatenated in `go doc`; the one-liner is gone
 
 **Done when:** no file in `domain/auth` exceeds ~250 LOC and the interface is untouched.
 
@@ -454,28 +478,40 @@ Two things `-race` found that no other step would have:
 
 **Done when:** two builds of one commit produce the same image, on a pinned base.
 
-### H4 Test the HTTP delivery layer · L
+### H4 Test the HTTP delivery layer · L — ✅ done
 **Evidence:** coverage run of 2026-09-22
 
-| Package | Coverage |
-|---|---|
-| `internal/delivery/http/handler` | **0.6%** |
-| `internal/delivery/http/router` | 0.0% |
-| `internal/delivery/http/presenter` | 0.0% |
-| `pkg/response` | 0.0% |
-| `pkg/pagination` | 0.0% |
-| `pkg/filesystem` | 0.0% |
-| `internal/application/*` | 0.0% |
+The gap was concentrated in the layer that defines the public contract — which is exactly where
+A2's three-way disagreement was able to develop unnoticed.
 
-Middleware (63.9%), `domain/auth` (48.4%), `domain/job` (91.7%) and most of `pkg/` are covered
-properly. The gap is concentrated in the layer that defines the public contract — which is
-exactly where A2's three-way disagreement was able to develop unnoticed.
+| Package | Before | After |
+|---|---|---|
+| `internal/delivery/http/handler` | 0.6% | **29.0%** |
+| `internal/delivery/http/router` | 0.0% | 23.8% |
+| `internal/delivery/http/presenter` | 0.0% | 31.2% |
+| `pkg/response` | 0.0% | 55.4% |
+| `pkg/pagination` | 0.0% | 52.5% |
+| `pkg/filesystem` | 0.0% | 28.8% |
+| `internal/application/register` | 0.0% | 81.5% |
 
-- [ ] Handler tests over `app.Test()`: status code and marshalled body for success, validation
-      failure, not-found and server error on at least one full CRUD surface
-- [ ] Table-driven tests for `pkg/response` covering every helper's envelope
-- [ ] Tests for `pkg/pagination` boundaries: page 0, limit 0, limit above maximum, total 0
-- [ ] `pkg/filesystem` against the local driver, with S3 behind its interface
+The handler and router numbers stay moderate on purpose: both packages are mostly `foo`
+(a template, deliberately untested) and wiring that only a running process exercises.
+
+- [x] Handler tests over `app.Test()` across a full CRUD surface — status code and marshalled
+      body for success, malformed JSON, each validation rule, and every domain error. The
+      status-code table is the valuable one: it proves a duplicate code is a 409 and a missing
+      row a 404 rather than both flattening to 500
+- [x] `pkg/response` — every helper's envelope, default vs. given message, the exact list shape,
+      and `TestEnvelope_EveryKeyIsCamelCase` (delivered with D7 and A2)
+- [x] `pkg/pagination` boundaries: page 0, negative page, limit 0, non-numeric, limit above the
+      maximum, and `limit=0` into `NewPagination`, which would have divided by zero
+- [x] `pkg/filesystem` — the local driver end to end on a temp directory, plus `NewManager` with
+      a spy `Storage`, which is what that seam was kept for (C2)
+- [x] Presenter mapping, including that an empty result is an empty slice and not nil
+- [x] **Found while writing these:** `validateUpload` reported the size limit as
+      `fmt.Sprintf("%.0fmb", convertToMB(max)-1)`. The `-1` subtracts a whole megabyte, so the
+      default 200KB limit produced *"Ukuran file melebihi batas maksimum -1mb"* — wrong number,
+      wrong unit, wrong language. Replaced with `humanSize`, which picks bytes/KB/MB
 
 **Done when:** the response contract is pinned by tests rather than by inspection.
 

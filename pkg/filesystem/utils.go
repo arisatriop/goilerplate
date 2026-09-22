@@ -43,7 +43,8 @@ func detectMimeType(filename string) string {
 func validateUpload(fileSize int64, mimeType string, opts UploadOptions) error {
 	// Validate size
 	if opts.MaxSize > 0 && fileSize > opts.MaxSize {
-		return utils.ClientErr(http.StatusBadRequest, fmt.Sprintf("Ukuran file melebihi batas maksimum %.0fmb", convertToMB(opts.MaxSize)-1))
+		return utils.ClientErr(http.StatusBadRequest,
+			fmt.Sprintf("File exceeds the maximum size of %s", humanSize(opts.MaxSize)))
 	}
 
 	// Validate MIME type
@@ -63,7 +64,24 @@ func validateUpload(fileSize int64, mimeType string, opts UploadOptions) error {
 	return nil
 }
 
-// convertToMB converts bytes to megabytes
-func convertToMB(bytes int64) float64 {
-	return float64(bytes) / (1024 * 1024)
+// humanSize renders a byte count the way the limit was written in config.
+//
+// It replaces fmt.Sprintf("%.0fmb", convertToMB(max)-1), which was wrong twice over. The -1
+// was presumably meant to round down, but it subtracts a whole megabyte: the default limit of
+// 200KB is 0.195MB, so the message read "melebihi batas maksimum -1mb". And it reported every
+// limit in megabytes, so any limit under 1MB rendered as 0 or a negative number.
+func humanSize(bytes int64) string {
+	const (
+		kb = 1 << 10
+		mb = 1 << 20
+	)
+
+	switch {
+	case bytes >= mb:
+		return fmt.Sprintf("%.6gMB", float64(bytes)/mb)
+	case bytes >= kb:
+		return fmt.Sprintf("%.6gKB", float64(bytes)/kb)
+	default:
+		return fmt.Sprintf("%d bytes", bytes)
+	}
 }
