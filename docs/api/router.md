@@ -342,3 +342,61 @@ router/
 ```
 
 Each file handles a separate group with its own authentication strategy.
+
+---
+
+## 📦 Response Envelope
+
+Every response goes through `pkg/response`. Handlers do not build the envelope themselves.
+
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": { "...": "..." },
+  "meta": {
+    "requestId": "01J...",
+    "timestamp": "2026-01-01T00:00:00Z"
+  }
+}
+```
+
+On failure `success` is `false`, `data` is omitted, and `errors` carries the detail:
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": [{ "field": "email", "message": "email is required" }]
+}
+```
+
+### Key casing
+
+**Every key the API emits is camelCase** — `requestId`, `accessToken`, `totalPages`, `hasNext`.
+
+`Meta` used to emit `request_id` while the DTOs around it emitted `accessToken` and
+`refreshTokenExpiresAt`, so a single response body carried both conventions and a client had to
+know which applied where. `TestEnvelope_EveryKeyIsCamelCase` in `pkg/response` walks the whole
+marshalled envelope and fails if a snake_case key reappears at any depth.
+
+Two places keep snake_case deliberately and are not part of this rule:
+
+- **JWT claims** (`pkg/jwt`) — `user_id` and `session_id` follow the JWT convention, and the
+  registered claims (`sub`, `exp`, `jti`) are fixed by RFC 7519.
+- **Log attributes** — `request_id` is a log field, not a response field.
+
+### Status codes
+
+| Situation | Status |
+|---|---|
+| Success `GET`/`PUT`/`PATCH` | 200 |
+| Success `POST` (created) | 201 |
+| Bad input / validation error | 400 |
+| No or invalid token | 401 |
+| Valid token, no permission | 403 |
+| Resource not found | 404 |
+| Duplicate / state conflict | 409 |
+| Rate limit exceeded | 429 |
+| Server or logic error | 500 |
+| A dependency is down (`/readyz`) | 503 |
