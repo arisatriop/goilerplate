@@ -26,18 +26,13 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 |---|---|---|---|
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | A4 open |
-| [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | H2 open |
+| [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 
-**Everything that could be done without a decision from the maintainer is done.** The two
-remaining non-feature tasks are both open because each needs a call that is not the
-implementer's to make:
+**Everything that could be done without a decision from the maintainer is done.** One
+non-feature task remains open, because it needs a call that is not the implementer's to make:
 
-- **[H2](#h2-close-the-supply-chain-gaps-in-ci--m)** — 27 reachable vulnerabilities, all with
-  fixes, but taking them means moving grpc 1.80→1.83, pgx 5.7→5.9 and aws-sdk s3 1.89→1.97 in
-  one go. `govulncheck` runs on every PR today with `continue-on-error: true`, so the number
-  cannot quietly grow while the decision waits
 - **[A4](#a4-decide-what-to-do-about-the-hand-rolled-migrator--m)** — adopt golang-migrate and
   delete 537 lines, or keep them and write the tests they have never had. Genuinely a
   trade-off, and the wrong answer costs a half-applied production schema
@@ -419,7 +414,7 @@ Two things `-race` found that no other step would have:
 
 - **A latent bug in the D2 fix.** `drainGRPC` called `GrpcServer.Stop()` in its timeout branch.
   grpc-go holds `s.mu` via a deferred unlock across `handlersWG.Wait()`
-  (`server.go:1963-1986`, v1.80.0), so a concurrent `Stop()` blocks on that mutex for exactly as
+  (`server.go:1966-1989`, v1.83.1), so a concurrent `Stop()` blocks on that mutex for exactly as
   long as the stuck handler it was meant to rescue. The drain hung for the full budget. It now
   fires `Stop()` in a goroutine and returns.
 - **A test passing for the wrong reason.** `TestDrainGRPC_BoundedByTheContext` waited 200ms for
@@ -431,30 +426,60 @@ Two things `-race` found that no other step would have:
 
 **Done when:** a data race or an unchecked SQL error fails the build.
 
-### H2 Close the supply-chain gaps in CI · M
+### H2 Close the supply-chain gaps in CI · M — ✅ done
 **Evidence:** `.github/workflows/ci-cd.yaml`
 
-- [x] `govulncheck` runs on every PR — added with H1, but **`continue-on-error: true`**
-- [ ] **Upgrade, then make it blocking.** The first scan found **27 reachable vulnerabilities**
-      (not merely present — reachable from this module's call graph). All have fixes:
-  - 13 in the Go standard library: `go 1.26.2` → `1.26.6` covers `crypto/tls`, `crypto/x509`,
-    `encoding/asn1`, `encoding/xml`, `html/template`, `net`, `net/http`, `net/mail`,
-    `net/textproto`, `net/url`
-  - `google.golang.org/grpc` v1.80.0 → v1.83.1 (3)
-  - `github.com/gofiber/fiber/v2` v2.52.8 → v2.52.12 (2)
-  - `github.com/go-viper/mapstructure/v2` v2.2.1 → v2.4.0 (2)
-  - `golang.org/x/net` v0.52.0 → v0.55.0 (2)
-  - `github.com/jackc/pgx/v5` v5.7.5 → v5.9.2, `golang.org/x/text` v0.35.0 → v0.39.0,
-    `go.opentelemetry.io/otel` v1.43.0 → v1.44.0,
-    `github.com/aws/aws-sdk-go-v2/service/s3` v1.89.2 → v1.97.3,
-    `.../aws/protocol/eventstream` v1.7.3 → v1.7.8, `github.com/ClickHouse/ch-go` v0.61.5 → v0.65.0
-  - Then drop `continue-on-error` from the workflow step
-- [ ] Pin actions to commit SHAs, not floating major tags
-- [x] Workflow-level least-privilege `permissions:` block (done with H1, same file)
-- [x] `concurrency:` group so superseded pushes cancel, `main` exempt (done with H1, same file)
-- [ ] Publish an SBOM and build provenance from `docker/build-push-action`
-- [ ] Delete the ~150 lines of commented-out deploy jobs; recover them from git history when the
-      GKE deploy is switched on
+**27 reachable vulnerabilities → 0.** Reachable means reachable from this module's call graph,
+not merely present in `go.sum`, so every one was worth acting on.
+
+Done as one upgrade per commit, so a regression can be bisected to a single module:
+
+| Step | Change | Closed |
+|---|---|---|
+| 1 | Go toolchain `1.26.2` → `1.26.8` | **13** |
+| 2 | `google.golang.org/grpc` `v1.80.0` → `v1.83.1` | 3 |
+| 3 | `fiber` `v2.52.12`, `x/text` `v0.39.0`, `x/net` `v0.56.0` | 5 |
+| 4 | `jackc/pgx/v5` `v5.7.5` → `v5.9.2` | 1 |
+| 5 | `mapstructure` `v2.4.0`, `grpc` `v1.83.2`, `clickhouse-go` `v2.48.0` | 4 |
+| 6 | `aws-sdk-go-v2/service/s3` `v1.97.3`, `.../eventstream` `v1.7.8` | 2 |
+
+- [x] **Half of them were the standard library.** One toolchain bump closed 13 without touching
+      a dependency. `1.26.8` rather than the minimum `1.26.6`, so the whole patch series is
+      taken once instead of four times
+- [x] **The ClickHouse finding needed working out.** This project is PostgreSQL only, so why is
+      `ch-go` in the graph at all? `internal/bootstrap/database` → `gorm.io/plugin/opentelemetry/tracing`
+      → `gorm.io/driver/clickhouse` → `clickhouse-go/v2` → `ch-go`. The OTel GORM plugin depends
+      on the ClickHouse driver, and it is reachable through package init. No connection is ever
+      opened, but init code is code. Bumping `ch-go` alone does not compile — `v0.65.0` changes
+      `compress.NewWriter`'s signature and `clickhouse-go v2.30.0` cannot build against it — so
+      the consumer was upgraded instead, which resolves `ch-go` to `v0.74.0`, well past the fix
+- [x] **The grpc upgrade was checked against D2, not assumed.** The bounded-drain fix reasons
+      about grpc-go's `stop()` internals. Re-read in `v1.83.1`: structure unchanged, `s.mu.Lock()`
+      with a deferred unlock still spans `handlersWG.Wait()`, so the fix still holds. Only the
+      line numbers moved, and the citation in `cmd/server/main.go` was corrected
+      (`server.go:1963-1986` → `1966-1989`). A comment pointing at the wrong lines is worse than
+      no comment
+- [x] **One upgrade surfaced a real security improvement.** `google.golang.org/api` v0.264.0
+      deprecates `option.WithCredentialsFile` "because of a potential security risk" — it accepts
+      any credential type without validating which. The Drive driver's call site is explicitly
+      the service-account branch, so it now says so:
+      `option.WithAuthCredentialsFile(option.ServiceAccount, path)`. The path comes from config,
+      and an external-account configuration swapped in there can name an arbitrary URL as its
+      token source
+- [x] `continue-on-error` dropped — **govulncheck now blocks.** It ran advisory for exactly as
+      long as it took to clear the backlog; a scanner allowed to stay red teaches everyone to
+      ignore it. Pinned to `v1.8.0` rather than `@latest`, because a scanner that silently
+      changes version makes "CI went red and nothing changed" impossible to reason about
+- [x] Every action pinned to a commit SHA with the tag in a trailing comment. A tag is mutable:
+      `actions/checkout@v4` is whatever that ref points at today, which is a supply-chain
+      foothold in a workflow that holds `packages: write`
+- [x] `sbom: true` and `provenance: mode=max` on the image build. The SBOM means the next
+      advisory is answered by querying the registry rather than rebuilding and re-scanning;
+      provenance signs which workflow and commit produced the image
+- [x] The ~165 lines of commented-out GKE deploy jobs deleted, with a pointer to the `git log -S`
+      that recovers them. Commented-out YAML cannot be linted or tested and drifts silently
+      while looking like a plan
+- [x] Workflow-level least-privilege `permissions:` and the `concurrency:` group (both with H1)
 
 **Done when:** a known-vulnerable dependency fails CI, and the workflow contains no dead YAML.
 

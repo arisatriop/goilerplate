@@ -61,9 +61,9 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
           cache: true
@@ -88,23 +88,27 @@ jobs:
           go tool cover -func=coverage.out | sort -k3 -n | head -15 >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run linter
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
         with:
           version: v2.12.0
 
-      # Nothing scanned dependencies before this. govulncheck reports only vulnerabilities in
-      # code paths actually reachable from this module, so a finding here is one worth acting on.
+      # Blocking. govulncheck reports only vulnerabilities in code paths actually reachable
+      # from this module, so a finding here is one worth acting on rather than triaging.
       #
-      # NOT blocking yet, on purpose. The first run found 27 reachable vulnerabilities — 13 in
-      # the Go standard library (1.26.2, fixed by 1.26.6) and 14 across grpc, fiber, pgx, x/net,
-      # x/text, otel, mapstructure, aws-sdk-go-v2 and ch-go. Failing the build on that would
-      # have meant bundling a large dependency upgrade into an unrelated change. Roadmap task H2
-      # does the upgrade and flips continue-on-error off; until then this reports on every PR so
-      # the number cannot quietly grow.
+      # It ran non-blocking for exactly as long as it took to clear the backlog: the first scan
+      # found 27 reachable findings, H2 took them to 0, and this flipped in the same change.
+      # A scanner that is allowed to stay red teaches everyone to ignore it.
+      #
+      # If this fails on a PR that did not touch go.mod, a new advisory landed against a
+      # dependency you already had — which is the alarm working, not a false one. Upgrade the
+      # named module. If an upgrade is genuinely impossible, add the finding to a -show or an
+      # explicit exemption with a reason, rather than restoring continue-on-error.
+      #
+      # govulncheck is pinned rather than @latest: a scanner that silently changes version
+      # between runs makes "CI went red and nothing changed" impossible to reason about.
       - name: Check dependencies for known vulnerabilities
-        continue-on-error: true
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...
 
   # ==============================
@@ -118,11 +122,11 @@ jobs:
     needs: test
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           push: false
@@ -143,22 +147,22 @@ jobs:
     outputs:
       sha: ${{ steps.vars.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - id: vars
         run: |
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           push: true
@@ -170,170 +174,15 @@ jobs:
             VERSION=${{ github.ref_name }}
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ steps.vars.outputs.date }}
+          # An SBOM lists what is actually inside the image, so when the next advisory lands
+          # the question "are we affected" is answered by querying the registry rather than by
+          # rebuilding and re-scanning. Provenance signs where the image came from — which
+          # workflow, which commit — so a tag cannot be quietly replaced by something else.
+          sbom: true
+          provenance: mode=max
 
-  # # ==============================
-  # # DEPLOY DEV (auto - push to develop)
-  # # ==============================
-  # deploy-dev:
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-  #   permissions:
-  #     contents: read
-  #     id-token: write
-  #   steps:
-  #     - uses: actions/checkout@v4
-
-  #     - uses: google-github-actions/auth@v2
-  #       with:
-  #         workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-  #         service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
-
-  #     - uses: google-github-actions/setup-gcloud@v2
-  #       with:
-  #         install_components: gke-gcloud-auth-plugin
-
-  #     - name: Get GKE credentials
-  #       run: |
-  #         gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_DEV }} \
-  #           --zone ${{ vars.GKE_ZONE }} \
-  #           --project ${{ vars.GCP_PROJECT_ID }}
-
-  #     - name: Ensure namespace exists
-  #       run: kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
-
-  #     - name: Create GHCR pull secret
-  #       run: |
-  #         kubectl create secret docker-registry ghcr-pull-secret \
-  #           --docker-server=ghcr.io \
-  #           --docker-username=${{ github.repository_owner }} \
-  #           --docker-password=${{ secrets.GHCR_TOKEN }} \
-  #           --namespace=apps \
-  #           --dry-run=client -o yaml | kubectl apply -f -
-
-  #     - name: Deploy
-  #       run: |
-  #         export IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
-  #         export COMMIT_SHA=${GITHUB_SHA::7}
-  #         export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-  #         export CLOUD_SQL_INSTANCE=${{ vars.CLOUD_SQL_INSTANCE }}
-  #         export GSA_NAME=${{ vars.GSA_NAME }}
-  #         envsubst '${GSA_NAME} ${PROJECT_ID}' \
-  #           < deploy/k8s/serviceaccount.yaml | kubectl apply -f -
-  #         envsubst '${IMAGE} ${COMMIT_SHA} ${CLOUD_SQL_INSTANCE}' \
-  #           < deploy/k8s/deployment.dev.yaml | kubectl apply -f -
-
-  #     - name: Wait for rollout
-  #       run: kubectl rollout status deployment/goilerplate -n apps --timeout=300s
-
-  # # ==============================
-  # # DEPLOY STAGING (auto - push to staging)
-  # # ==============================
-  # deploy-staging:
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
-  #   permissions:
-  #     contents: read
-  #     id-token: write
-  #   steps:
-  #     - uses: actions/checkout@v4
-
-  #     - uses: google-github-actions/auth@v2
-  #       with:
-  #         workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-  #         service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
-
-  #     - uses: google-github-actions/setup-gcloud@v2
-  #       with:
-  #         install_components: gke-gcloud-auth-plugin
-
-  #     - name: Get GKE credentials
-  #       run: |
-  #         gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_STAG }} \
-  #           --zone ${{ vars.GKE_ZONE }} \
-  #           --project ${{ vars.GCP_PROJECT_ID }}
-
-  #     - name: Ensure namespace exists
-  #       run: kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
-
-  #     - name: Create GHCR pull secret
-  #       run: |
-  #         kubectl create secret docker-registry ghcr-pull-secret \
-  #           --docker-server=ghcr.io \
-  #           --docker-username=${{ github.repository_owner }} \
-  #           --docker-password=${{ secrets.GHCR_TOKEN }} \
-  #           --namespace=apps \
-  #           --dry-run=client -o yaml | kubectl apply -f -
-
-  #     - name: Deploy
-  #       run: |
-  #         export IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
-  #         export COMMIT_SHA=${GITHUB_SHA::7}
-  #         export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-  #         export CLOUD_SQL_INSTANCE=${{ vars.CLOUD_SQL_INSTANCE }}
-  #         export GSA_NAME=${{ vars.GSA_NAME }}
-  #         envsubst '${GSA_NAME} ${PROJECT_ID}' \
-  #           < deploy/k8s/serviceaccount.yaml | kubectl apply -f -
-  #         envsubst '${IMAGE} ${COMMIT_SHA} ${CLOUD_SQL_INSTANCE}' \
-  #           < deploy/k8s/deployment.stag.yaml | kubectl apply -f -
-
-  #     - name: Wait for rollout
-  #       run: kubectl rollout status deployment/goilerplate -n apps --timeout=300s
-
-  # # ==============================
-  # # DEPLOY PRODUCTION (manual - workflow_dispatch on main)
-  # # Requires image to already exist from a previous push to main
-  # # ==============================
-  # deploy-production:
-  #   runs-on: ubuntu-latest
-  #   needs: test
-  #   if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-  #   environment: production
-  #   permissions:
-  #     contents: read
-  #     id-token: write
-  #   steps:
-  #     - uses: actions/checkout@v4
-
-  #     - uses: google-github-actions/auth@v2
-  #       with:
-  #         workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-  #         service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
-
-  #     - uses: google-github-actions/setup-gcloud@v2
-  #       with:
-  #         install_components: gke-gcloud-auth-plugin
-
-  #     - name: Get GKE credentials
-  #       run: |
-  #         gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_PROD }} \
-  #           --zone ${{ vars.GKE_ZONE }} \
-  #           --project ${{ vars.GCP_PROJECT_ID }}
-
-  #     - name: Ensure namespace exists
-  #       run: kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
-
-  #     - name: Create GHCR pull secret
-  #       run: |
-  #         kubectl create secret docker-registry ghcr-pull-secret \
-  #           --docker-server=ghcr.io \
-  #           --docker-username=${{ github.repository_owner }} \
-  #           --docker-password=${{ secrets.GHCR_TOKEN }} \
-  #           --namespace=apps \
-  #           --dry-run=client -o yaml | kubectl apply -f -
-
-  #     - name: Deploy
-  #       run: |
-  #         export IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
-  #         export COMMIT_SHA=${GITHUB_SHA::7}
-  #         export PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-  #         export CLOUD_SQL_INSTANCE=${{ vars.CLOUD_SQL_INSTANCE }}
-  #         export GSA_NAME=${{ vars.GSA_NAME }}
-  #         envsubst '${GSA_NAME} ${PROJECT_ID}' \
-  #           < deploy/k8s/serviceaccount.yaml | kubectl apply -f -
-  #         envsubst '${IMAGE} ${COMMIT_SHA} ${CLOUD_SQL_INSTANCE}' \
-  #           < deploy/k8s/deployment.prod.yaml | kubectl apply -f -
-
-  #     - name: Wait for rollout
-  #       run: kubectl rollout status deployment/goilerplate -n apps --timeout=300s
+# The GKE deploy jobs (dev, staging, prod) used to sit here commented out, roughly 165 lines of
+# YAML that nothing has ever run. They are recoverable from git history — `git log -S deploy-dev
+# -- .github/workflows/ci-cd.yaml` finds them — and a commented-out job is worse than no job:
+# it cannot be linted, cannot be tested, and drifts out of date silently while looking like a
+# plan. Restore them from history when the deploy is actually switched on.

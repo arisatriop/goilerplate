@@ -181,7 +181,7 @@ func drainGRPC(ctx context.Context, app *bootstrap.App) {
 		app.Log.Warn("gRPC drain timed out, abandoning it")
 		// Stop cannot rescue a stuck GracefulStop, and calling it here in the foreground would
 		// hang this function instead. grpc-go's stop() takes s.mu and holds it via a deferred
-		// unlock across handlersWG.Wait() (server.go:1963-1986, v1.80.0), so while a handler
+		// unlock across handlersWG.Wait() (server.go:1966-1989, v1.83.1), so while a handler
 		// refuses to return, the graceful call keeps that mutex and any concurrent Stop blocks
 		// on s.mu.Lock() for just as long.
 		//
