@@ -64,7 +64,7 @@ func (r *authRepository) GetUserByEmail(ctx context.Context, email string) (*aut
 	if err := r.db.WithContext(ctx).
 		Where("email = ? and deleted_at IS NULL", email).
 		First(&data).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -187,7 +187,7 @@ func (r *authRepository) GetSessionByID(ctx context.Context, sessionID string) (
 	if err := r.db.WithContext(ctx).
 		Where("id = ?", sessionID).
 		First(&sessionModel).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -336,7 +336,7 @@ func (r *authRepository) GetUserByID(ctx context.Context, userID string) (*auth.
 	if err := r.db.WithContext(ctx).
 		Where("id = ? and deleted_at IS NULL", userID).
 		First(&data).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

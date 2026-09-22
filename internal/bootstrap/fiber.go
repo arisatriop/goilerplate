@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"time"
 
 	"goilerplate/config"
@@ -57,9 +58,12 @@ func NewFiber(cfg *config.Config) *fiber.App {
 
 func NewErrorHandler() fiber.ErrorHandler {
 	return func(ctx *fiber.Ctx, err error) error {
+		// errors.As rather than a type assertion: a handler that wraps its fiber.Error would
+		// otherwise lose the status code and have every failure reported as a 500.
 		code := fiber.StatusInternalServerError
-		if e, ok := err.(*fiber.Error); ok {
-			code = e.Code
+		var fiberErr *fiber.Error
+		if errors.As(err, &fiberErr) {
+			code = fiberErr.Code
 		}
 
 		return ctx.Status(code).JSON(fiber.Map{

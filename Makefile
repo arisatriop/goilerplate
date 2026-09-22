@@ -1,7 +1,10 @@
 # Makefile for Go Boilerplate
 
 # Build and run commands
-.PHONY: build run test test-integration clean migrate-up migrate-down migrate-status migrate-create
+.PHONY: build run test test-quick test-integration cover vuln clean \
+	migrate-up migrate-down migrate-status migrate-create \
+	swag dev-setup format lint lint-install \
+	docker-build docker-run docker-build-local docker-run-local up help
 
 # Application
 build:
@@ -13,9 +16,18 @@ run:
 	@echo "Running application..."
 	sh ./.scripts/run.sh
 
+# -race is what CI runs, so it is what `make test` runs. A race that only the detector sees is
+# still a race, and finding it here costs seconds where finding it in production costs a day.
+# -shuffle=on catches tests that pass only because of the order they run in.
 test:
 	@echo "Running tests..."
-	go test -v ./...
+	go test -race -shuffle=on ./...
+
+# Without the detector, for a quick loop while iterating. Not what the gate runs, so a green
+# `make test-quick` proves less than a green `make test`.
+test-quick:
+	@echo "Running tests without the race detector..."
+	go test ./...
 
 # Integration tests need PostgreSQL and Redis. Without POSTGRES_TEST_DSN and REDIS_TEST_ADDR
 # they skip rather than fail, which is why `make test` alone can look green while the
@@ -25,11 +37,25 @@ TEST_REDIS_ADDR ?= localhost:6379
 
 test-integration:
 	@echo "Running tests with PostgreSQL and Redis..."
-	POSTGRES_TEST_DSN="$(TEST_POSTGRES_DSN)" REDIS_TEST_ADDR="$(TEST_REDIS_ADDR)" go test ./...
+	POSTGRES_TEST_DSN="$(TEST_POSTGRES_DSN)" REDIS_TEST_ADDR="$(TEST_REDIS_ADDR)" go test -race -shuffle=on ./...
+
+# Coverage against the real PostgreSQL and Redis: without them the repository, cache and
+# integration suites skip, and the number that comes out is meaningless.
+cover:
+	@echo "Measuring coverage..."
+	POSTGRES_TEST_DSN="$(TEST_POSTGRES_DSN)" REDIS_TEST_ADDR="$(TEST_REDIS_ADDR)" \
+		go test -race -coverprofile=coverage.out -covermode=atomic ./...
+	@go tool cover -func=coverage.out | tail -1
+	@echo "Per-package detail: go tool cover -html=coverage.out"
+
+vuln:
+	@echo "Checking dependencies for known vulnerabilities..."
+	@command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
+	govulncheck ./...
 
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -rf bin/
+	rm -rf bin/ coverage.out
 
 # Database migrations
 migrate-up:
@@ -105,8 +131,11 @@ help:
 	@echo "Available commands:"
 	@echo "  build          - Build the application"
 	@echo "  run            - Run the application"
-	@echo "  test           - Run tests (integration suites skip without a test DB)"
+	@echo "  test           - Run tests with -race (integration suites skip without a test DB)"
+	@echo "  test-quick     - Run tests without the race detector (fast loop)"
 	@echo "  test-integration - Run tests against PostgreSQL and Redis"
+	@echo "  cover          - Coverage against a real PostgreSQL and Redis"
+	@echo "  vuln           - Scan dependencies with govulncheck"
 	@echo "  clean          - Clean build artifacts"
 	@echo "  migrate-up     - Run database migrations"
 	@echo "  migrate-down   - Rollback last migration"

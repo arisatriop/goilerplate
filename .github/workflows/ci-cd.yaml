@@ -16,6 +16,17 @@ on:
       - main
   workflow_dispatch:
 
+# A new push supersedes the one before it; letting both run only burns runners and reports a
+# result for a commit nobody is waiting on any more. main is exempt: its runs produce the image
+# a deploy uses.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Least privilege by default; the build job widens it to what it needs.
+permissions:
+  contents: read
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/goilerplate
@@ -60,16 +71,41 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      # -race is the point of this step. The service runs background jobs, an in-memory session
+      # store with a sweeper and per-session rate limiting, all shared across goroutines, and
+      # without the detector a race only ever shows up as an unreproducible production bug.
+      # -shuffle=on catches tests that pass only because of the order they run in.
       - name: Run tests
-        run: go test -v ./...
+        run: go test -race -shuffle=on -coverprofile=coverage.out -covermode=atomic ./...
         env:
           REDIS_TEST_ADDR: localhost:6379
           POSTGRES_TEST_DSN: host=localhost port=5432 user=postgres password=postgres dbname=goilerplate_test sslmode=disable timezone=UTC
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=coverage.out | sort -k3 -n | head -15 >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.0
+
+      # Nothing scanned dependencies before this. govulncheck reports only vulnerabilities in
+      # code paths actually reachable from this module, so a finding here is one worth acting on.
+      #
+      # NOT blocking yet, on purpose. The first run found 27 reachable vulnerabilities — 13 in
+      # the Go standard library (1.26.2, fixed by 1.26.6) and 14 across grpc, fiber, pgx, x/net,
+      # x/text, otel, mapstructure, aws-sdk-go-v2 and ch-go. Failing the build on that would
+      # have meant bundling a large dependency upgrade into an unrelated change. Roadmap task H2
+      # does the upgrade and flips continue-on-error off; until then this reports on every PR so
+      # the number cannot quietly grow.
+      - name: Check dependencies for known vulnerabilities
+        continue-on-error: true
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
 
   # ==============================
   # BUILD & PUSH TO GHCR

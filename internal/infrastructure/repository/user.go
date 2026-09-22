@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"goilerplate/internal/domain/user"
 	"goilerplate/internal/infrastructure/model"
 	"goilerplate/internal/infrastructure/transaction"
@@ -36,7 +37,7 @@ func (r *userRepo) FindByEmail(ctx context.Context, email string) (*user.User, e
 		Select("id", "name", "phone", "email", "avatar", "is_active", "password_hash").
 		Where("email = ?", email).
 		First(&u).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

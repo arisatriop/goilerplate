@@ -137,6 +137,8 @@ func (m *Migrator) LoadMigrations(migrationDir string) ([]Migration, error) {
 			return nil
 		}
 
+		// #nosec G304 G122 -- path comes from walking migrationDir, a developer-controlled directory
+		// of source files, not from request data. Symlink TOCTOU there is not a threat model.
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -425,7 +427,7 @@ func GenerateMigrationID() string {
 func CreateMigrationFiles(migrationDir, name string) error {
 	id := GenerateMigrationID()
 
-	if err := os.MkdirAll(migrationDir, 0755); err != nil {
+	if err := os.MkdirAll(migrationDir, 0750); err != nil {
 		return fmt.Errorf("failed to create migration directory: %w", err)
 	}
 
@@ -435,11 +437,11 @@ func CreateMigrationFiles(migrationDir, name string) error {
 	upContent := fmt.Sprintf("-- Migration: %s\n-- Created at: %s\n\n-- Add your up migration here\n", name, utils.Now().Format(time.RFC3339))
 	downContent := fmt.Sprintf("-- Rollback: %s\n-- Created at: %s\n\n-- Add your down migration here\n", name, utils.Now().Format(time.RFC3339))
 
-	if err := os.WriteFile(upFile, []byte(upContent), 0644); err != nil {
+	if err := os.WriteFile(upFile, []byte(upContent), 0600); err != nil {
 		return fmt.Errorf("failed to create up migration file: %w", err)
 	}
 
-	if err := os.WriteFile(downFile, []byte(downContent), 0644); err != nil {
+	if err := os.WriteFile(downFile, []byte(downContent), 0600); err != nil {
 		return fmt.Errorf("failed to create down migration file: %w", err)
 	}
 

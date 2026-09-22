@@ -141,6 +141,8 @@ func (tm *TokenManager) cacheToken() error {
 		return err
 	}
 
+	// #nosec G117 -- the token is the point of this cache. It is written 0600 into a 0700
+	// directory, which is the handling the rule is asking for.
 	data, err := json.Marshal(tm.token)
 	if err != nil {
 		return err

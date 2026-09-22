@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -37,7 +38,7 @@ func (s *RedisService) Get(ctx context.Context, key string) (string, error) {
 
 	result, err := s.client.Get(ctx, key).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return "", nil
 		}
 		return "", err
@@ -67,7 +68,7 @@ func (s *RedisService) GetJSON(ctx context.Context, key string, result interface
 
 	data, err := s.client.Get(ctx, key).Bytes()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return nil
 		}
 		return err

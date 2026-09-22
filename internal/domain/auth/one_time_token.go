@@ -7,6 +7,7 @@ import (
 )
 
 // One-time token types, matching the CHECK constraint on one_time_tokens.token_type.
+// #nosec G101 -- token *type* names stored in a column, not credentials.
 const (
 	OneTimeTokenEmailVerification = "email_verification"
 	OneTimeTokenPasswordReset     = "password_reset"
