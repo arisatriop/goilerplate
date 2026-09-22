@@ -419,7 +419,7 @@ Two things `-race` found that no other step would have:
 
 - **A latent bug in the D2 fix.** `drainGRPC` called `GrpcServer.Stop()` in its timeout branch.
   grpc-go holds `s.mu` via a deferred unlock across `handlersWG.Wait()`
-  (`server.go:1963-1986`, v1.80.0), so a concurrent `Stop()` blocks on that mutex for exactly as
+  (`server.go:1966-1989`, v1.83.1), so a concurrent `Stop()` blocks on that mutex for exactly as
   long as the stuck handler it was meant to rescue. The drain hung for the full budget. It now
   fires `Stop()` in a goroutine and returns.
 - **A test passing for the wrong reason.** `TestDrainGRPC_BoundedByTheContext` waited 200ms for
