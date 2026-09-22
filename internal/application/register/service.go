@@ -42,13 +42,19 @@ func NewApplicationService(
 }
 
 func (s *applicationService) Register(ctx context.Context, register *Register) error {
-	// The plaintext password still sits in PasswordHash at this point; HashPassword replaces it
-	// below. Checking the policy first means bcrypt never silently truncates an over-long one.
-	if err := s.passwordPolicy.Validate(register.User.PasswordHash); err != nil {
+	// Checking the policy before hashing means bcrypt never silently truncates an over-long
+	// password at 72 bytes.
+	if err := s.passwordPolicy.Validate(register.Password); err != nil {
 		return err
 	}
 
 	if err := s.checkExistingEmail(ctx, register.User.Email); err != nil {
+		return fmt.Errorf("failed to register new user: %w", err)
+	}
+
+	// Hash outside the transaction: bcrypt at cost 12 takes ~250ms, and holding a database
+	// connection open for that is wasted contention.
+	if err := register.User.SetPassword(register.Password); err != nil {
 		return fmt.Errorf("failed to register new user: %w", err)
 	}
 
@@ -62,7 +68,6 @@ func (s *applicationService) Register(ctx context.Context, register *Register) e
 		txUserRepo := s.userRepo.WithTx(txCtx)
 		txUserRoleRepo := s.userRoleRepo.WithTx(txCtx)
 
-		register.User.HashPassword()
 		createdUser, err := txUserRepo.CreateUser(txCtx, register.User)
 		if err != nil {
 			return fmt.Errorf("failed to create user: %w", err)
