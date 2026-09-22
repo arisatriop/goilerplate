@@ -37,7 +37,7 @@ func TestRedactSpanProcessor_OnStart(t *testing.T) {
 	assert.Len(t, spans, 1)
 	attrs := map[attribute.Key]string{}
 	for _, attr := range spans[0].Attributes() {
-		attrs[attr.Key] = attr.Value.Emit()
+		attrs[attr.Key] = attr.Value.String()
 	}
 	assert.Equal(t, "http://localhost/reset?token="+redact.Mask+"&page=1", attrs["http.url"])
 	assert.Equal(t, "/reset?token="+redact.Mask+"&page=1", attrs["http.target"])

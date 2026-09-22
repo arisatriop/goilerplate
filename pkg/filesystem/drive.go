@@ -71,9 +71,16 @@ func NewDriveStorage(ctx context.Context, cfg DriveConfig) (*DriveStorage, error
 			return nil, fmt.Errorf("failed to create drive service with OAuth: %w", err)
 		}
 	} else if cfg.CredentialsFile != "" {
-		// Use Service Account authentication (no token management needed)
+		// Use Service Account authentication (no token management needed).
+		//
+		// WithAuthCredentialsFile pins the credential type, where the deprecated
+		// WithCredentialsFile accepted any of them. That matters here: the path comes from
+		// config, so a file swapped for, say, an external-account configuration would
+		// otherwise be loaded and honoured — and an external-account config can name an
+		// arbitrary URL as its token source.
 		useOAuth = false
-		service, err = drive.NewService(ctx, option.WithCredentialsFile(cfg.CredentialsFile))
+		service, err = drive.NewService(ctx,
+			option.WithAuthCredentialsFile(option.ServiceAccount, cfg.CredentialsFile))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create drive service with service account: %w", err)
 		}
