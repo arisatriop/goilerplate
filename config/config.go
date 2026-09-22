@@ -202,12 +202,45 @@ type Server struct {
 	HSTS bool `mapstructure:"hsts"`
 }
 
+// Server timeout defaults. A server with no read timeout keeps a connection open for as long
+// as a client is willing to dribble bytes at it, which is all a slowloris attack needs, so
+// these apply whenever the value is left unset rather than defaulting to "no limit".
+const (
+	DefaultServerReadTimeout  = 15 * time.Second
+	DefaultServerWriteTimeout = 15 * time.Second
+	DefaultServerIdleTimeout  = 60 * time.Second
+)
+
 // ProxyHeaderOrDefault returns the configured proxy header, or X-Forwarded-For.
 func (s Server) ProxyHeaderOrDefault() string {
 	if header := strings.TrimSpace(s.ProxyHeader); header != "" {
 		return header
 	}
 	return "X-Forwarded-For"
+}
+
+// ReadTimeoutOrDefault returns server.read_timeout, or DefaultServerReadTimeout when unset.
+func (s Server) ReadTimeoutOrDefault() time.Duration {
+	if s.ReadTimeout > 0 {
+		return s.ReadTimeout
+	}
+	return DefaultServerReadTimeout
+}
+
+// WriteTimeoutOrDefault returns server.write_timeout, or DefaultServerWriteTimeout when unset.
+func (s Server) WriteTimeoutOrDefault() time.Duration {
+	if s.WriteTimeout > 0 {
+		return s.WriteTimeout
+	}
+	return DefaultServerWriteTimeout
+}
+
+// IdleTimeoutOrDefault returns server.idle_timeout, or DefaultServerIdleTimeout when unset.
+func (s Server) IdleTimeoutOrDefault() time.Duration {
+	if s.IdleTimeout > 0 {
+		return s.IdleTimeout
+	}
+	return DefaultServerIdleTimeout
 }
 
 type CORS struct {

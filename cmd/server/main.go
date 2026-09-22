@@ -24,6 +24,7 @@ import (
 	"goilerplate/internal/wire"
 	"net"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -49,6 +50,10 @@ func main() {
 	start(app, wired)
 }
 
+// shutdownTimeout bounds the whole drain. Every step below shares it, so the process cannot
+// outlive it and be SIGKILLed by the orchestrator mid-cleanup.
+const shutdownTimeout = 10 * time.Second
+
 func start(app *bootstrap.App, wired *wire.ApplicationContainer) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -59,99 +64,147 @@ func start(app *bootstrap.App, wired *wire.ApplicationContainer) {
 		go wired.CleanupJob.Run(ctx)
 	}
 
-	go func() {
-		webPort := app.Config.Server.Port
-		if err := app.WebServer.Listen(fmt.Sprintf(":%d", webPort)); err != nil {
-			fmt.Printf("Failed to start HTTP server: %v\n", err)
-			stop()
-		}
-	}()
-
+	go serveHTTP(app, stop)
 	if app.GrpcServer != nil {
-		go func() {
-			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", app.Config.GRPC.Port))
-			if err != nil {
-				fmt.Printf("Failed to listen for gRPC: %v\n", err)
-				stop()
-				return
-			}
-			fmt.Printf("gRPC server listening on :%d\n", app.Config.GRPC.Port)
-			if err := app.GrpcServer.Serve(lis); err != nil {
-				fmt.Printf("Failed to start gRPC server: %v\n", err)
-				stop()
-			}
-		}()
+		go serveGRPC(app, stop)
 	}
 
 	<-ctx.Done()
+	app.Log.Info("Shutdown signal received, draining")
 
-	fmt.Printf("\n\nShutting down server...\n\n")
-
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Not derived from ctx: ctx is already cancelled by the signal, so a child of it would
+	// expire immediately and every step below would report a timeout it never had.
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
+	shutdown(timeoutCtx, app)
+}
+
+func serveHTTP(app *bootstrap.App, stop context.CancelFunc) {
+	addr := fmt.Sprintf(":%d", app.Config.Server.Port)
+	app.Log.Info("HTTP server listening", "addr", addr)
+	if err := app.WebServer.Listen(addr); err != nil {
+		app.Log.Error("HTTP server stopped", "error", err)
+		stop()
+	}
+}
+
+func serveGRPC(app *bootstrap.App, stop context.CancelFunc) {
+	addr := fmt.Sprintf(":%d", app.Config.GRPC.Port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		app.Log.Error("Failed to listen for gRPC", "addr", addr, "error", err)
+		stop()
+		return
+	}
+
+	app.Log.Info("gRPC server listening", "addr", addr)
+	if err := app.GrpcServer.Serve(listener); err != nil {
+		app.Log.Error("gRPC server stopped", "error", err)
+		stop()
+	}
+}
+
+// shutdown releases things in dependency order: the servers that accept work stop first, then
+// telemetry is flushed, and only then are the database and cache they were using closed.
+//
+// The previous order closed the pools before stopping gRPC, so any call still in flight during
+// a rolling deploy failed against a closed pool instead of finishing.
+func shutdown(ctx context.Context, app *bootstrap.App) {
+	drainServers(ctx, app)
+	shutdownTelemetry(ctx, app)
+	closeDependencies(app)
+	app.Log.Info("Shutdown complete")
+}
+
+// drainServers stops HTTP and gRPC at the same time. Sequentially, a slow HTTP drain would eat
+// the budget gRPC needs, and the two do not depend on each other.
+func drainServers(ctx context.Context, app *bootstrap.App) {
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := app.WebServer.ShutdownWithContext(ctx); err != nil {
+			app.Log.Error("HTTP drain did not finish cleanly", "error", err)
+			return
+		}
+		app.Log.Info("HTTP server drained")
+	}()
+
+	if app.GrpcServer != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			drainGRPC(ctx, app)
+		}()
+	}
+
+	wg.Wait()
+}
+
+// drainGRPC bounds GracefulStop, which otherwise waits for every active RPC without a deadline —
+// one long-lived stream would keep the process alive past terminationGracePeriodSeconds and get
+// it SIGKILLed rather than letting it exit cleanly.
+func drainGRPC(ctx context.Context, app *bootstrap.App) {
+	stopped := make(chan struct{})
+	go func() {
+		app.GrpcServer.GracefulStop()
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+		app.Log.Info("gRPC server drained")
+	case <-ctx.Done():
+		app.Log.Warn("gRPC drain timed out, closing active connections")
+		// Stop force-closes the transports GracefulStop is waiting on, but we deliberately do
+		// not wait for that goroutine afterwards: GracefulStop also waits on handlersWG, and a
+		// handler that never returns is precisely the case this branch exists for. Waiting
+		// would reintroduce the unbounded drain. The process exits immediately after.
+		app.GrpcServer.Stop()
+	}
+}
+
+// shutdownTelemetry runs after the servers so that spans and metrics produced while draining
+// are still exported.
+func shutdownTelemetry(ctx context.Context, app *bootstrap.App) {
 	if app.TracerProvider != nil {
-		if err := app.TracerProvider.Shutdown(timeoutCtx); err != nil {
+		if err := app.TracerProvider.Shutdown(ctx); err != nil {
 			app.Log.Error("Error shutting down tracer provider", "error", err)
 		}
 	}
 
 	if app.MeterProvider != nil {
-		if err := app.MeterProvider.Shutdown(timeoutCtx); err != nil {
+		if err := app.MeterProvider.Shutdown(ctx); err != nil {
 			app.Log.Error("Error shutting down meter provider", "error", err)
 		}
 	}
-
-	gracefulShutdown(timeoutCtx, app)
 }
 
-func gracefulShutdown(ctx context.Context, app *bootstrap.App) {
-	done := make(chan error, 1)
-	go func() {
-		done <- app.WebServer.Shutdown()
-	}()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			app.Log.Error("Error during Fiber shutdown", "error", err)
-		} else {
-			fmt.Printf("Fiber server shutdown successfully\n")
-		}
-	case <-ctx.Done():
-		app.Log.Warn("Fiber shutdown timeout expired, forcing shutdown")
-	}
-
-	// Close database connections
+// closeDependencies releases the connection pools. Called last: nothing is serving by now, so
+// no request can find a closed pool.
+func closeDependencies(app *bootstrap.App) {
 	if app.DB.GDB != nil {
 		if gdb, err := app.DB.GDB.DB(); err != nil {
 			app.Log.Error("Error getting underlying sql.DB from GORM", "error", err)
+		} else if err := gdb.Close(); err != nil {
+			app.Log.Error("Error closing GORM connection", "error", err)
 		} else {
-			if err := gdb.Close(); err != nil {
-				app.Log.Error("Error closing GORM connection", "error", err)
-			} else {
-				fmt.Printf("GORM connection closed successfully\n")
-			}
+			app.Log.Info("GORM connection closed")
 		}
 	}
 
 	if app.DB.PgxDB != nil {
 		app.DB.PgxDB.Close()
-		fmt.Printf("PostgreSQL connection pool closed successfully\n")
+		app.Log.Info("PostgreSQL connection pool closed")
 	}
 
 	if app.Redis != nil {
 		if err := app.Redis.Close(); err != nil {
 			app.Log.Error("Error closing Redis connection", "error", err)
 		} else {
-			fmt.Printf("Redis connection closed successfully\n")
+			app.Log.Info("Redis connection closed")
 		}
 	}
-
-	if app.GrpcServer != nil {
-		app.GrpcServer.GracefulStop()
-		fmt.Printf("gRPC server shutdown successfully\n")
-	}
-
-	fmt.Printf("\nServer shutting down gracefully...\n")
 }
