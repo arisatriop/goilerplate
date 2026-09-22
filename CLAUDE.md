@@ -22,7 +22,7 @@ Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundat
 cmd/            Entry points (server, migrate, seed)
 config/         YAML config (.env here is for the MCP servers, not the app)
 internal/
-  application/  Use-case implementations (app services)
+  application/  Cross-domain orchestration services (only where a flow spans domains)
   bootstrap/    App initialization (Fiber, DB, Redis, gRPC, Viper)
   delivery/
     http/       HTTP handlers, middleware, router, DTOs
@@ -36,8 +36,8 @@ storage/        Uploaded file storage
 ```
 
 ## Architecture Layers
-- `domain/` — interfaces (Usecase, Repository) + entities + domain errors
-- `application/` — use-case implementations (depend only on domain interfaces)
+- `domain/` — entities, domain errors, and the `Usecase` / `Repository` interfaces together with the use-case implementation for that domain
+- `application/` — orchestration for flows that span **several** domains, owning the transaction boundary and the audit identity. Most domains never need one; see [docs/guides/architecture.md](docs/guides/architecture.md#-application-layer)
 - `infrastructure/repository/` — GORM repository implementations
 - `delivery/http/handler/` — Fiber handlers (depend on domain Usecase interface)
 - `delivery/grpc/handler/` — gRPC handlers (depend on same domain Usecase interface)
@@ -84,7 +84,8 @@ Detailed coding rules live in `.claude/rules/` (`code-style.md`, `api-convention
 - Secrets come from environment variables (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `DB_PASSWORD`, ...); never hardcode credentials and never put them in `config.yaml`. There is no `JWT_SECRET_KEY` — access and refresh tokens are signed with separate secrets
 - Auth behaviour (rotation, revocation modes, cache-mode trade-offs, client contract) is documented in [docs/guides/auth.md](docs/guides/auth.md) — read it before changing anything under `domain/auth` or the auth middleware
 - Baseline rows that the application cannot start without (e.g. the `owner` role registration assigns) belong in a migration, not a seeder
-- When adding a new domain: create `domain/<name>/`, `application/<name>/`, `infrastructure/repository/<name>.go`, `delivery/http/handler/<name>.go`, then wire it up in `internal/wire/`
+- When adding a new domain: create `domain/<name>/`, `infrastructure/repository/<name>.go`, `delivery/http/handler/<name>.go`, then wire it up in `internal/wire/`. Add `application/<name>/` **only** when the flow crosses domains — a single-domain flow goes from the handler straight to that domain's `Usecase`
+- Inside `txManager.Do`, call `WithTx` repositories, never a `Usecase`: `WithTx` is defined on `Repository` only, so a use case called there would write outside the transaction and survive a rollback
 - Migration files live in `internal/migrations/` — use `make migrate-create` to generate them
 
 ## Claude Commands

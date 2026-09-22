@@ -182,8 +182,8 @@ this is cheap to fix now and expensive to fix after someone reaches for it.
 Nothing here is broken at runtime. Each item is a place where the code teaches a reader something
 untrue — which, in a boilerplate whose product *is* the example, is the expensive kind of wrong.
 
-### A1 Make the application layer's purpose unambiguous · S
-**Evidence:** `docs/guides/architecture.md:170-195`, `CLAUDE.md:25,40,87`,
+### A1 Make the application layer's purpose unambiguous · S — 🟡 partly done
+**Evidence:** `docs/guides/architecture.md` (Application Layer), `CLAUDE.md:25,39-40,87-88`,
 `internal/application/bar/service.go`, `internal/application/register/service.go`
 
 `internal/application/` exists for **cross-domain orchestration**: flows that span several
@@ -209,17 +209,21 @@ orchestration" while it touches exactly one domain, so it shows the layer being 
 not needed. It also injects `barUC bar.Usecase`, never reads that field, and calls
 `barRepo.CreateBar` directly — the reverse of the guide's example, which composes use cases.
 
-That last point exposes a real design gap rather than a typo. The guide's example orchestrates
-`Usecase` values, but both real services reach for repositories inside the transaction, because
-`WithTx` exists on `Repository` and not on `Usecase`. **A transactional cross-domain flow cannot
-currently be written the way the guide describes it.** Either the guide's example is wrong, or
-use cases need transaction propagation.
+That last point exposed a real design gap rather than a typo. The guide's original example
+orchestrated `Usecase` values, but both real services reach for repositories inside the
+transaction, because `WithTx` is defined on `Repository` and not on `Usecase`. A use case called
+inside `txManager.Do` would write on a different connection, outside the transaction, and survive
+a rollback — so the documented shape was not achievable.
 
-- [ ] Rewrite `CLAUDE.md:25,40` to say "cross-domain orchestration services", and `CLAUDE.md:87`
-      to make `application/<name>/` conditional on a flow spanning more than one domain
-- [ ] Decide the transaction question: give `Usecase` a `WithTx`, or amend the architecture guide
-      to state that orchestration composes repositories inside `txManager.Do` and to show
-      `register` as the reference
+**Decision:** keep `WithTx` on `Repository` only. Adding transaction propagation to every
+`Usecase` would push a persistence detail across every use-case interface in the project to serve
+a handful of flows. Orchestration composes repositories inside the transaction; rules that must
+be both shared and transactional move into a domain service.
+
+- [x] Architecture guide rewritten: the fictional `CreateOrderService` is replaced by the real
+      `register` service, with the transaction rule and its reasoning stated
+- [x] `CLAUDE.md` corrected — the layer is described as cross-domain orchestration,
+      `application/<name>/` is now conditional, and the `WithTx` rule is recorded
 - [ ] Fix `application/bar`: make it genuinely cross-domain, or delete it and point at `register`
       as the only example. Drop the unused `barUC` field either way
 - [ ] Replace the `*config.Config` dependency in `register` (`service.go:6`) with a narrow options
