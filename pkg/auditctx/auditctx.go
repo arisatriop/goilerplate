@@ -7,12 +7,6 @@ import (
 	"goilerplate/pkg/constants"
 )
 
-// AuditInfo contains information for audit fields
-type AuditInfo struct {
-	UserID   string
-	UserName string
-}
-
 // WithAuditInfo adds audit information to context
 // NOTE: For authenticated requests, auth middleware already sets this.
 // Only use this for unauthenticated operations (e.g., registration, system tasks)
@@ -38,12 +32,4 @@ func GetUserName(ctx context.Context) string {
 		return userName
 	}
 	return "system" // default fallback
-}
-
-// GetAuditInfo extracts complete audit information from context
-func GetAuditInfo(ctx context.Context) AuditInfo {
-	return AuditInfo{
-		UserID:   GetUserID(ctx),
-		UserName: GetUserName(ctx),
-	}
 }

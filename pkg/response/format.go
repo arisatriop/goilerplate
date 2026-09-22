@@ -262,23 +262,6 @@ func CustomError(ctx *fiber.Ctx, statusCode int, message string, errors interfac
 	})
 }
 
-// SuccessWithMeta is a shorthand for Success with metadata
-func SuccessWithMeta(ctx *fiber.Ctx, data interface{}, message string, meta *Meta) error {
-	return Success(ctx, data, WithMessage(message), WithMeta(meta))
-}
-
-// ErrorWithDetails sends an error response with detailed error information
-func ErrorWithDetails(ctx *fiber.Ctx, statusCode int, message string, details interface{}, meta *Meta) error {
-	response := &BaseResponse{
-		Success: false,
-		Message: message,
-		Errors:  details,
-		Meta:    meta,
-	}
-
-	return ctx.Status(statusCode).JSON(response)
-}
-
 // HandleError handles errors from use case calls with consistent error responses
 // It distinguishes between client errors (validation, business logic) and internal errors
 // This is a reusable helper for all handlers to maintain consistent error handling

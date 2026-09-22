@@ -9,12 +9,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	// DefaultCost is the default bcrypt cost
-	DefaultCost = 12
-	// TokenLength is the length of random tokens
-	TokenLength = 32
-)
+// DefaultCost is the default bcrypt cost.
+const DefaultCost = 12
 
 // GenerateUUID generates a time-ordered UUIDv7 string, used for primary keys so new rows
 // stay close together in B-tree indexes.
@@ -40,45 +36,15 @@ func CheckPassword(password, hash string) error {
 	return nil
 }
 
-// GenerateSecureToken generates a cryptographically secure random token
+// GenerateSecureToken returns length bytes from crypto/rand, base64url-encoded.
+//
+// Use it for anything an attacker must not be able to guess — password reset links, invite
+// tokens. Not for OTPs: a 6-digit code needs its own HMAC treatment, because a plain digest of
+// one is brute-forced in seconds if the database leaks.
 func GenerateSecureToken(length int) (string, error) {
 	bytes := make([]byte, length)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", fmt.Errorf("failed to generate secure token: %w", err)
 	}
 	return base64.URLEncoding.EncodeToString(bytes), nil
-}
-
-// GenerateRefreshToken generates a secure refresh token
-func GenerateRefreshToken() (string, error) {
-	return GenerateSecureToken(TokenLength)
-}
-
-// GenerateVerificationToken generates a secure verification token
-func GenerateVerificationToken() (string, error) {
-	return GenerateSecureToken(TokenLength)
-}
-
-func GenerateRandomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	bytes := make([]byte, n)
-	if _, err := rand.Read(bytes); err != nil {
-		panic(err) // In real applications, handle the error appropriately
-	}
-	for i, b := range bytes {
-		bytes[i] = letters[b%byte(len(letters))]
-	}
-	return string(bytes)
-}
-
-func GenerateRandomNumberString(n int) string {
-	const numbers = "0123456789"
-	bytes := make([]byte, n)
-	if _, err := rand.Read(bytes); err != nil {
-		panic(err) // In real applications, handle the error appropriately
-	}
-	for i, b := range bytes {
-		bytes[i] = numbers[b%byte(len(numbers))]
-	}
-	return string(bytes)
 }

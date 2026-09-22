@@ -44,10 +44,21 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 	// authenticated route rather than per IP.
 	v1.Put("/users/me/password", r.Wired.Handlers.Auth.ChangePassword)
 
-	r.foo(v1)
+	// foo is the blank template, not a feature. Every one of its layers is
+	// panic("Implement me"), so registering it shipped an endpoint that 500s on a fresh clone —
+	// the recover middleware catches the panic, but a template presented as a working route is
+	// still a bug report waiting to be filed.
+	//
+	// Uncomment once the foo layers are implemented, or copy this block for your own domain.
+	// The pattern to copy is in .claude/skills/crud-operations/SKILL.md.
+	// r.foo(v1)
+
 	r.bar(v1)
 }
 
+// foo registers the template domain's routes. Deliberately not called; see register above.
+//
+//nolint:unused // kept as the shape a new domain copies
 func (r *PublicRouteRegistry) foo(v1 fiber.Router) {
 	foo := v1.Group("foos")
 	foo.Post("",

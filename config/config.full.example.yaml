@@ -169,7 +169,10 @@ filesystem:
     refresh_token: ""
     folder_id: ""
 
-# AES encryption key for pkg/crypto (derived to 32 bytes with SHA-256).
+# AES-256-GCM key for pkg/crypto. Nothing in the boilerplate encrypts anything yet — this is
+# the seam for when you add a column that needs it. Generate it, do not choose it: the key is
+# derived with a single SHA-256, which does not stretch a memorable passphrase.
+#   openssl rand -base64 32
 crypto:
   encryption_key: <CRYPTO_ENCRYPTION_KEY>
 
