@@ -7,45 +7,28 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// Package pagination parses page and limit off an incoming request. The shape of the response
+// is not its concern — that lives in pkg/response, which owns the one envelope the API emits.
+
 type PaginationConfig struct {
 	DefaultPage  int
 	DefaultLimit int
+	// MaxLimit caps what a client may ask for. Without it, ?limit=1000000 is a request for a
+	// million rows, and the cost of refusing it falls on the database.
+	MaxLimit int
 }
 
 func DefaultPaginationConfig() PaginationConfig {
 	return PaginationConfig{
 		DefaultPage:  1,
 		DefaultLimit: 10,
+		MaxLimit:     100,
 	}
 }
 
 type PaginationRequest struct {
 	Page  int `json:"page" query:"page" form:"page"`
 	Limit int `json:"limit" query:"limit" form:"limit"`
-}
-
-type PaginatedResponse[T any] struct {
-	Items      []T   `json:"items"`
-	Total      int64 `json:"total"`
-	Page       int   `json:"page"`
-	Limit      int   `json:"limit"`
-	TotalPages int   `json:"totalPages"`
-	HasNext    bool  `json:"hasNext"`
-	HasPrev    bool  `json:"hasPrev"`
-}
-
-func NewPaginatedResponse[T any](items []T, total int64, page, limit int) *PaginatedResponse[T] {
-	totalPages := int((total + int64(limit) - 1) / int64(limit))
-
-	return &PaginatedResponse[T]{
-		Items:      items,
-		Total:      total,
-		Page:       page,
-		Limit:      limit,
-		TotalPages: totalPages,
-		HasNext:    page < totalPages,
-		HasPrev:    page > 1,
-	}
 }
 
 // ParsePagination parses pagination parameters from the request context.
@@ -142,12 +125,18 @@ func ParsePagination(ctx *fiber.Ctx, config ...PaginationConfig) *PaginationRequ
 	return req
 }
 
+// Validate clamps the request into range. An out-of-range value is clamped rather than
+// rejected: a page past the end is a legitimate thing for a client to ask for and answering
+// with an empty page is more useful than a 400.
 func (pr *PaginationRequest) Validate(config PaginationConfig) {
 	if pr.Page <= 0 {
 		pr.Page = config.DefaultPage
 	}
 	if pr.Limit <= 0 {
 		pr.Limit = config.DefaultLimit
+	}
+	if config.MaxLimit > 0 && pr.Limit > config.MaxLimit {
+		pr.Limit = config.MaxLimit
 	}
 }
 

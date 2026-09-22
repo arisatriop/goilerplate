@@ -274,7 +274,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "default": 10,
-                        "description": "Page size",
+                        "description": "Page size, capped at 100",
                         "name": "limit",
                         "in": "query"
                     }
@@ -285,7 +285,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.PaginatedResponse"
+                                    "$ref": "#/definitions/response.BaseResponse"
                                 },
                                 {
                                     "type": "object",
@@ -295,6 +295,9 @@ const docTemplate = `{
                                             "items": {
                                                 "$ref": "#/definitions/dtoresponse.BarResponse"
                                             }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/definitions/response.Meta"
                                         }
                                     }
                                 }
@@ -875,31 +878,32 @@ const docTemplate = `{
         "response.Meta": {
             "type": "object",
             "properties": {
+                "hasNext": {
+                    "type": "boolean"
+                },
+                "hasPrev": {
+                    "type": "boolean"
+                },
+                "limit": {
+                    "type": "integer"
+                },
                 "message": {
                     "type": "string"
                 },
-                "request_id": {
+                "page": {
+                    "type": "integer"
+                },
+                "requestId": {
                     "type": "string"
                 },
                 "timestamp": {
                     "type": "string"
-                }
-            }
-        },
-        "response.PaginatedResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "errors": {},
-                "message": {
-                    "type": "string"
                 },
-                "meta": {
-                    "$ref": "#/definitions/response.Meta"
+                "total": {
+                    "type": "integer"
                 },
-                "pagination": {},
-                "success": {
-                    "type": "boolean"
+                "totalPages": {
+                    "type": "integer"
                 }
             }
         }
