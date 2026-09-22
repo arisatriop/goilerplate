@@ -25,7 +25,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | Phase | Theme | Tasks | Estimate |
 |---|---|---|---|
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ~4–5 days |
-| [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ~7–9 days |
+| [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ~4–6 days |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ~5–7 days |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ~1 day |
@@ -182,36 +182,51 @@ this is cheap to fix now and expensive to fix after someone reaches for it.
 Nothing here is broken at runtime. Each item is a place where the code teaches a reader something
 untrue — which, in a boilerplate whose product *is* the example, is the expensive kind of wrong.
 
-### A1 Put use cases where the architecture says they are · L
-**Evidence:** `internal/domain/auth/usecase.go` (588 LOC), `internal/domain/bar/usecase.go`
-(188 LOC), `internal/domain/job/cleanup.go` (168 LOC) vs `internal/application/` (159 LOC total,
-two files)
+### A1 Make the application layer's purpose unambiguous · S
+**Evidence:** `docs/guides/architecture.md:170-195`, `CLAUDE.md:25,40,87`,
+`internal/application/bar/service.go`, `internal/application/register/service.go`
 
-`CLAUDE.md` and `docs/guides/architecture.md` both describe `application/` as the home of use-case
-implementations and `domain/` as interfaces plus entities. The code does the opposite: `domain/`
-holds 3,407 LOC including every use-case implementation, while `application/` holds two small
-services totalling 159 LOC. Anyone following the documented layout puts their code somewhere the
-existing code is not.
+`internal/application/` exists for **cross-domain orchestration**: flows that span several
+domains and usually one transaction. `docs/guides/architecture.md:174` says exactly that, and
+`application/register` is a correct instance of it — it coordinates `user`, `role` and `userrole`
+inside a single `txManager.Do`, and owns the audit context for the whole unit of work.
 
-`internal/application/register/service.go:6` also imports `goilerplate/config`, pointing the
-application layer at a concrete configuration struct.
+Single-domain use cases living in their own `domain/<name>/usecase.go` is therefore intentional,
+not misplaced. The layer is small because most flows do not need it. **Nothing needs to move.**
 
-Two defensible resolutions — this needs a decision, not a preference:
+What is wrong is everything written *about* the layer:
 
-1. **Move the implementations** into `application/<name>/`, leaving interfaces and entities in
-   `domain/`. Matches the documented design and the common reading of Clean Architecture.
-2. **Keep them in `domain/`** and rewrite the docs to describe a package-per-feature layout,
-   deleting `application/` entirely.
+- `CLAUDE.md:25` calls `application/` "Use-case implementations (app services)" and
+  `CLAUDE.md:40` repeats "use-case implementations". Read alone — and it is what a new
+  contributor reads first — that says every use case belongs here, which contradicts both the
+  architecture guide and the code.
+- `CLAUDE.md:87` instructs that adding a domain means creating `domain/<name>/`,
+  `application/<name>/`, a repository and a handler. Under the real design, most new domains
+  should have **no** `application/` package at all.
 
-Option 2 is less work and is a legitimate Go layout; option 1 matches what is already written
-down. Either is better than the present split.
+`application/bar` then demonstrates the pattern badly. Its own comment says "handles multi-domain
+orchestration" while it touches exactly one domain, so it shows the layer being used where it is
+not needed. It also injects `barUC bar.Usecase`, never reads that field, and calls
+`barRepo.CreateBar` directly — the reverse of the guide's example, which composes use cases.
 
-- [ ] Decide, record the decision with its reasoning
-- [ ] Execute consistently across every domain, including `foo` and `bar`
-- [ ] Replace the config dependency in the application layer with a narrow options struct
-- [ ] Update `CLAUDE.md`, `docs/guides/architecture.md`, `.claude/skills/crud-operations/`
+That last point exposes a real design gap rather than a typo. The guide's example orchestrates
+`Usecase` values, but both real services reach for repositories inside the transaction, because
+`WithTx` exists on `Repository` and not on `Usecase`. **A transactional cross-domain flow cannot
+currently be written the way the guide describes it.** Either the guide's example is wrong, or
+use cases need transaction propagation.
 
-**Done when:** one layout is described and every package follows it.
+- [ ] Rewrite `CLAUDE.md:25,40` to say "cross-domain orchestration services", and `CLAUDE.md:87`
+      to make `application/<name>/` conditional on a flow spanning more than one domain
+- [ ] Decide the transaction question: give `Usecase` a `WithTx`, or amend the architecture guide
+      to state that orchestration composes repositories inside `txManager.Do` and to show
+      `register` as the reference
+- [ ] Fix `application/bar`: make it genuinely cross-domain, or delete it and point at `register`
+      as the only example. Drop the unused `barUC` field either way
+- [ ] Replace the `*config.Config` dependency in `register` (`service.go:6`) with a narrow options
+      struct, so the layer does not depend on the whole configuration surface
+
+**Done when:** one description of the layer exists, its example follows it, and the example is
+achievable with the interfaces the project actually has.
 
 ### A2 One pagination contract · M
 **Evidence:** `pkg/response/format.go:31-38,183`, `pkg/pagination/paginator.go:27-50`,
