@@ -303,7 +303,7 @@ Recommended shape, as the common REST convention and the one that keeps `data` a
 
 **Done when:** one shape exists in code, docs and Swagger, and a test fails if they diverge.
 
-### A3 Split the 588-line auth use case · M
+### A3 Split the 588-line auth use case · M — ✅ done
 **Evidence:** `internal/domain/auth/usecase.go`
 
 The largest file in the repo carries login, refresh, logout, logout-all and password change in
@@ -314,9 +314,22 @@ seams exist; the orchestrator simply never shrank.
 At 588 LOC it is the file most likely to be copied as the model for a new domain, which
 propagates the shape.
 
-- [ ] Split by flow: sign-in, token lifecycle, credential management
-- [ ] Keep the public `Usecase` interface unchanged so no caller moves
-- [ ] Coverage for `internal/domain/auth` is 48.4%; the split should not lower it
+- [x] Split by flow, all four files on the same `authUseCase` type:
+
+      | File | LOC | Holds |
+      |---|---|---|
+      | `usecase.go` | 89 | the type, the `Usecase` interface, `NewUseCase`, `SessionExpiry` |
+      | `usecase_signin.go` | 215 | `Login`, `Logout`, `LogoutAll`, menu/permission assembly |
+      | `usecase_token.go` | 195 | `RefreshToken`, rotation, reuse detection, token minting |
+      | `usecase_credentials.go` | 139 | `Register`, `ChangePassword`, `DeactivateUser` |
+
+- [x] The `Usecase` interface is untouched, so no caller moved
+- [x] **Every declaration moved byte for byte.** Verified mechanically: the file was parsed
+      into its top-level declarations before the split and re-parsed from the four files after,
+      then compared by name and by body — nothing missing, nothing added, no body changed
+- [x] Coverage is still exactly 48.4%, which is the other half of the same proof
+- [x] The package doc now describes the layout. `device_service.go` also carried one, so the
+      two were being concatenated in `go doc`; the one-liner is gone
 
 **Done when:** no file in `domain/auth` exceeds ~250 LOC and the interface is untouched.
 
