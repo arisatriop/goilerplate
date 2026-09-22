@@ -6,7 +6,6 @@ import (
 	"goilerplate/internal/delivery/http/request"
 	"goilerplate/internal/domain/bar"
 	"goilerplate/pkg/constants"
-	"goilerplate/pkg/pagination"
 	"goilerplate/pkg/response"
 
 	"github.com/go-playground/validator/v10"
@@ -130,8 +129,8 @@ func (h *Bar) Delete(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        keyword  query     string  false  "Search keyword"
 // @Param        page     query     int     false  "Page number"   default(1)
-// @Param        limit    query     int     false  "Page size"     default(10)
-// @Success      200      {object}  response.PaginatedResponse{data=[]dtoresponse.BarResponse}
+// @Param        limit    query     int     false  "Page size, capped at 100"  default(10)
+// @Success      200      {object}  response.BaseResponse{data=[]dtoresponse.BarResponse,meta=response.Meta}
 // @Failure      401      {object}  response.BaseResponse
 // @Failure      500      {object}  response.BaseResponse
 // @Security     BearerAuth
@@ -150,9 +149,9 @@ func (h *Bar) List(ctx *fiber.Ctx) error {
 	}
 
 	barResponses := presenter.ToBarListResponse(result)
-	paginatedResponse := pagination.NewPaginatedResponse(barResponses, total, filter.Pagination.Page, filter.Pagination.Limit)
+	page := response.NewPagination(total, filter.Pagination.Page, filter.Pagination.Limit)
 
-	return response.Success(ctx, paginatedResponse, response.WithMessage(bar.MsgBarListFetchSuccessfully))
+	return response.Paginated(ctx, barResponses, page, response.WithMessage(bar.MsgBarListFetchSuccessfully))
 }
 
 // @Summary      Get bar by ID

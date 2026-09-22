@@ -178,24 +178,24 @@ definitions:
     type: object
   response.Meta:
     properties:
+      hasNext:
+        type: boolean
+      hasPrev:
+        type: boolean
+      limit:
+        type: integer
       message:
         type: string
-      request_id:
+      page:
+        type: integer
+      requestId:
         type: string
       timestamp:
         type: string
-    type: object
-  response.PaginatedResponse:
-    properties:
-      data: {}
-      errors: {}
-      message:
-        type: string
-      meta:
-        $ref: '#/definitions/response.Meta'
-      pagination: {}
-      success:
-        type: boolean
+      total:
+        type: integer
+      totalPages:
+        type: integer
     type: object
 host: localhost:3000
 info:
@@ -356,7 +356,7 @@ paths:
         name: page
         type: integer
       - default: 10
-        description: Page size
+        description: Page size, capped at 100
         in: query
         name: limit
         type: integer
@@ -367,12 +367,14 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.PaginatedResponse'
+            - $ref: '#/definitions/response.BaseResponse'
             - properties:
                 data:
                   items:
                     $ref: '#/definitions/dtoresponse.BarResponse'
                   type: array
+                meta:
+                  $ref: '#/definitions/response.Meta'
               type: object
         "401":
           description: Unauthorized
