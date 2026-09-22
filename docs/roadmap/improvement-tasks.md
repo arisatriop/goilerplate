@@ -392,11 +392,22 @@ statement per message.
 - [x] `CLAUDE.md` corrected — it names the in-house migrator and says why
 - [x] Structured logger — done with H5
 
-One thing found while writing the tests, worth recording because it nearly produced a false
-result: the first version of the test harness isolated tests with `SET search_path`. `SET`
-applies to one connection and GORM hands out a pool, so the migrator ran against `public` on
-whichever connection it drew, and reported a failure that was the harness's own. `search_path`
-now goes in the DSN.
+Two things found while writing the tests, both in the harness rather than the code, and both
+worth recording because each produced a wrong answer before it was caught:
+
+- The first version isolated tests with `SET search_path`. `SET` applies to one connection and
+  GORM hands out a pool, so the migrator ran against `public` on whichever connection it drew
+  and the harness reported a failure that was its own.
+- The second version put `search_path` in the DSN by editing the string with `url.Parse`. That
+  passed locally and **failed in CI**, because `POSTGRES_TEST_DSN` is a URL locally and libpq
+  key/value in CI (`host=localhost port=5432 ...`). `url.Parse` does not fail on the key/value
+  form — it quietly returns a path-shaped URL — so the mangled DSN surfaced only as a DNS lookup
+  for a hostname containing the whole connection string.
+
+Both are now avoided by building the connection through `pgx.ParseConfig`, which understands
+both DSN shapes, and setting `search_path` as a runtime parameter. The helper also asserts
+`current_schema()` before any test uses it, so a scoping failure can no longer masquerade as a
+migrator failure.
 
 **Done when:** the migration path is covered by tests and the documentation names the one
 actually in use.

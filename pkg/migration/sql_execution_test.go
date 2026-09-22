@@ -3,7 +3,6 @@ package migration_test
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +10,8 @@ import (
 	"goilerplate/pkg/migration"
 	"goilerplate/pkg/utils"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
@@ -32,10 +33,17 @@ func writeMigration(t *testing.T, id, name, up, down string) string {
 // isolatedDB gives each test its own schema, so tests can run in any order without seeing each
 // other's tables.
 //
-// search_path goes in the DSN rather than in a SET statement. SET applies to the one connection
-// that ran it, and GORM hands out connections from a pool — so a SET here would leave the
-// migrator running against public on whichever other connection it happened to draw. That is
-// how the first version of this helper reported a failure that was its own.
+// The schema is selected with pgx's search_path runtime parameter rather than a SET statement.
+// SET applies to the one connection that ran it and GORM hands out connections from a pool, so
+// a SET here would leave the migrator running against public on whichever other connection it
+// drew.
+//
+// The connection is built through pgx.ParseConfig rather than by editing the DSN string,
+// because POSTGRES_TEST_DSN comes in either shape: a URL locally, and libpq key/value in CI
+// ("host=localhost port=5432 user=postgres ..."). An earlier version of this helper assumed a
+// URL and used url.Parse, which does not fail on the key/value form — it quietly produces a
+// path-shaped URL — so the mangled DSN only showed up as a DNS lookup for a hostname containing
+// the entire connection string. pgx.ParseConfig understands both.
 func isolatedDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
@@ -53,31 +61,29 @@ func isolatedDB(t *testing.T) *gorm.DB {
 		_ = admin.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schema)).Error
 	})
 
-	scoped, err := gorm.Open(postgres.Open(withSearchPath(t, dsn, schema)), &gorm.Config{
+	config, err := pgx.ParseConfig(dsn)
+	require.NoError(t, err, "POSTGRES_TEST_DSN must be a URL or a libpq key/value DSN")
+	if config.RuntimeParams == nil {
+		config.RuntimeParams = map[string]string{}
+	}
+	config.RuntimeParams["search_path"] = schema
+
+	sqlDB := stdlib.OpenDB(*config)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	scoped, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{
 		NowFunc: utils.Now,
 		Logger:  gormlogger.Discard,
 	})
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		if sqlDB, err := scoped.DB(); err == nil {
-			_ = sqlDB.Close()
-		}
-	})
+	// Prove the scoping took before any test relies on it. Without this, a helper that silently
+	// fell back to public would make every assertion below meaningless.
+	var current string
+	require.NoError(t, scoped.Raw("SELECT current_schema()").Scan(&current).Error)
+	require.Equal(t, schema, current, "the test must be scoped to its own schema")
 
 	return scoped
-}
-
-func withSearchPath(t *testing.T, dsn, schema string) string {
-	t.Helper()
-
-	parsed, err := url.Parse(dsn)
-	require.NoError(t, err, "POSTGRES_TEST_DSN must be a URL for these tests")
-
-	query := parsed.Query()
-	query.Set("search_path", schema)
-	parsed.RawQuery = query.Encode()
-	return parsed.String()
 }
 
 func hashName(s string) uint32 {
