@@ -8,10 +8,20 @@ Guide to Goilerplate's routing structure. Router is organized into 3 different g
 
 Applies to all requests:
 
-| Method | Path      | Description                                         |
-| ------ | --------- | --------------------------------------------------- |
-| `GET`  | `/`       | Welcome message                                     |
-| `GET`  | `/health` | Health check (PostgreSQL, GORM, Redis connectivity) |
+| Method | Path       | Description                                                          |
+| ------ | ---------- | -------------------------------------------------------------------- |
+| `GET`  | `/`        | Welcome message                                                      |
+| `GET`  | `/livez`   | Liveness. Checks nothing — answers whether the process should restart |
+| `GET`  | `/readyz`  | Readiness. Pings PostgreSQL and Redis; `503` when one is down         |
+
+`/health` and `/healthcheck` are kept as aliases of `/livez` and `/readyz` respectively.
+
+Point a Kubernetes `livenessProbe` at `/livez` and a `readinessProbe` at `/readyz`. A liveness
+probe that checks dependencies turns a database outage into a restart loop across every pod.
+
+`/readyz` reports each dependency as `healthy` or `unhealthy` and nothing more. The endpoint is
+unauthenticated, and driver errors carry host names, ports, database names and user names; the
+detail is written to the application log instead.
 
 ---
 

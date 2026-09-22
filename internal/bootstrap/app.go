@@ -98,11 +98,10 @@ func PartnerRoutesEnabled(cfg *config.Config) bool {
 	return len(cfg.Apikeys) > 0
 }
 
-// initializeDatabase opens the PostgreSQL connections (GORM and pgx)
+// initializeDatabase opens the PostgreSQL connection pool.
 func initializeDatabase(cfg *config.Config, log *slog.Logger) *bootstrap.DB {
 	db := bootstrap.NewDB()
 	db.GDB = bootstrap.NewGorm(cfg, log)
-	db.PgxDB = bootstrap.NewPostgres(cfg, log)
 
 	return db
 }

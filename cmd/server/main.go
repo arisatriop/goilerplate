@@ -199,13 +199,8 @@ func closeDependencies(app *bootstrap.App) {
 		} else if err := gdb.Close(); err != nil {
 			app.Log.Error("Error closing GORM connection", "error", err)
 		} else {
-			app.Log.Info("GORM connection closed")
+			app.Log.Info("PostgreSQL connection pool closed")
 		}
-	}
-
-	if app.DB.PgxDB != nil {
-		app.DB.PgxDB.Close()
-		app.Log.Info("PostgreSQL connection pool closed")
 	}
 
 	if app.Redis != nil {
