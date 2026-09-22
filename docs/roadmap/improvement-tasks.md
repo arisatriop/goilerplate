@@ -27,11 +27,13 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ✅ complete |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
-| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
+| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 
-**P0, P1, P2 and P4 are complete.** What remains is P3 — the six feature tasks, which are
-additions rather than corrections and each need a scope decision before they start.
+**P0, P1, P2 and P4 are complete**, and F4 with them. What remains is the rest of P3 — feature
+work rather than correction, and each item needs a scope decision before it starts.
+
+F3 (refresh token via httpOnly cookie) lists F4 as a dependency, so it is now unblocked.
 
 Original order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**. H2 was
 deferred and A3–A5 pulled forward; everything else was done in this order.
@@ -694,14 +696,46 @@ must be able to read it, so any XSS anywhere in the page yields long-lived accou
 **Done when:** in cookie mode, browser JavaScript cannot read the refresh token, refresh still
 works, and a non-browser client is unaffected.
 
-### F4 CORS and request size limits · S
+### F4 CORS and request size limits · S — ✅ done
 
-- [ ] Enable the CORS middleware — the config struct exists (`config/config.go:214-216`) and the
-      middleware sits commented out at `internal/bootstrap/fiber.go:42-46`
-- [ ] Config validation rejects `allow_origin: *` together with `allow_credentials: true`
-- [ ] Replace the hardcoded `BodyLimit: 100 * 1024 * 1024` (`fiber.go:19`) with
-      `server.body_limit`, default 10MB. 100MB is an unbounded-memory invitation on a service
-      whose own `filesystem.max_file_size` is 200KB
+- [x] **CORS middleware enabled**, off by default. The config struct existed and nothing read
+      it; the middleware sat commented out in `internal/bootstrap/fiber.go`. `CORS` also gained
+      `allow_credentials`, `expose_headers` and `max_age` — without `expose_headers` a browser
+      sees only the CORS-safelisted response headers whatever the server sent
+- [x] `allow_methods` defaults to `GET,POST,PUT,PATCH,DELETE,OPTIONS` rather than Fiber's own
+      default, **which omits PATCH**. This API has PATCH routes, and the failure would have been
+      a preflight rejection with nothing in the config file to explain it
+- [x] **Validation rejects `allow_origin: *` with `allow_credentials: true`.** This turned out
+      to matter more than it reads: `cors.New` does not return an error on a bad configuration,
+      it **panics** — so without the check the operator gets a stack trace out of a middleware
+      constructor instead of a message naming the key. The same applies to an origin without a
+      scheme (`app.example.com` is the natural thing to write, and it panics), so that is
+      checked too, along with trailing slashes, empty list entries and a negative `max_age`
+- [x] `allow_origin: *` is also refused in production outright, and `allow_origin` is required
+      once `enable_cors` is on
+- [x] **`BodyLimit` now comes from `server.body_limit`, default 10MB.** It was hardcoded at
+      100MB on a service whose own `filesystem.max_file_size` defaults to 200KB — Fiber buffers
+      the body before a handler runs, so upload validation never got the chance to refuse
+      anything. A negative value is treated as unset rather than passed through, because Fiber
+      reads a negative limit as *no* limit
+- [x] Tests: CORS headers absent when disabled, a configured origin echoed, an unlisted origin
+      refused, PATCH allowed at preflight; body limit from config, falling back on 0 and on
+      negative, and **413 asserted over a real socket** — `app.Test` reports the refusal as a Go
+      error, while a real client sees the status code it has to act on
+- [x] Validation tests for every case above, plus six configurations that must keep working
+      (several origins, wildcard subdomains, credentials with a named origin, `localhost` over
+      http)
+- [x] Both example configs document every new key; `TestConfigExample_FullDocumentsEveryOption`
+      enforces that
+
+Confirmed against a live server rather than only in tests:
+
+```
+preflight, allowed origin     204  ACAO="https://app.example.com" ACAC="true" ACMA="600"
+preflight, unlisted origin    204  ACAO=""
+POST within body limit        200  body="handler ran"
+POST over body limit          413  handler never ran
+```
 
 **Done when:** CORS headers appear only when enabled, and an oversized request gets 413.
 

@@ -2,10 +2,13 @@ package bootstrap
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,4 +144,155 @@ func TestNewFiber_StalledRequestIsCutOffAtReadTimeout(t *testing.T) {
 	if len(answer) > 0 {
 		assert.Contains(t, string(answer), "408")
 	}
+}
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
+
+func corsRequest(t *testing.T, cfg *config.Config, method, origin string) *http.Response {
+	t.Helper()
+
+	app := NewFiber(cfg)
+	app.Get("/", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Patch("/", func(c *fiber.Ctx) error { return c.SendString("ok") })
+
+	req := httptest.NewRequest(method, "/", nil)
+	if origin != "" {
+		req.Header.Set(fiber.HeaderOrigin, origin)
+	}
+	if method == fiber.MethodOptions {
+		req.Header.Set(fiber.HeaderAccessControlRequestMethod, fiber.MethodPatch)
+	}
+
+	res, err := app.Test(req)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = res.Body.Close() })
+	return res
+}
+
+func corsConfig(origin string) *config.Config {
+	return &config.Config{Server: config.Server{
+		EnableCORS: true,
+		CORS:       config.CORS{AllowOrigin: origin},
+	}}
+}
+
+// CORS headers must not appear unless the feature is on. A service with no browser client
+// should not be quietly advertising a cross-origin policy.
+func TestNewFiber_NoCORSHeadersWhenDisabled(t *testing.T) {
+	// Arrange
+	cfg := &config.Config{Server: config.Server{EnableCORS: false}}
+
+	// Act
+	res := corsRequest(t, cfg, fiber.MethodGet, "https://app.example.com")
+
+	// Assert
+	assert.Empty(t, res.Header.Get(fiber.HeaderAccessControlAllowOrigin))
+}
+
+func TestNewFiber_CORSAllowsAConfiguredOrigin(t *testing.T) {
+	// Act
+	res := corsRequest(t, corsConfig("https://app.example.com"), fiber.MethodGet, "https://app.example.com")
+
+	// Assert
+	assert.Equal(t, "https://app.example.com", res.Header.Get(fiber.HeaderAccessControlAllowOrigin))
+}
+
+func TestNewFiber_CORSRefusesAnUnlistedOrigin(t *testing.T) {
+	// Act
+	res := corsRequest(t, corsConfig("https://app.example.com"), fiber.MethodGet, "https://evil.example.com")
+
+	// Assert
+	assert.Empty(t, res.Header.Get(fiber.HeaderAccessControlAllowOrigin),
+		"an origin that is not listed must not be echoed back")
+}
+
+// Fiber's own default AllowMethods omits PATCH, so a PATCH route would fail its preflight for
+// a reason nothing in the config file would explain.
+func TestNewFiber_CORSPreflightAllowsPatchByDefault(t *testing.T) {
+	// Act
+	res := corsRequest(t, corsConfig("https://app.example.com"), fiber.MethodOptions, "https://app.example.com")
+
+	// Assert
+	assert.Contains(t, res.Header.Get(fiber.HeaderAccessControlAllowMethods), fiber.MethodPatch)
+}
+
+// ── Body limit ───────────────────────────────────────────────────────────────
+
+func TestNewFiber_BodyLimitComesFromConfig(t *testing.T) {
+	// Arrange
+	cfg := &config.Config{Server: config.Server{BodyLimit: 1024}}
+
+	// Act
+	app := NewFiber(cfg)
+
+	// Assert
+	assert.Equal(t, 1024, app.Config().BodyLimit)
+}
+
+func TestNewFiber_BodyLimitFallsBackToTheDefault(t *testing.T) {
+	// Arrange: an unset limit must not become "no limit".
+	for _, limit := range []int{0, -1} {
+		cfg := &config.Config{Server: config.Server{BodyLimit: limit}}
+
+		// Act
+		app := NewFiber(cfg)
+
+		// Assert
+		assert.Equal(t, config.DefaultServerBodyLimit, app.Config().BodyLimit,
+			"body_limit=%d must fall back to the bounded default", limit)
+	}
+}
+
+// The limit has to actually refuse an oversized body over the wire, not just sit in the config
+// struct. This runs against a real socket rather than app.Test, because app.Test surfaces the
+// refusal as a Go error from the test helper while a real client sees a 413 — and 413 is what
+// the caller has to act on.
+func TestNewFiber_OversizedBodyGets413(t *testing.T) {
+	// Arrange
+	cfg := baseConfig()
+	cfg.Server.BodyLimit = 64
+
+	app := NewFiber(cfg)
+	app.Post("/upload", func(c *fiber.Ctx) error { return c.SendString("accepted") })
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() { _ = app.Listener(listener) }()
+	t.Cleanup(func() { _ = app.Shutdown() })
+
+	body := strings.Repeat("x", 4096)
+	request := fmt.Sprintf(
+		"POST /upload HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+		len(body), body)
+
+	conn, err := net.Dial("tcp", listener.Addr().String())
+	require.NoError(t, err)
+	defer conn.Close()
+
+	// Act
+	_, _ = conn.Write([]byte(request))
+
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
+	answer, err := io.ReadAll(conn)
+	require.False(t, errors.Is(err, os.ErrDeadlineExceeded), "the server never answered")
+
+	// Assert
+	assert.Contains(t, string(answer), "413",
+		"an oversized body must be refused with 413, not accepted or dropped")
+	assert.NotContains(t, string(answer), "accepted", "the handler must never run")
+}
+
+func TestNewFiber_BodyWithinTheLimitIsAccepted(t *testing.T) {
+	// Arrange
+	cfg := &config.Config{Server: config.Server{BodyLimit: 1024}}
+	app := NewFiber(cfg)
+	app.Post("/", func(c *fiber.Ctx) error { return c.SendString("accepted") })
+
+	// Act
+	res, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/", strings.NewReader(strings.Repeat("x", 64))))
+	require.NoError(t, err)
+	defer func() { _ = res.Body.Close() }()
+
+	// Assert
+	assert.Equal(t, fiber.StatusOK, res.StatusCode)
 }
