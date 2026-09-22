@@ -2,6 +2,7 @@ package migration
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"goilerplate/pkg/utils"
 	"log/slog"
@@ -47,13 +48,12 @@ type Migrator struct {
 // The lock is held on one dedicated connection, because an advisory lock belongs to the session
 // that took it. That connection goes back to the pool afterwards, so the unlock has to be
 // explicit rather than left to the session ending.
-func (m *Migrator) withAdvisoryLock(fn func() error) error {
+func (m *Migrator) withAdvisoryLock(ctx context.Context, fn func() error) error {
 	sqlDB, err := m.db.DB()
 	if err != nil {
 		return fmt.Errorf("failed to access the connection pool: %w", err)
 	}
 
-	ctx := context.Background()
 	conn, err := sqlDB.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to reserve a connection for the migration lock: %w", err)
@@ -193,91 +193,84 @@ func (m *Migrator) LoadMigrations(migrationDir string) ([]Migration, error) {
 	return migrations, nil
 }
 
-// splitSQLStatements splits SQL content into individual statements
-// This function properly handles:
-// - Comments (-- and /* */)
-// - Multi-line statements
-// - Semicolon separators
-func (m *Migrator) splitSQLStatements(sql string) []string {
-	var statements []string
-	var currentStatement strings.Builder
-	var inBlockComment bool
-
-	lines := strings.Split(sql, "\n")
-
-	for _, line := range lines {
-		trimmedLine := strings.TrimSpace(line)
-
-		// Skip empty lines
-		if trimmedLine == "" {
-			continue
-		}
-
-		// Handle line comments
-		if strings.HasPrefix(trimmedLine, "--") {
-			continue
-		}
-
-		// Handle block comments
-		if strings.Contains(trimmedLine, "/*") {
-			inBlockComment = true
-		}
-		if strings.Contains(trimmedLine, "*/") {
-			inBlockComment = false
-			continue
-		}
-		if inBlockComment {
-			continue
-		}
-
-		// Add line to current statement
-		currentStatement.WriteString(line)
-		currentStatement.WriteString(" ")
-
-		// Check if statement ends with semicolon
-		if strings.HasSuffix(trimmedLine, ";") {
-			stmt := strings.TrimSpace(currentStatement.String())
-			// Remove trailing semicolon and clean up
-			stmt = strings.TrimSuffix(stmt, ";")
-			stmt = strings.TrimSpace(stmt)
-
-			if stmt != "" {
-				statements = append(statements, stmt)
-			}
-			currentStatement.Reset()
-		}
+// runScript executes one migration file inside tx.
+//
+// The whole file goes to PostgreSQL in a single Exec, deliberately. pgx forces the simple
+// query protocol whenever a query carries no arguments (conn.go: "Always use simple protocol
+// when there are no arguments"), and the simple protocol accepts several statements in one
+// message — so the server parses the SQL, which is the only thing that can parse SQL correctly.
+//
+// This replaces a line-based splitter that cut the file on any line ending in a semicolon.
+// That splitter was wrong in two ways that matter, both proved by tests in
+// sql_execution_test.go:
+//
+//   - A dollar-quoted body — which is every PL/pgSQL function, including the updated_at
+//     trigger that most schemas have — was torn into fragments at the semicolons inside it.
+//     That fails loudly: "unterminated dollar-quoted string".
+//   - A line carrying an inline block comment was dropped whole. `id int PRIMARY KEY, /* ... */`
+//     simply disappeared, leaving valid SQL that creates the table without its primary key.
+//     Nothing errors. The migration is recorded as applied. That is a half-applied schema that
+//     reports success, which is the failure mode this package exists to avoid.
+//
+// A caller gets one error for the file rather than one per statement, but PostgreSQL reports
+// the position of the failure, which is better than the statement text the splitter produced.
+func runScript(ctx context.Context, tx *sql.Tx, script string) error {
+	if _, err := tx.ExecContext(ctx, script); err != nil {
+		return fmt.Errorf("executing migration SQL: %w", err)
 	}
-
-	// Handle any remaining statement without semicolon
-	if currentStatement.Len() > 0 {
-		stmt := strings.TrimSpace(currentStatement.String())
-		if stmt != "" {
-			statements = append(statements, stmt)
-		}
-	}
-
-	return statements
-}
-
-// executeSQL executes multiple SQL statements
-func (m *Migrator) executeSQL(tx *gorm.DB, sql string) error {
-	statements := m.splitSQLStatements(sql)
-
-	for _, statement := range statements {
-		if err := tx.Exec(statement).Error; err != nil {
-			return fmt.Errorf("failed to execute statement: %s\nError: %w", statement, err)
-		}
-	}
-
 	return nil
 }
 
-// Up runs pending migrations.
-func (m *Migrator) Up(migrationDir string) error {
-	return m.withAdvisoryLock(func() error { return m.up(migrationDir) })
+// begin starts a transaction on the pool underneath GORM.
+//
+// The raw *sql.DB rather than m.db.Transaction, because GORM is configured with
+// PrepareStmt: true, and a prepared statement goes over the extended protocol, which accepts
+// exactly one statement per message. Going through database/sql directly keeps the no-argument
+// path that pgx maps to the simple protocol.
+func (m *Migrator) begin(ctx context.Context) (*sql.Tx, error) {
+	sqlDB, err := m.db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("accessing the connection pool: %w", err)
+	}
+
+	tx, err := sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("beginning transaction: %w", err)
+	}
+	return tx, nil
 }
 
-func (m *Migrator) up(migrationDir string) error {
+// applyInTx runs fn in a transaction, rolling back on any error or panic.
+func (m *Migrator) applyInTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	tx, err := m.begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		// A no-op once the transaction has been committed; it matters on the error and panic
+		// paths, where leaving it open would hold the schema locks it took.
+		_ = tx.Rollback()
+	}()
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing migration: %w", err)
+	}
+	return nil
+}
+
+// Up runs pending migrations. Cancelling ctx aborts the run: the statement in flight is
+// cancelled server-side, its transaction rolls back, and the advisory lock is released, so a
+// deploy that times out does not leave the next one locked out.
+func (m *Migrator) Up(ctx context.Context, migrationDir string) error {
+	return m.withAdvisoryLock(ctx, func() error { return m.up(ctx, migrationDir) })
+}
+
+func (m *Migrator) up(ctx context.Context, migrationDir string) error {
 	if err := m.CreateMigrationsTable(); err != nil {
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
@@ -310,20 +303,19 @@ func (m *Migrator) up(migrationDir string) error {
 
 		m.log.Info("applying migration", "id", migration.ID, "name", migration.Name)
 
-		// Execute migration in transaction
-		err := m.db.Transaction(func(tx *gorm.DB) error {
-			if err := m.executeSQL(tx, migration.UpSQL); err != nil {
+		// The SQL and the bookkeeping row commit together, so a failure halfway through leaves
+		// neither the schema change nor a record claiming it was applied.
+		if err := m.applyInTx(ctx, func(tx *sql.Tx) error {
+			if err := runScript(ctx, tx, migration.UpSQL); err != nil {
 				return fmt.Errorf("failed to execute migration %s: %w", migration.ID, err)
 			}
 
-			if err := tx.Exec("INSERT INTO migrations (id, name) VALUES (?, ?)", migration.ID, migration.Name).Error; err != nil {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO migrations (id, name) VALUES ($1, $2)", migration.ID, migration.Name); err != nil {
 				return fmt.Errorf("failed to record migration %s: %w", migration.ID, err)
 			}
 
 			return nil
-		})
-
-		if err != nil {
+		}); err != nil {
 			return err
 		}
 
@@ -333,12 +325,12 @@ func (m *Migrator) up(migrationDir string) error {
 	return nil
 }
 
-// Down rolls back the last migration
-func (m *Migrator) Down(migrationDir string) error {
-	return m.withAdvisoryLock(func() error { return m.down(migrationDir) })
+// Down rolls back the last applied migration.
+func (m *Migrator) Down(ctx context.Context, migrationDir string) error {
+	return m.withAdvisoryLock(ctx, func() error { return m.down(ctx, migrationDir) })
 }
 
-func (m *Migrator) down(migrationDir string) error {
+func (m *Migrator) down(ctx context.Context, migrationDir string) error {
 	executed, err := m.GetExecutedMigrations()
 	if err != nil {
 		return fmt.Errorf("failed to get executed migrations: %w", err)
@@ -374,20 +366,17 @@ func (m *Migrator) down(migrationDir string) error {
 
 	m.log.Info("rolling back migration", "id", targetMigration.ID, "name", targetMigration.Name)
 
-	// Execute rollback in transaction
-	err = m.db.Transaction(func(tx *gorm.DB) error {
-		if err := m.executeSQL(tx, targetMigration.DownSQL); err != nil {
+	if err := m.applyInTx(ctx, func(tx *sql.Tx) error {
+		if err := runScript(ctx, tx, targetMigration.DownSQL); err != nil {
 			return fmt.Errorf("failed to execute rollback %s: %w", targetMigration.ID, err)
 		}
 
-		if err := tx.Exec("DELETE FROM migrations WHERE id = ?", targetMigration.ID).Error; err != nil {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM migrations WHERE id = $1", targetMigration.ID); err != nil {
 			return fmt.Errorf("failed to remove migration record %s: %w", targetMigration.ID, err)
 		}
 
 		return nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -395,7 +384,7 @@ func (m *Migrator) down(migrationDir string) error {
 	return nil
 }
 
-// Status shows migration status
+// Status prints which migrations are applied and which are pending.
 func (m *Migrator) Status(migrationDir string) error {
 	executed, err := m.GetExecutedMigrations()
 	if err != nil {

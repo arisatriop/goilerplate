@@ -25,17 +25,13 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | Phase | Theme | Tasks | Status |
 |---|---|---|---|
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
-| [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | A4 open |
+| [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ✅ complete |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 
-**Everything that could be done without a decision from the maintainer is done.** One
-non-feature task remains open, because it needs a call that is not the implementer's to make:
-
-- **[A4](#a4-decide-what-to-do-about-the-hand-rolled-migrator--m)** — adopt golang-migrate and
-  delete 537 lines, or keep them and write the tests they have never had. Genuinely a
-  trade-off, and the wrong answer costs a half-applied production schema
+**P0, P1, P2 and P4 are complete.** What remains is P3 — the six feature tasks, which are
+additions rather than corrections and each need a scope decision before they start.
 
 Original order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**. H2 was
 deferred and A3–A5 pulled forward; everything else was done in this order.
@@ -339,26 +335,82 @@ propagates the shape.
 
 **Done when:** no file in `domain/auth` exceeds ~250 LOC and the interface is untouched.
 
-### A4 Decide what to do about the hand-rolled migrator · M
-**Evidence:** `pkg/migration/migrator.go` (537 LOC, 0% covered), `CLAUDE.md`, `go.mod`
+### A4 Decide what to do about the hand-rolled migrator · M — ✅ done
+**Evidence:** `pkg/migration/migrator.go`, `CLAUDE.md`, `go.mod`
 
-`CLAUDE.md` states the project uses golang-migrate. It does not — **golang-migrate is not in
-`go.mod`**. Migrations run through 537 lines of in-house tooling in `pkg/migration/` that parses
-files, maintains its own `migrations` table, takes a PostgreSQL advisory lock, and applies
-statements in a transaction. It is thoughtfully written and completely untested (0.0% coverage),
-and it uses stdlib `log` while the rest of the process uses `slog`.
+**Decision: keep the in-house migrator, delete its SQL parser, and test it.**
 
-Hand-rolled schema migration is the highest-blast-radius code in any backend: its failure mode is
-a half-applied production schema.
+The premise held up — `CLAUDE.md` claimed golang-migrate and golang-migrate is not in `go.mod`
+— but two things in the original framing were wrong, and correcting them is what decided it.
 
-- [ ] Either adopt golang-migrate (the file naming is already compatible) and delete the package,
-      or keep it and give it real tests — dirty state, partial failure, concurrent runners, down
-      migrations
-- [ ] Either way, correct `CLAUDE.md`
-- [ ] Switch it to the structured logger
+**"0.0% covered" was a measurement artefact.** The package had three tests; they `t.Skip`
+without `POSTGRES_TEST_DSN`, and the coverage run that produced the table did not set one. With
+a database they ran and reported 53.8%. The migrator was under-tested, not untested.
 
-**Done when:** the migration path is either a maintained dependency or covered by tests, and the
-documentation names the one actually in use.
+**It had a real defect, and it was worse than "untested" suggested.** `splitSQLStatements` cut
+each file on any line ending in a semicolon. Two consequences, both now pinned by tests:
+
+- **A dollar-quoted body was torn apart** at the semicolons inside it. That is every PL/pgSQL
+  function, including the `updated_at` trigger most schemas have. It fails loudly —
+  `unterminated dollar-quoted string` — so the first person to write one would have hit it.
+- **A line carrying an inline block comment was dropped whole.** `id int PRIMARY KEY, /* ... */`
+  simply vanished, leaving *valid* SQL that creates the table without its primary key. Nothing
+  errors, and the migration is recorded as applied. **This is the half-applied production schema
+  that made A4 a P1 in the first place, and it was already in the code.** Confirmed against a
+  real PostgreSQL: the table was created with `name` and without `id`.
+
+**The fix deletes the parser rather than repairing it.** pgx forces the simple query protocol
+whenever a query carries no arguments, and the simple protocol accepts several statements in one
+message — so the whole file now goes to PostgreSQL in a single `Exec` and the server parses it.
+Delegating to the only correct SQL parser available beats both a better splitter and a new
+dependency. It needs the raw `*sql.DB` rather than `m.db.Transaction`, because GORM runs with
+`PrepareStmt: true` and a prepared statement uses the extended protocol, which takes one
+statement per message.
+
+**Why not golang-migrate**, given the file naming is already compatible:
+
+- The objection was never "hand-rolled", it was "unverified". Testing answers it at a fraction
+  of the disruption, and the tests are worth having whichever tool runs underneath
+- What remains after the parser is gone is small and does one thing: a PostgreSQL advisory lock,
+  a `migrations` table, and one transaction per file
+- **Transactional migrations mean there is no dirty state to force.** A failed run leaves neither
+  the schema change nor a record of it, which is strictly better operationally than
+  golang-migrate's `force` dance
+- Adding a dependency to the highest-blast-radius path buys a different set of failure modes,
+  not fewer. The door stays open: the file naming is still compatible
+
+- [x] `splitSQLStatements` and `executeSQL` deleted (~65 lines); the file is handed to
+      PostgreSQL whole
+- [x] `context.Context` threaded through `Up` and `Down`. A migration that hangs no longer hangs
+      the deploy forever: cancelling cancels the statement server-side, rolls the transaction
+      back, and releases the advisory lock, so the next attempt is not locked out by the last
+- [x] Tests for everything A4 asked for and the defects found on the way: dollar-quoted bodies,
+      inline block comments, semicolons and comment markers inside string literals, partial
+      failure rolling back both schema and bookkeeping, retry after a fix, down migrations,
+      a failing down keeping its record, ordering, and stopping at the first failure
+- [x] Coverage 53.8% → 67.2%, run against a real PostgreSQL
+- [x] `CLAUDE.md` corrected — it names the in-house migrator and says why
+- [x] Structured logger — done with H5
+
+Two things found while writing the tests, both in the harness rather than the code, and both
+worth recording because each produced a wrong answer before it was caught:
+
+- The first version isolated tests with `SET search_path`. `SET` applies to one connection and
+  GORM hands out a pool, so the migrator ran against `public` on whichever connection it drew
+  and the harness reported a failure that was its own.
+- The second version put `search_path` in the DSN by editing the string with `url.Parse`. That
+  passed locally and **failed in CI**, because `POSTGRES_TEST_DSN` is a URL locally and libpq
+  key/value in CI (`host=localhost port=5432 ...`). `url.Parse` does not fail on the key/value
+  form — it quietly returns a path-shaped URL — so the mangled DSN surfaced only as a DNS lookup
+  for a hostname containing the whole connection string.
+
+Both are now avoided by building the connection through `pgx.ParseConfig`, which understands
+both DSN shapes, and setting `search_path` as a runtime parameter. The helper also asserts
+`current_schema()` before any test uses it, so a scoping failure can no longer masquerade as a
+migrator failure.
+
+**Done when:** the migration path is covered by tests and the documentation names the one
+actually in use.
 
 ### A5 Give the two example domains one purpose each · S — ✅ done
 **Evidence:** `internal/domain/foo/*` (23 `panic("Implement me")` across 5 files),

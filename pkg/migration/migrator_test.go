@@ -1,6 +1,7 @@
 package migration_test
 
 import (
+	"context"
 	"os"
 	"sync"
 	"testing"
@@ -52,7 +53,7 @@ func TestUp_ConcurrentRunsDoNotCollide(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			errs[i] = migration.NewMigrator(db, nil).Up(migrationsDir)
+			errs[i] = migration.NewMigrator(db, nil).Up(context.Background(), migrationsDir)
 		}(i)
 	}
 
@@ -68,8 +69,8 @@ func TestUp_ConcurrentRunsDoNotCollide(t *testing.T) {
 func TestUp_IsIdempotent(t *testing.T) {
 	migrator := migration.NewMigrator(openDB(t), nil)
 
-	require.NoError(t, migrator.Up(migrationsDir))
-	require.NoError(t, migrator.Up(migrationsDir))
+	require.NoError(t, migrator.Up(context.Background(), migrationsDir))
+	require.NoError(t, migrator.Up(context.Background(), migrationsDir))
 }
 
 // The lock must be released, or the next run would block on it forever. Up returning at all on
@@ -77,7 +78,7 @@ func TestUp_IsIdempotent(t *testing.T) {
 func TestUp_ReleasesTheLock(t *testing.T) {
 	db := openDB(t)
 
-	require.NoError(t, migration.NewMigrator(db, nil).Up(migrationsDir))
+	require.NoError(t, migration.NewMigrator(db, nil).Up(context.Background(), migrationsDir))
 
 	var locks int64
 	require.NoError(t, db.Raw(

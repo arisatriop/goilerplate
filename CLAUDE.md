@@ -11,7 +11,11 @@ Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundat
 - **Cache**: Redis (go-redis/v9)
 - **Config**: Viper (YAML — `config/config.yaml`), overridden by environment variables (dots become underscores: `jwt.access_secret` → `JWT_ACCESS_SECRET`)
 - **Auth**: JWT (golang-jwt/jwt v5), access + refresh tokens
-- **Migration**: golang-migrate (SQL files in `internal/migrations/`)
+- **Migration**: in-house (`pkg/migration`), SQL files in `internal/migrations/`. Not
+  golang-migrate — it has never been in `go.mod`. The migrator takes a PostgreSQL advisory lock,
+  applies each file in one transaction, and hands the whole file to the server rather than
+  splitting it, so dollar-quoted function bodies and comments work. A failed migration rolls back
+  both the schema change and its bookkeeping row, so there is no dirty state to force
 - **Decimal**: shopspring/decimal (use for all financial calculations — never float64)
 - **Validation**: go-playground/validator v10
 - **Storage**: AWS S3 (aws-sdk-go-v2)
@@ -86,7 +90,9 @@ Detailed coding rules live in `.claude/rules/` (`code-style.md`, `api-convention
 - Baseline rows that the application cannot start without (e.g. the `owner` role registration assigns) belong in a migration, not a seeder
 - When adding a new domain: create `domain/<name>/`, `infrastructure/repository/<name>.go`, `delivery/http/handler/<name>.go`, then wire it up in `internal/wire/`. Add `application/<name>/` **only** when the flow crosses domains — a single-domain flow goes from the handler straight to that domain's `Usecase`
 - Inside `txManager.Do`, call `WithTx` repositories, never a `Usecase`: `WithTx` is defined on `Repository` only, so a use case called there would write outside the transaction and survive a rollback
-- Migration files live in `internal/migrations/` — use `make migrate-create` to generate them
+- Migration files live in `internal/migrations/` — use `make migrate-create` to generate them.
+  One file is one transaction, so a migration either lands whole or not at all; there is no
+  partially-applied state to repair by hand
 
 ## Claude Commands
 Project-level slash commands available:

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"goilerplate/internal/bootstrap"
@@ -47,16 +50,22 @@ func main() {
 	// fmt — an unstructured line in the middle of a JSON stream breaks whatever parses it.
 	migrator := migration.NewMigrator(app.DB.GDB, log)
 
+	// A migration that hangs should not hang the deploy forever. Cancelling this context
+	// cancels the statement server-side, rolls its transaction back and releases the advisory
+	// lock, so the next attempt is not locked out by the last one.
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	switch *action {
 	case "up":
-		if err := migrator.Up(*migrationDir); err != nil {
+		if err := migrator.Up(ctx, *migrationDir); err != nil {
 			log.Error("failed to run migrations", "error", err)
 			os.Exit(1)
 		}
 		log.Info("migrations completed")
 
 	case "down":
-		if err := migrator.Down(*migrationDir); err != nil {
+		if err := migrator.Down(ctx, *migrationDir); err != nil {
 			log.Error("failed to roll back migration", "error", err)
 			os.Exit(1)
 		}
