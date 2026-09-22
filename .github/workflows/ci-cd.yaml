@@ -9,11 +9,11 @@ on:
   # Without this the test job only ran after a merge, so a pull request was never checked by
   # anything and a red build was found on main rather than on the branch that caused it.
   # Only `test` runs here: `build` and the deploys are gated on github.event_name == 'push'.
+  #
+  # Deliberately unfiltered by base branch. Filtering on develop/staging/main meant a PR
+  # stacked on another PR's branch ran no checks at all, which is exactly when a second
+  # opinion is worth most.
   pull_request:
-    branches:
-      - develop
-      - staging
-      - main
   workflow_dispatch:
 
 # A new push supersedes the one before it; letting both run only burns runners and reports a

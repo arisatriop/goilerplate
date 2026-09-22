@@ -325,8 +325,8 @@ func (s *stack) createUser(t *testing.T, password string) string {
 	t.Helper()
 
 	email := utils.GenerateUUID() + "@example.test"
-	user := &auth.User{Name: "Integration test", Email: email, PasswordHash: password}
-	require.NoError(t, s.uc.Register(context.Background(), user))
+	user := &auth.User{Name: "Integration test", Email: email}
+	require.NoError(t, s.uc.Register(context.Background(), user, password))
 
 	stored, err := s.repo.GetUserByEmail(context.Background(), email)
 	require.NoError(t, err)

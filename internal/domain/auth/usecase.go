@@ -44,7 +44,7 @@ type authUseCase struct {
 
 // Usecase defines the authentication use case interface
 type Usecase interface {
-	Register(ctx context.Context, entity *User) error
+	Register(ctx context.Context, entity *User, plaintextPassword string) error
 	Login(ctx context.Context, credentials *LoginCredentials, deviceInfo *DeviceInfo) (*LoginResult, error)
 	Logout(ctx context.Context, userID string, sessionID string) error
 	LogoutAll(ctx context.Context, userID string) error
@@ -81,8 +81,11 @@ func NewUseCase(
 	}
 }
 
-// Register creates a new user account
-func (uc *authUseCase) Register(ctx context.Context, entity *User) error {
+// Register creates a new user account.
+//
+// The plaintext arrives as its own argument rather than in entity.PasswordHash: a field named
+// for a hash should never hold an unhashed value, however briefly.
+func (uc *authUseCase) Register(ctx context.Context, entity *User, plaintextPassword string) error {
 	existingUser, err := uc.authRepo.GetUserByEmail(ctx, entity.Email)
 	if err != nil {
 		return fmt.Errorf("failed to check if user exists: %w", err)
@@ -91,7 +94,7 @@ func (uc *authUseCase) Register(ctx context.Context, entity *User) error {
 		return utils.ClientErr(http.StatusBadRequest, "User is already registered")
 	}
 
-	hashedPassword, err := utils.HashPassword(entity.PasswordHash)
+	hashedPassword, err := utils.HashPassword(plaintextPassword)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}

@@ -387,6 +387,22 @@ External integrations & implementation details.
    }
    ```
 
+#### One connection pool
+
+Every query in this project goes through GORM, which reaches PostgreSQL over the pgx stdlib
+driver. `bootstrap.DB` therefore holds a single handle.
+
+The process used to open a second, standalone `pgxpool.Pool` next to it. Searching the whole
+tree, it was created, pinged by the health check, and closed at shutdown — **no query ever ran
+through it**. It still opened `db.min_open_connections` connections at startup and held up to
+`db.max_open_connections`, so a deployment sized for 20 connections quietly consumed 40. On a
+managed database where connections are a hard quota, that is half the budget spent on nothing.
+
+If a future flow needs raw pgx — `COPY`, `LISTEN`/`NOTIFY`, or a query GORM expresses badly —
+take the `*sql.DB` GORM already owns (`gdb.DB()`) rather than opening a second pool. The pool
+settings in `db.*` configure that one pool: `max_open_connections` and `min_open_connections`
+map to `SetMaxOpenConns` and `SetMaxIdleConns`.
+
 ---
 
 ## 🔀 Dependency Flow (Most Important!)

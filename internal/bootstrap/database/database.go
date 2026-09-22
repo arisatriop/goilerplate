@@ -7,14 +7,16 @@ import (
 
 	"goilerplate/config"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/gorm"
 )
 
-// DB holds the PostgreSQL connections: a pgx pool and a GORM handle.
+// DB holds the PostgreSQL connection.
+//
+// There is one pool. The process used to open a second, standalone pgxpool alongside GORM; it
+// was pinged by the health check and never queried, so a deployment sized for 20 connections
+// quietly consumed 40. GORM reaches PostgreSQL through the pgx stdlib driver either way.
 type DB struct {
-	PgxDB *pgxpool.Pool
-	GDB   *gorm.DB
+	GDB *gorm.DB
 }
 
 func NewDB() *DB {
@@ -75,12 +77,5 @@ func NewSlogWriter(logger *slog.Logger) *slogWriter {
 	return &slogWriter{
 		Logger: logger,
 		Level:  slog.LevelDebug,
-	}
-}
-
-func NewSlogWriterWithLevel(logger *slog.Logger, level slog.Level) *slogWriter {
-	return &slogWriter{
-		Logger: logger,
-		Level:  level,
 	}
 }

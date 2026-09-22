@@ -250,17 +250,17 @@ type CORS struct {
 }
 
 type DB struct {
-	Host                  string `mapstructure:"host"`
-	Port                  int    `mapstructure:"port"`
-	Name                  string `mapstructure:"name"`
-	SSLMode               string `mapstructure:"sslmode"`
-	Username              string `mapstructure:"username"`
-	Password              string `mapstructure:"password"`
-	MinOpenConnections    int    `mapstructure:"min_open_connections"`
-	MaxOpenConnections    int    `mapstructure:"max_open_connections"`
-	ConnectionMaxLifetime int    `mapstructure:"connection_max_lifetime"`
-	ConnectionMaxIdleTime int    `mapstructure:"connection_max_idle_time"`
-	HealthCheckPeriod     int    `mapstructure:"health_check_period"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Name     string `mapstructure:"name"`
+	SSLMode  string `mapstructure:"sslmode"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	// MinOpenConnections is the pool's warm floor (database/sql: SetMaxIdleConns).
+	MinOpenConnections    int `mapstructure:"min_open_connections"`
+	MaxOpenConnections    int `mapstructure:"max_open_connections"`
+	ConnectionMaxLifetime int `mapstructure:"connection_max_lifetime"`
+	ConnectionMaxIdleTime int `mapstructure:"connection_max_idle_time"`
 }
 
 type Redis struct {

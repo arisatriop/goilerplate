@@ -2,11 +2,14 @@ package router
 
 import (
 	"context"
-	"goilerplate/internal/bootstrap"
-	"goilerplate/internal/wire"
-	"goilerplate/pkg/utils"
+	"fmt"
 	"strings"
 	"time"
+
+	"goilerplate/internal/bootstrap"
+	"goilerplate/internal/wire"
+	"goilerplate/pkg/logger"
+	"goilerplate/pkg/utils"
 
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
@@ -30,102 +33,94 @@ func (r *RouteRegistry) index(ctx *fiber.Ctx) error {
 	return ctx.SendString("Welcome to Goilerplate!")
 }
 
-func (r *RouteRegistry) health(ctx *fiber.Ctx) error {
-	return ctx.Status(200).JSON(map[string]interface{}{
-		"status":    "healthy",
+// probeTimeout bounds each dependency check. A probe that hangs is a probe that tells the
+// orchestrator nothing, so a slow dependency is reported as not ready rather than waited on.
+const probeTimeout = 5 * time.Second
+
+// live answers the liveness probe. It deliberately checks nothing: liveness asks whether the
+// process should be restarted, and a database outage is not fixed by restarting this pod.
+func (r *RouteRegistry) live(ctx *fiber.Ctx) error {
+	return ctx.JSON(fiber.Map{
+		"status":    "ok",
 		"timestamp": utils.Now().Format(time.RFC3339),
 	})
 }
 
-func (r *RouteRegistry) healthCheck(ctx *fiber.Ctx) error {
-	response := map[string]interface{}{
-		"status":    "healthy",
+// ready answers the readiness probe: can this instance serve traffic right now.
+//
+// The body names each dependency and whether it is up, and nothing else. It used to embed
+// err.Error() straight from GORM and Redis, and driver errors routinely carry host names,
+// ports, database names and user names — free reconnaissance on an unauthenticated endpoint.
+// The detail is logged server-side instead, where the operator who needs it can see it and the
+// caller cannot.
+func (r *RouteRegistry) ready(ctx *fiber.Ctx) error {
+	checks := fiber.Map{}
+	ready := true
+
+	record := func(name string, err error) {
+		if err != nil {
+			logger.Error(ctx.UserContext(), fmt.Errorf("readiness check %q failed: %w", name, err))
+			checks[name] = "unhealthy"
+			ready = false
+			return
+		}
+		checks[name] = "healthy"
+	}
+
+	if r.App.DB.GDB != nil {
+		record("postgresql", r.pingPostgres(ctx.UserContext()))
+	}
+
+	if r.App.Redis != nil {
+		timeoutCtx, cancel := context.WithTimeout(ctx.UserContext(), probeTimeout)
+		defer cancel()
+
+		record("redis", r.App.Redis.Ping(timeoutCtx).Err())
+	}
+
+	status := "ok"
+	code := fiber.StatusOK
+	if !ready {
+		status = "unavailable"
+		code = fiber.StatusServiceUnavailable
+	}
+
+	// The status code carries the verdict, so probes and load balancers can act without
+	// parsing the body.
+	return ctx.Status(code).JSON(fiber.Map{
+		"status":    status,
 		"timestamp": utils.Now().Format(time.RFC3339),
 		"service":   r.App.Config.App.Name,
 		"version":   r.App.Config.App.Version,
-		"checks":    make(map[string]interface{}),
+		"checks":    checks,
+	})
+}
+
+func (r *RouteRegistry) pingPostgres(ctx context.Context) error {
+	sqlDB, err := r.App.DB.GDB.DB()
+	if err != nil {
+		return fmt.Errorf("getting sql.DB from gorm: %w", err)
 	}
 
-	checks := response["checks"].(map[string]interface{})
-	allHealthy := true
+	timeoutCtx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
 
-	// Check PostgreSQL connection
-	if r.App.DB.PgxDB != nil {
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		if err := r.App.DB.PgxDB.Ping(timeoutCtx); err != nil {
-			checks["postgresql"] = map[string]interface{}{
-				"status": "unhealthy",
-				"error":  err.Error(),
-			}
-			allHealthy = false
-		} else {
-			checks["postgresql"] = map[string]interface{}{
-				"status": "healthy",
-			}
-		}
+	if err := sqlDB.PingContext(timeoutCtx); err != nil {
+		return fmt.Errorf("pinging postgres: %w", err)
 	}
-
-	// Check GORM connection
-	if r.App.DB.GDB != nil {
-		if sqlDB, err := r.App.DB.GDB.DB(); err != nil {
-			checks["gorm"] = map[string]interface{}{
-				"status": "unhealthy",
-				"error":  err.Error(),
-			}
-			allHealthy = false
-		} else {
-			timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			if err := sqlDB.PingContext(timeoutCtx); err != nil {
-				checks["gorm"] = map[string]interface{}{
-					"status": "unhealthy",
-					"error":  err.Error(),
-				}
-				allHealthy = false
-			} else {
-				checks["gorm"] = map[string]interface{}{
-					"status": "healthy",
-				}
-			}
-		}
-	}
-
-	// Check Redis connection
-	if r.App.Redis != nil {
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		if err := r.App.Redis.Ping(timeoutCtx).Err(); err != nil {
-			checks["redis"] = map[string]interface{}{
-				"status": "unhealthy",
-				"error":  err.Error(),
-			}
-			allHealthy = false
-		} else {
-			checks["redis"] = map[string]interface{}{
-				"status": "healthy",
-			}
-		}
-	}
-
-	// Set overall status
-	if !allHealthy {
-		response["status"] = "unhealthy"
-		return ctx.Status(fiber.StatusServiceUnavailable).JSON(response)
-	}
-
-	return ctx.Status(fiber.StatusOK).JSON(response)
+	return nil
 }
 
 // Register sets up all the routes and middleware for the application.
 func (r *RouteRegistry) Register() {
 	http := r.App.WebServer.Use(r.Wired.Middleware.Recover)
 	http.Get("/", r.index)
-	http.Get("/health", r.health)
-	http.Get("/healthcheck", r.healthCheck)
+	// /livez and /readyz are the names Kubernetes uses; /health and /healthcheck are kept as
+	// aliases so existing probes and dashboards keep working.
+	http.Get("/livez", r.live)
+	http.Get("/health", r.live)
+	http.Get("/readyz", r.ready)
+	http.Get("/healthcheck", r.ready)
 	if r.App.MeterProvider != nil {
 		http.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
 	}

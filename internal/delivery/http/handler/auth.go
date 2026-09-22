@@ -52,10 +52,10 @@ func (h *Auth) Register(ctx *fiber.Ctx) error {
 
 	register := register.Register{
 		User: &user.User{
-			Name:         req.Name,
-			Email:        req.Email,
-			PasswordHash: req.Password,
+			Name:  req.Name,
+			Email: req.Email,
 		},
+		Password: req.Password,
 	}
 
 	if err := h.applicationService.Register(ctx.UserContext(), &register); err != nil {

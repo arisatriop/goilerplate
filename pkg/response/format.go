@@ -11,11 +11,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// Meta contains metadata about the response
-
+// Meta contains metadata about the response.
+//
+// Every key the API emits is camelCase. This struct used to emit request_id while the DTOs
+// around it emitted accessToken and refreshTokenExpiresAt, so a single response body carried
+// both conventions. See TestEnvelope_EveryKeyIsCamelCase, which fails if that returns.
 type Meta struct {
 	Message   string `json:"message,omitempty"`
-	RequestID string `json:"request_id,omitempty"`
+	RequestID string `json:"requestId,omitempty"`
 	Timestamp string `json:"timestamp,omitempty"`
 }
 
