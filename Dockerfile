@@ -4,7 +4,7 @@
 # Pinned to the toolchain in go.mod. A floating tag means two builds of one
 # commit can be compiled by different compilers, which is the opposite of what a
 # deployable artefact is for.
-FROM golang:1.26.2-alpine AS builder
+FROM golang:1.26.8-alpine AS builder
 
 WORKDIR /app
 
