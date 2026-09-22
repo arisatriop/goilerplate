@@ -36,7 +36,7 @@ func newTestRepository(t *testing.T) (auth.Repository, *gorm.DB) {
 		Logger:  gormlogger.Discard,
 	})
 	require.NoError(t, err)
-	require.NoError(t, migration.NewMigrator(db, nil).Up(migrationsDir))
+	require.NoError(t, migration.NewMigrator(db, nil).Up(context.Background(), migrationsDir))
 
 	return repository.NewAuth(db), db
 }
