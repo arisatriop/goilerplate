@@ -454,28 +454,40 @@ Two things `-race` found that no other step would have:
 
 **Done when:** two builds of one commit produce the same image, on a pinned base.
 
-### H4 Test the HTTP delivery layer · L
+### H4 Test the HTTP delivery layer · L — ✅ done
 **Evidence:** coverage run of 2026-09-22
 
-| Package | Coverage |
-|---|---|
-| `internal/delivery/http/handler` | **0.6%** |
-| `internal/delivery/http/router` | 0.0% |
-| `internal/delivery/http/presenter` | 0.0% |
-| `pkg/response` | 0.0% |
-| `pkg/pagination` | 0.0% |
-| `pkg/filesystem` | 0.0% |
-| `internal/application/*` | 0.0% |
+The gap was concentrated in the layer that defines the public contract — which is exactly where
+A2's three-way disagreement was able to develop unnoticed.
 
-Middleware (63.9%), `domain/auth` (48.4%), `domain/job` (91.7%) and most of `pkg/` are covered
-properly. The gap is concentrated in the layer that defines the public contract — which is
-exactly where A2's three-way disagreement was able to develop unnoticed.
+| Package | Before | After |
+|---|---|---|
+| `internal/delivery/http/handler` | 0.6% | **29.0%** |
+| `internal/delivery/http/router` | 0.0% | 23.8% |
+| `internal/delivery/http/presenter` | 0.0% | 31.2% |
+| `pkg/response` | 0.0% | 55.4% |
+| `pkg/pagination` | 0.0% | 52.5% |
+| `pkg/filesystem` | 0.0% | 28.8% |
+| `internal/application/register` | 0.0% | 81.5% |
 
-- [ ] Handler tests over `app.Test()`: status code and marshalled body for success, validation
-      failure, not-found and server error on at least one full CRUD surface
-- [ ] Table-driven tests for `pkg/response` covering every helper's envelope
-- [ ] Tests for `pkg/pagination` boundaries: page 0, limit 0, limit above maximum, total 0
-- [ ] `pkg/filesystem` against the local driver, with S3 behind its interface
+The handler and router numbers stay moderate on purpose: both packages are mostly `foo`
+(a template, deliberately untested) and wiring that only a running process exercises.
+
+- [x] Handler tests over `app.Test()` across a full CRUD surface — status code and marshalled
+      body for success, malformed JSON, each validation rule, and every domain error. The
+      status-code table is the valuable one: it proves a duplicate code is a 409 and a missing
+      row a 404 rather than both flattening to 500
+- [x] `pkg/response` — every helper's envelope, default vs. given message, the exact list shape,
+      and `TestEnvelope_EveryKeyIsCamelCase` (delivered with D7 and A2)
+- [x] `pkg/pagination` boundaries: page 0, negative page, limit 0, non-numeric, limit above the
+      maximum, and `limit=0` into `NewPagination`, which would have divided by zero
+- [x] `pkg/filesystem` — the local driver end to end on a temp directory, plus `NewManager` with
+      a spy `Storage`, which is what that seam was kept for (C2)
+- [x] Presenter mapping, including that an empty result is an empty slice and not nil
+- [x] **Found while writing these:** `validateUpload` reported the size limit as
+      `fmt.Sprintf("%.0fmb", convertToMB(max)-1)`. The `-1` subtracts a whole megabyte, so the
+      default 200KB limit produced *"Ukuran file melebihi batas maksimum -1mb"* — wrong number,
+      wrong unit, wrong language. Replaced with `humanSize`, which picks bytes/KB/MB
 
 **Done when:** the response contract is pinned by tests rather than by inspection.
 
