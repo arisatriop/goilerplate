@@ -13,6 +13,7 @@ app:
 server:
   host: 0.0.0.0
   port: 3000
+  # Unset falls back to 15s/15s/60s, never to "no limit".
   read_timeout: 5s
   write_timeout: 5s
   idle_timeout: 120s

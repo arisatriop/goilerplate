@@ -18,6 +18,13 @@ func NewFiber(cfg *config.Config) *fiber.App {
 		Prefork:      cfg.Server.Prefork,
 		BodyLimit:    100 * 1024 * 1024, // 100MB limit for file uploads
 
+		// Without these a stalled client holds a connection indefinitely. They are read from
+		// config rather than hardcoded because the right ceiling depends on what the service
+		// does; they fall back to a bounded default rather than to "no limit" when unset.
+		ReadTimeout:  cfg.Server.ReadTimeoutOrDefault(),
+		WriteTimeout: cfg.Server.WriteTimeoutOrDefault(),
+		IdleTimeout:  cfg.Server.IdleTimeoutOrDefault(),
+
 		// c.IP() honours the forwarding header only when the request actually came from a
 		// configured proxy. With no proxies listed it always reports the peer that connected,
 		// so a client cannot pick its own IP by sending X-Forwarded-For — which would let it
