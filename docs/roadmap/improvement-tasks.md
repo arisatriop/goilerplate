@@ -24,7 +24,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 
 | Phase | Theme | Tasks | Estimate |
 |---|---|---|---|
-| [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ~4–5 days |
+| [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ~4–6 days |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ~5–7 days |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
@@ -84,7 +84,7 @@ container is SIGKILLed instead of exiting cleanly.
 **Done when:** SIGTERM drains both servers before any connection pool closes, and the process
 always exits within the shutdown timeout.
 
-### D3 Stop discarding the bcrypt error when hashing a password · S
+### D3 Stop discarding the bcrypt error when hashing a password · S — ✅ done
 **Evidence:** `internal/domain/user/entity.go:19-21`, `internal/application/register/service.go:49`
 
 ```go
@@ -102,15 +102,20 @@ The signature is the root cause: a method that cannot fail forces the caller to 
 failure. The field name is a second problem — `PasswordHash` holds the *plaintext* until this
 method runs, which `register/service.go:49` has to explain in a comment.
 
-- [ ] `HashPassword() error`, or better, a constructor that takes the plaintext and returns a
-      `User` with a hash already set, so a `User` is never half-built
-- [ ] Rename the transient field so no struct field ever holds plaintext under a `...Hash` name
-- [ ] Propagate the error through registration and password change
-- [ ] Test: a hash failure must abort registration, not create the user
+- [x] `SetPassword(plaintext string) error`. It also leaves `PasswordHash` untouched on
+      failure rather than blanking it
+- [x] The plaintext now travels in its own field — `Register.Password` for the registration
+      flow, an explicit argument on `auth.Usecase.Register`. No field named for a hash holds an
+      unhashed value
+- [x] Hashing moved after the duplicate-email check: bcrypt at cost 12 costs ~250ms and there
+      is no reason to spend it on a request already refused
+- [x] Tests: `SetPassword` reports failure and keeps the old value; registration persists a
+      hash and never the plaintext; a refused password reaches no repository and opens no
+      transaction
 
 **Done when:** no code path can persist a user whose password hash was never computed.
 
-### D4 Stop returning internal error text from the health endpoint · S
+### D4 Stop returning internal error text from the health endpoint · S — ✅ done
 **Evidence:** `internal/delivery/http/router/router.go:40-110`
 
 `/healthcheck` is unauthenticated and embeds `err.Error()` from PostgreSQL, GORM and Redis
@@ -120,16 +125,20 @@ names and network topology. That is free reconnaissance for anyone who can reach
 The two endpoints are also mis-named for what they do: `/health` (`router.go:33`) checks nothing
 and is the liveness probe; `/healthcheck` checks dependencies and is the readiness probe.
 
-- [ ] Report `"status": "unhealthy"` per dependency and log the detail server-side
-- [ ] Return 503 when any check fails, so probes and load balancers can act on the status code
-      rather than parsing the body
-- [ ] Rename to `/livez` and `/readyz`, keeping the old paths as aliases; update
-      `deploy/k8s/deployment.*.yaml`
+- [x] Each dependency reports `healthy` or `unhealthy` and nothing else; the driver error is
+      logged server-side
+- [x] 503 when any check fails
+- [x] `/livez` and `/readyz`, with `/health` and `/healthcheck` kept as aliases
+- [x] **All three manifests pointed `readinessProbe` at `/health`** — the endpoint that checks
+      nothing — so a pod with a dead database reported Ready and kept taking traffic. Startup
+      and liveness now use `/livez`, readiness `/readyz`
+- [x] Tests: 503 with a dependency down, 200 with none configured, liveness unaffected by the
+      database, and an assertion that the body names no host, port, user or database
 
 **Done when:** an unauthenticated caller can learn that the service is unhealthy and nothing
 about why.
 
-### D5 Remove the unused second connection pool · S
+### D5 Remove the unused second connection pool · S — ✅ done
 **Evidence:** `internal/bootstrap/database/database.go:14-18`, `internal/bootstrap/app.go:105`
 
 The app opens a `pgxpool.Pool` *and* a GORM handle against the same database. Searching the whole
@@ -140,13 +149,20 @@ It still opens `db.min_open_connections` connections at startup and holds up to
 `db.max_open_connections`, so a deployment sized for 20 connections silently consumes 40. On
 Cloud SQL, where connections are a hard quota, that is half the budget spent on nothing.
 
-- [ ] Delete `PgxDB` and `NewPostgres`, or start using it for the queries that justify it
-- [ ] Drop the now-redundant "gorm" entry from the health check
-- [ ] Note the decision in `docs/guides/architecture.md`
+- [x] `PgxDB` and `NewPostgres` deleted. GORM already reaches PostgreSQL through the pgx
+      stdlib driver, so nothing was lost
+- [x] The health check now has one database entry rather than a `postgresql` and a `gorm` one
+- [x] `db.min_open_connections` now configures the pool that exists, via `SetMaxIdleConns` —
+      database/sql's spelling of the same warm floor. It was previously read only by the
+      deleted pool
+- [x] `db.health_check_period` dropped: it configured the pgx pool only, database/sql has no
+      equivalent, and a config key nothing reads is the next defect waiting to happen
+- [x] Decision recorded in `docs/guides/architecture.md`, including where to reach for raw pgx
+      if a future flow needs it (`gdb.DB()`, not a second pool)
 
 **Done when:** the process opens one pool per database.
 
-### D6 Remove `ParseDecimal`, which silently zeroes bad input · S
+### D6 Remove `ParseDecimal`, which silently zeroes bad input · S — ✅ done
 **Evidence:** `pkg/utils/parse.go:5-8`
 
 ```go
@@ -160,21 +176,26 @@ Unparseable input becomes `0` with no signal. On a money value that is the worst
 failure mode: an invoice line silently becomes free. The function currently has no callers, so
 this is cheap to fix now and expensive to fix after someone reaches for it.
 
-- [ ] Delete the function and the file
-- [ ] If a helper is wanted later, it must return `(decimal.Decimal, error)`
+- [x] Function and file deleted
+- [x] If a helper is wanted later it must return `(decimal.Decimal, error)`; callers can use
+      `decimal.NewFromString` directly in the meantime
 
 **Done when:** no helper in the tree converts an invalid numeric string into a valid zero.
 
-### D7 Make the JSON casing of the response envelope consistent · S
+### D7 Make the JSON casing of the response envelope consistent · S — ✅ done
 **Evidence:** `pkg/response/format.go:16-20` vs `internal/delivery/http/dto/response/auth.go:26-34`
 
 `Meta` serialises `request_id` in snake_case while every DTO in the API uses camelCase
 (`accessToken`, `refreshTokenExpiresAt`, `lastLoginAt`) and so does `pkg/pagination`
 (`totalPages`, `hasNext`). One envelope emits both conventions in a single response body.
 
-- [ ] Pick camelCase (it already dominates) and change `request_id` → `requestId`
-- [ ] Add a test over the marshalled envelope so the next field cannot drift
-- [ ] State the convention in `docs/api/router.md`
+- [x] camelCase: `request_id` → `requestId`
+- [x] `TestEnvelope_EveryKeyIsCamelCase` decodes a full envelope and walks every object key at
+      any depth, so the next field added cannot reintroduce the split. The rest of the new
+      suite pins each helper's status code, success flag and default message — `pkg/response`
+      was at 0%, which is how this drifted unnoticed
+- [x] Convention stated in `docs/api/router.md`, with JWT claims and log attributes recorded as
+      deliberate exceptions
 
 **Done when:** every key the API emits uses one casing.
 
