@@ -61,7 +61,7 @@ func (s *RedisService) Set(ctx context.Context, key string, value string, ttl ti
 
 // GetJSON retrieves a value from Redis and unmarshals it into result
 // Returns nil if found, redis.Nil if not found, error for other issues
-func (s *RedisService) GetJSON(ctx context.Context, key string, result interface{}) error {
+func (s *RedisService) GetJSON(ctx context.Context, key string, result any) error {
 	if !s.enabled {
 		return redis.Nil // Treat as cache miss when disabled
 	}
@@ -82,7 +82,7 @@ func (s *RedisService) GetJSON(ctx context.Context, key string, result interface
 }
 
 // SetJSON marshals value to JSON and stores it in Redis with TTL
-func (s *RedisService) SetJSON(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+func (s *RedisService) SetJSON(ctx context.Context, key string, value any, ttl time.Duration) error {
 	if !s.enabled {
 		return nil // Skip when Redis is disabled
 	}

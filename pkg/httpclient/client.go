@@ -38,7 +38,7 @@ func (lrt *LoggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 	}
 
 	// Capture request body
-	var requestPayload interface{}
+	var requestPayload any
 	var reqBody []byte
 	if req.Body != nil {
 		reqBody, _ = io.ReadAll(req.Body)
@@ -55,13 +55,13 @@ func (lrt *LoggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 	// Capture response details
 	var statusCode int
 	var responseSize int
-	var responseBody interface{}
-	var responseHeaders map[string]interface{}
+	var responseBody any
+	var responseHeaders map[string]any
 	var responseMessage string
 
 	if resp != nil {
 		statusCode = resp.StatusCode
-		responseHeaders = make(map[string]interface{})
+		responseHeaders = make(map[string]any)
 		for k, v := range resp.Header {
 			if len(v) == 1 {
 				responseHeaders[k] = v[0]
@@ -76,7 +76,7 @@ func (lrt *LoggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 			responseSize = len(respBodyBytes)
 			responseBody = parseBody(respBodyBytes, resp.Header.Get("Content-Type"))
 
-			if jsonResp, ok := responseBody.(map[string]interface{}); ok {
+			if jsonResp, ok := responseBody.(map[string]any); ok {
 				if msg, exists := jsonResp["message"]; exists {
 					if msgStr, ok := msg.(string); ok {
 						responseMessage = msgStr
@@ -87,7 +87,7 @@ func (lrt *LoggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 	}
 
 	// Prepare request headers for logging
-	requestHeaders := make(map[string]interface{})
+	requestHeaders := make(map[string]any)
 	for k, v := range req.Header {
 		if len(v) == 1 {
 			requestHeaders[k] = v[0]
@@ -152,7 +152,7 @@ func NewClient(timeout time.Duration) *http.Client {
 }
 
 // parseBody parses body data for logging with content type awareness (duplicated from request logger for independence)
-func parseBody(body []byte, contentType string) interface{} {
+func parseBody(body []byte, contentType string) any {
 	if len(body) == 0 {
 		return nil
 	}
@@ -162,9 +162,9 @@ func parseBody(body []byte, contentType string) interface{} {
 
 	switch {
 	case mediaType == "application/json":
-		var jsonData interface{}
+		var jsonData any
 		if err := json.Unmarshal(body, &jsonData); err != nil {
-			return map[string]interface{}{
+			return map[string]any{
 				"content_type": contentType,
 				"message":      "invalid JSON not logged",
 				"size_bytes":   len(body),
@@ -173,7 +173,7 @@ func parseBody(body []byte, contentType string) interface{} {
 		return redact.Default().Value(jsonData)
 
 	case mediaType == "multipart/form-data":
-		return map[string]interface{}{
+		return map[string]any{
 			"content_type": contentType,
 			"message":      "multipart/form-data content (binary data not logged)",
 			"size_bytes":   len(body),
@@ -183,7 +183,7 @@ func parseBody(body []byte, contentType string) interface{} {
 		strings.HasPrefix(mediaType, "image/") ||
 		strings.HasPrefix(mediaType, "video/") ||
 		strings.HasPrefix(mediaType, "audio/"):
-		return map[string]interface{}{
+		return map[string]any{
 			"content_type": contentType,
 			"message":      "binary/media content not logged",
 			"size_bytes":   len(body),
@@ -194,7 +194,7 @@ func parseBody(body []byte, contentType string) interface{} {
 
 	default:
 		if len(body) > 1000 {
-			return map[string]interface{}{
+			return map[string]any{
 				"content_type": contentType,
 				"message":      "content truncated (too large)",
 				"size_bytes":   len(body),

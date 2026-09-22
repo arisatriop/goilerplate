@@ -36,7 +36,7 @@ type App struct {
 
 func Init() *App {
 	cfg := Load()
-	log := logger.NewSlog(cfg)
+	log := logger.New(loggerOptions(cfg))
 
 	// Fail fast before any connection is opened
 	if err := cfg.Validate(); err != nil {
@@ -104,4 +104,17 @@ func initializeDatabase(cfg *config.Config, log *slog.Logger) *bootstrap.DB {
 	db.GDB = bootstrap.NewGorm(cfg, log)
 
 	return db
+}
+
+// loggerOptions translates this application's config into pkg/logger's own options, so the
+// logger package does not have to know about config.Config.
+func loggerOptions(cfg *config.Config) logger.Options {
+	if cfg == nil || cfg.Log == nil {
+		return logger.Options{}
+	}
+	return logger.Options{
+		Level:        cfg.Log.Level,
+		AddSource:    cfg.Log.Source,
+		RedactFields: cfg.Log.RedactFields,
+	}
 }

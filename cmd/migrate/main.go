@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -17,77 +17,91 @@ func main() {
 
 	var (
 		action        = flag.String("action", "", "Migration action: up, down, status, create")
-		migrationName = flag.String("name", "", "Migration name (required for create action)")
+		migrationName = flag.String("name", "", "Migration name (required for the create action)")
 		migrationDir  = flag.String("dir", "internal/migrations", "Migration directory")
 	)
+	flag.Usage = printUsage
 	flag.Parse()
 
 	if *action == "" {
 		printUsage()
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	if *action == "create" {
-		if *migrationName == "" {
-			log.Fatal("Migration name is required for create action")
-		}
-
-		if err := migration.CreateMigrationFiles(*migrationDir, *migrationName); err != nil {
-			log.Fatalf("Failed to create migration: %v", err)
-		}
+		createMigration(*migrationDir, *migrationName)
 		return
 	}
 
-	// For other actions, we need database connection
+	// Every other action needs the database, so the config is loaded and validated first.
 	app := bootstrap.Init()
+	log := app.Log
 
 	if app.DB == nil || app.DB.GDB == nil {
-		log.Fatal("Database connection not available")
+		log.Error("database connection not available")
+		os.Exit(1)
 	}
 
-	migrator := migration.NewMigrator(app.DB.GDB)
+	// This binary usually runs as an init container, so its output is scraped by the same log
+	// pipeline as the server's. That is why the operational lines go through slog rather than
+	// fmt — an unstructured line in the middle of a JSON stream breaks whatever parses it.
+	migrator := migration.NewMigrator(app.DB.GDB, log)
 
 	switch *action {
 	case "up":
 		if err := migrator.Up(*migrationDir); err != nil {
-			log.Fatalf("Failed to run migrations: %v", err)
+			log.Error("failed to run migrations", "error", err)
+			os.Exit(1)
 		}
-		fmt.Println("Migrations completed successfully!")
+		log.Info("migrations completed")
 
 	case "down":
 		if err := migrator.Down(*migrationDir); err != nil {
-			log.Fatalf("Failed to rollback migration: %v", err)
+			log.Error("failed to roll back migration", "error", err)
+			os.Exit(1)
 		}
-		fmt.Println("Migration rolled back successfully!")
+		log.Info("migration rolled back")
 
 	case "status":
+		// Status prints a table for a human; the failure is still an operational event.
 		if err := migrator.Status(*migrationDir); err != nil {
-			log.Fatalf("Failed to get migration status: %v", err)
+			log.Error("failed to read migration status", "error", err)
+			os.Exit(1)
 		}
 
 	default:
-		fmt.Printf("Unknown action: %s\n", *action)
+		log.Error("unknown action", "action", *action)
 		printUsage()
+		os.Exit(2)
+	}
+}
+
+// createMigration writes the migration pair. It runs before bootstrap.Init, so there is no
+// application logger yet — and it needs no database, which is the point: a developer can
+// scaffold a migration without one running.
+func createMigration(migrationDir, migrationName string) {
+	if migrationName == "" {
+		fmt.Fprintln(os.Stderr, "migrate: -name is required for the create action")
+		os.Exit(2)
+	}
+
+	if err := migration.CreateMigrationFiles(migrationDir, migrationName); err != nil {
+		slog.Error("failed to create migration", "error", err)
 		os.Exit(1)
 	}
 }
 
+// printUsage writes to stderr, so `migrate -action=status > report.txt` captures the table and
+// not the help text.
 func printUsage() {
-	fmt.Println("Usage: migrate [options]")
-	fmt.Println("")
-	fmt.Println("Options:")
-	fmt.Println("  -action string")
-	fmt.Println("        Migration action: up, down, status, create")
-	fmt.Println("  -name string")
-	fmt.Println("        Migration name (required for create action)")
-	fmt.Println("  -config string")
-	fmt.Println("        Config file path (default: config/config.yaml)")
-	fmt.Println("  -dir string")
-	fmt.Println("        Migration directory (default: internal/migrations)")
-	fmt.Println("")
-	fmt.Println("Examples:")
-	fmt.Println("  migrate -action=create -name=create_users_table")
-	fmt.Println("  migrate -action=up")
-	fmt.Println("  migrate -action=down")
-	fmt.Println("  migrate -action=status")
+	fmt.Fprintln(os.Stderr, "Usage: migrate [options]")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Options:")
+	flag.PrintDefaults()
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Examples:")
+	fmt.Fprintln(os.Stderr, "  migrate -action=create -name=create_users_table")
+	fmt.Fprintln(os.Stderr, "  migrate -action=up")
+	fmt.Fprintln(os.Stderr, "  migrate -action=down")
+	fmt.Fprintln(os.Stderr, "  migrate -action=status")
 }

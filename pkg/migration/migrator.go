@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"goilerplate/pkg/utils"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -29,7 +29,8 @@ const advisoryLockKey int64 = 7_263_845_190_113_002
 
 // Migrator handles database migrations
 type Migrator struct {
-	db *gorm.DB
+	db  *gorm.DB
+	log *slog.Logger
 }
 
 // withAdvisoryLock runs fn while holding a PostgreSQL advisory lock, so two processes cannot
@@ -66,16 +67,24 @@ func (m *Migrator) withAdvisoryLock(fn func() error) error {
 		// Logged rather than returned: whatever fn did is the caller's answer, and the lock is
 		// dropped when the connection's session ends regardless.
 		if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", advisoryLockKey); err != nil {
-			log.Printf("Failed to release the migration lock: %v", err)
+			m.log.Error("failed to release the migration lock", "error", err)
 		}
 	}()
 
 	return fn()
 }
 
-// NewMigrator creates a new migrator instance
-func NewMigrator(db *gorm.DB) *Migrator {
-	return &Migrator{db: db}
+// NewMigrator creates a new migrator instance. It logs through slog like the rest of the
+// process; it used to use stdlib log, which in a container interleaves unstructured lines with
+// the JSON stream and breaks whatever is parsing it.
+//
+// A nil logger falls back to slog's default, so a test or a script can call this with one
+// argument.
+func NewMigrator(db *gorm.DB, log *slog.Logger) *Migrator {
+	if log == nil {
+		log = slog.Default()
+	}
+	return &Migrator{db: db, log: log}
 }
 
 // CreateMigrationsTable creates the migrations tracking table
@@ -290,16 +299,16 @@ func (m *Migrator) up(migrationDir string) error {
 
 	for _, migration := range migrations {
 		if executedMap[migration.ID] {
-			log.Printf("Migration %s already executed, skipping", migration.ID)
+			m.log.Debug("migration already applied, skipping", "id", migration.ID)
 			continue
 		}
 
 		if migration.UpSQL == "" {
-			log.Printf("No up migration found for %s, skipping", migration.ID)
+			m.log.Warn("no up migration found, skipping", "id", migration.ID)
 			continue
 		}
 
-		log.Printf("Running migration %s: %s", migration.ID, migration.Name)
+		m.log.Info("applying migration", "id", migration.ID, "name", migration.Name)
 
 		// Execute migration in transaction
 		err := m.db.Transaction(func(tx *gorm.DB) error {
@@ -318,7 +327,7 @@ func (m *Migrator) up(migrationDir string) error {
 			return err
 		}
 
-		log.Printf("Migration %s completed successfully", migration.ID)
+		m.log.Info("migration applied", "id", migration.ID)
 	}
 
 	return nil
@@ -336,7 +345,7 @@ func (m *Migrator) down(migrationDir string) error {
 	}
 
 	if len(executed) == 0 {
-		log.Println("No migrations to rollback")
+		m.log.Info("no migrations to roll back")
 		return nil
 	}
 
@@ -363,7 +372,7 @@ func (m *Migrator) down(migrationDir string) error {
 		return fmt.Errorf("no down migration found for %s", lastMigrationID)
 	}
 
-	log.Printf("Rolling back migration %s: %s", targetMigration.ID, targetMigration.Name)
+	m.log.Info("rolling back migration", "id", targetMigration.ID, "name", targetMigration.Name)
 
 	// Execute rollback in transaction
 	err = m.db.Transaction(func(tx *gorm.DB) error {
@@ -382,7 +391,7 @@ func (m *Migrator) down(migrationDir string) error {
 		return err
 	}
 
-	log.Printf("Migration %s rolled back successfully", targetMigration.ID)
+	m.log.Info("migration rolled back", "id", targetMigration.ID)
 	return nil
 }
 
@@ -403,6 +412,7 @@ func (m *Migrator) Status(migrationDir string) error {
 		executedMap[id] = true
 	}
 
+	// stdout, for the same reason as CreateMigrationFiles: a table for a human, not a log event.
 	fmt.Println("Migration Status:")
 	fmt.Println("ID\t\tName\t\t\t\tStatus")
 	fmt.Println("--\t\t----\t\t\t\t------")
@@ -445,9 +455,11 @@ func CreateMigrationFiles(migrationDir, name string) error {
 		return fmt.Errorf("failed to create down migration file: %w", err)
 	}
 
-	log.Printf("Created migration files:")
-	log.Printf("  %s", upFile)
-	log.Printf("  %s", downFile)
+	// stdout rather than the logger: this is a CLI result a developer reads at a terminal and
+	// may pipe into an editor, not an operational event a log pipeline should index.
+	fmt.Println("Created migration files:")
+	fmt.Printf("  %s\n", upFile)
+	fmt.Printf("  %s\n", downFile)
 
 	return nil
 }

@@ -29,11 +29,30 @@ import (
 	"time"
 )
 
+// Stamped by the linker at build time (see the Dockerfile's -ldflags). They stay "dev" and
+// "unknown" for a `go build` or `go run`, so a locally built binary is distinguishable from a
+// released one rather than pretending to be version 0.0.0.
+var (
+	version   = "dev"
+	commit    = "unknown"
+	buildDate = "unknown"
+)
+
 func main() {
 	// All times are UTC regardless of the host time zone
 	time.Local = time.UTC
 
 	app := bootstrap.Init()
+
+	// First line out of the process. When a deploy misbehaves, the question is always which
+	// commit is actually running, and a running container is the only thing that can answer it.
+	app.Log.Info("starting",
+		"service", app.Config.App.Name,
+		"version", version,
+		"commit", commit,
+		"buildDate", buildDate,
+		"env", app.Config.App.Env,
+	)
 
 	// 2. Wire all dependencies in dedicated wire package
 	wired := wire.Init(app)

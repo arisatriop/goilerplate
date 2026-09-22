@@ -104,7 +104,7 @@ func (r *authRepository) RegisterFailedLogin(ctx context.Context, userID string,
 
 func (r *authRepository) UpdateUserLoginInfo(ctx context.Context, userID string, resetFailedAttempts bool) error {
 	now := utils.Now()
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"last_login_at": now,
 		"updated_at":    now,
 	}
@@ -131,7 +131,7 @@ func (r *authRepository) UpdateUserLoginInfo(ctx context.Context, userID string,
 }
 
 func (r *authRepository) ResetExpiredLock(ctx context.Context, userID string) error {
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"failed_login_attempts": 0,
 		"locked_until":          nil,
 		"updated_at":            utils.Now(),

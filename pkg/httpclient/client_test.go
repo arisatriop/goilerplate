@@ -16,7 +16,7 @@ import (
 
 func TestLoggingRoundTripper(t *testing.T) {
 	// Initialize logger
-	logger.NewSlog(nil)
+	logger.New(logger.Options{})
 
 	// Setup a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +48,7 @@ func TestLoggingRoundTripper(t *testing.T) {
 	respBody, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 
-	var jsonResp map[string]interface{}
+	var jsonResp map[string]any
 	err = json.Unmarshal(respBody, &jsonResp)
 	assert.NoError(t, err)
 	assert.Equal(t, "success", jsonResp["message"])

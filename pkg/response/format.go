@@ -64,11 +64,11 @@ func NewPagination(total int64, page, limit int) *Pagination {
 
 // BaseResponse is the standard structure for all API responses
 type BaseResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-	Meta    *Meta       `json:"meta,omitempty"`
-	Errors  interface{} `json:"errors,omitempty"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+	Meta    *Meta  `json:"meta,omitempty"`
+	Errors  any    `json:"errors,omitempty"`
 }
 
 // ResponseOption allows customizing the response
@@ -89,7 +89,7 @@ func WithMessage(message string) ResponseOption {
 }
 
 // Success sends a successful response
-func Success(ctx *fiber.Ctx, data interface{}, options ...ResponseOption) error {
+func Success(ctx *fiber.Ctx, data any, options ...ResponseOption) error {
 	response := &BaseResponse{
 		Success: true,
 		Message: constants.MsgSuccess,
@@ -104,7 +104,7 @@ func Success(ctx *fiber.Ctx, data interface{}, options ...ResponseOption) error 
 }
 
 // Created sends a successful creation response
-func Created(ctx *fiber.Ctx, data interface{}, options ...ResponseOption) error {
+func Created(ctx *fiber.Ctx, data any, options ...ResponseOption) error {
 	response := &BaseResponse{
 		Success: true,
 		Message: constants.MsgResourceCreatedSuccessfully,
@@ -133,7 +133,7 @@ func NoContent(ctx *fiber.Ctx, options ...ResponseOption) error {
 }
 
 // BadRequest sends a bad request error response
-func BadRequest(ctx *fiber.Ctx, message string, errors interface{}) error {
+func BadRequest(ctx *fiber.Ctx, message string, errors any) error {
 	return ctx.Status(http.StatusBadRequest).JSON(&BaseResponse{
 		Success: false,
 		Message: message,
@@ -175,7 +175,7 @@ func NotFound(ctx *fiber.Ctx, message string) error {
 }
 
 // Conflict sends a conflict error response
-func Conflict(ctx *fiber.Ctx, message string, errors interface{}) error {
+func Conflict(ctx *fiber.Ctx, message string, errors any) error {
 	return ctx.Status(http.StatusConflict).JSON(&BaseResponse{
 		Success: false,
 		Message: message,
@@ -184,7 +184,7 @@ func Conflict(ctx *fiber.Ctx, message string, errors interface{}) error {
 }
 
 // UnprocessableEntity sends an unprocessable entity error response
-func UnprocessableEntity(ctx *fiber.Ctx, message string, errors interface{}) error {
+func UnprocessableEntity(ctx *fiber.Ctx, message string, errors any) error {
 	return ctx.Status(http.StatusUnprocessableEntity).JSON(&BaseResponse{
 		Success: false,
 		Message: message,
@@ -204,7 +204,7 @@ func InternalServerError(ctx *fiber.Ctx, message string) error {
 }
 
 // ValidationError formats validation errors in a standardized way
-func ValidationError(ctx *fiber.Ctx, errors interface{}) error {
+func ValidationError(ctx *fiber.Ctx, errors any) error {
 	return ctx.Status(http.StatusBadRequest).JSON(&BaseResponse{
 		Success: false,
 		Message: "Validation failed",
@@ -221,7 +221,7 @@ func ValidationError(ctx *fiber.Ctx, errors interface{}) error {
 //
 // data is always rendered, as [] rather than null when the page is empty, so a client can
 // iterate it without a nil check.
-func Paginated(ctx *fiber.Ctx, data interface{}, page *Pagination, options ...ResponseOption) error {
+func Paginated(ctx *fiber.Ctx, data any, page *Pagination, options ...ResponseOption) error {
 	response := &BaseResponse{
 		Success: true,
 		Message: constants.MsgSuccess,
@@ -254,7 +254,7 @@ func TooManyRequests(ctx *fiber.Ctx, message string) error {
 }
 
 // CustomError sends a custom error response with specified status code
-func CustomError(ctx *fiber.Ctx, statusCode int, message string, errors interface{}) error {
+func CustomError(ctx *fiber.Ctx, statusCode int, message string, errors any) error {
 	return ctx.Status(statusCode).JSON(&BaseResponse{
 		Success: false,
 		Message: message,
@@ -278,7 +278,7 @@ func HandleError(ctx *fiber.Ctx, err error) error {
 // emptySliceIfNil turns a nil slice into an empty one of the same type, so an empty page
 // marshals as [] rather than null. A client iterating data should not need a nil check to
 // tell "no results" from "no field".
-func emptySliceIfNil(data interface{}) interface{} {
+func emptySliceIfNil(data any) any {
 	value := reflect.ValueOf(data)
 	if value.Kind() == reflect.Slice && value.IsNil() {
 		return reflect.MakeSlice(value.Type(), 0, 0).Interface()

@@ -47,7 +47,7 @@ func Load() *config.Config {
 }
 
 // bindEnvs recursively binds environment variables for nested structs using reflection.
-func bindEnvs(v *viper.Viper, iface interface{}, parts ...string) {
+func bindEnvs(v *viper.Viper, iface any, parts ...string) {
 	ifv := reflect.ValueOf(iface)
 	ift := ifv.Type()
 	for i := 0; i < ift.NumField(); i++ {
