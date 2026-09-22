@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: goilerplate
-  namespace: apps          # ← FIXED: konsisten dengan Service & Ingress
+  namespace: apps # must match the Service and Ingress
   labels:
     app: goilerplate
     environment: staging
@@ -70,25 +70,30 @@ spec:
         - secretRef:
             name: goilerplate-secret
 
-        startupProbe:           # ← ADDED: cegah liveness kill pod saat init
+        # Gives the process time to come up before liveness can start killing it.
+        startupProbe:
           httpGet:
-            path: /health
+            path: /livez
             port: 3000
           failureThreshold: 10
           periodSeconds: 5
 
+        # Liveness asks only whether the process should be restarted, so it hits /livez,
+        # which checks nothing. Restarting this pod does not fix a database outage.
         livenessProbe:
           httpGet:
-            path: /health
+            path: /livez
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 20
           timeoutSeconds: 5
           failureThreshold: 3
 
+        # Readiness asks whether this instance can serve, so it hits /readyz, which pings
+        # PostgreSQL and Redis. Pointed at /health it reported Ready with a dead database.
         readinessProbe:
           httpGet:
-            path: /health
+            path: /readyz
             port: 3000
           initialDelaySeconds: 10
           periodSeconds: 10

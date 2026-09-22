@@ -114,7 +114,7 @@ The app serves three route groups on one port:
 |---|---|---|
 | `/api` | the public internet | Bearer JWT (or none, for login and register) |
 | `/partner` | named partners | `x-api-key` |
-| `/health`, `/healthcheck` | probes, the gateway | none |
+| `/livez`, `/readyz` | probes, the gateway | none |
 | `/internal` | **other pods only** | none by default |
 
 `/internal` has no user authentication. It is reachable by anything that can open a connection
@@ -142,7 +142,10 @@ spec:
           - path: /partner
             pathType: Prefix
             backend: { service: { name: goilerplate, port: { number: 3000 } } }
-          - path: /health
+          - path: /livez
+            pathType: Exact
+            backend: { service: { name: goilerplate, port: { number: 3000 } } }
+          - path: /readyz
             pathType: Exact
             backend: { service: { name: goilerplate, port: { number: 3000 } } }
 
@@ -265,7 +268,7 @@ kubectl logs <pod-name> -n <namespace>
 ### Port Forward (Testing)
 ```bash
 kubectl port-forward svc/goilerplate 3000:3000 -n <namespace>
-curl http://localhost:3000/health
+curl http://localhost:3000/readyz
 ```
 
 ### Check ConfigMap & Secret

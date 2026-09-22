@@ -48,6 +48,10 @@ func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
 	}
 
 	connection.SetMaxOpenConns(cfg.DB.MaxOpenConnections)
+	// db.min_open_connections is the pool's warm floor. database/sql spells it as the idle
+	// count: it keeps that many connections open rather than closing them after each use, so
+	// a burst of traffic does not pay for a TCP handshake and a TLS negotiation per request.
+	connection.SetMaxIdleConns(cfg.DB.MinOpenConnections)
 	connection.SetConnMaxLifetime(time.Second * time.Duration(cfg.DB.ConnectionMaxLifetime))
 	connection.SetConnMaxIdleTime(time.Second * time.Duration(cfg.DB.ConnectionMaxIdleTime))
 

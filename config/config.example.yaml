@@ -25,11 +25,10 @@ db:
   sslmode: disable
   username: postgres
   password: postgres
-  min_open_connections: 2
+  min_open_connections: 2 # kept open and idle, so a burst does not pay for new handshakes
   max_open_connections: 20 # must be at least 1
   connection_max_lifetime: 300 # seconds
   connection_max_idle_time: 60 # seconds
-  health_check_period: 30 # seconds
 
 # Development-only secrets. Startup validation rejects them when app.env=production;
 # generate real ones with: openssl rand -base64 48

@@ -78,15 +78,20 @@ Server will start at `http://localhost:3000` 🎉
 ### Check Server Health
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:3000/readyz
 ```
 
 Response:
 ```json
 {
-  "status": "OK",
-  "database": "connected",
-  "cache": "connected"
+  "status": "ok",
+  "timestamp": "2026-01-01T00:00:00Z",
+  "service": "goilerplate",
+  "version": "1.0.0",
+  "checks": {
+    "postgresql": "healthy",
+    "redis": "healthy"
+  }
 }
 ```
 
