@@ -21,11 +21,3 @@ type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword" validate:"required"`
 	NewPassword     string `json:"newPassword" validate:"required,min=8"`
 }
-
-// RefreshTokenRequest represents the refresh token request
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refreshToken" validate:"required"`
-	DeviceID     string `json:"deviceId"`
-	UserAgent    string `json:"-"`
-	IPAddress    string `json:"-"`
-}
