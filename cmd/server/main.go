@@ -66,7 +66,7 @@ func start(app *bootstrap.App, wired *wire.ApplicationContainer) {
 
 	go serveHTTP(app, stop)
 	if app.GrpcServer != nil {
-		go serveGRPC(app, stop)
+		go serveGRPC(ctx, app, stop)
 	}
 
 	<-ctx.Done()
@@ -89,9 +89,11 @@ func serveHTTP(app *bootstrap.App, stop context.CancelFunc) {
 	}
 }
 
-func serveGRPC(app *bootstrap.App, stop context.CancelFunc) {
+func serveGRPC(ctx context.Context, app *bootstrap.App, stop context.CancelFunc) {
 	addr := fmt.Sprintf(":%d", app.Config.GRPC.Port)
-	listener, err := net.Listen("tcp", addr)
+	// ListenConfig rather than net.Listen so a signal arriving mid-startup aborts the bind
+	// instead of opening a port the process is about to abandon.
+	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {
 		app.Log.Error("Failed to listen for gRPC", "addr", addr, "error", err)
 		stop()
@@ -157,12 +159,18 @@ func drainGRPC(ctx context.Context, app *bootstrap.App) {
 	case <-stopped:
 		app.Log.Info("gRPC server drained")
 	case <-ctx.Done():
-		app.Log.Warn("gRPC drain timed out, closing active connections")
-		// Stop force-closes the transports GracefulStop is waiting on, but we deliberately do
-		// not wait for that goroutine afterwards: GracefulStop also waits on handlersWG, and a
-		// handler that never returns is precisely the case this branch exists for. Waiting
-		// would reintroduce the unbounded drain. The process exits immediately after.
-		app.GrpcServer.Stop()
+		app.Log.Warn("gRPC drain timed out, abandoning it")
+		// Stop cannot rescue a stuck GracefulStop, and calling it here in the foreground would
+		// hang this function instead. grpc-go's stop() takes s.mu and holds it via a deferred
+		// unlock across handlersWG.Wait() (server.go:1963-1986, v1.80.0), so while a handler
+		// refuses to return, the graceful call keeps that mutex and any concurrent Stop blocks
+		// on s.mu.Lock() for just as long.
+		//
+		// So fire it and do not wait. Connections that can still be closed will be; the ones
+		// held by a stuck handler are released when the process exits, moments from now. The
+		// alternative is outliving terminationGracePeriodSeconds and being SIGKILLed, which
+		// closes them no more gently and skips the rest of the shutdown.
+		go app.GrpcServer.Stop()
 	}
 }
 
