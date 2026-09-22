@@ -1,6 +1,7 @@
 package response
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -19,7 +20,8 @@ type ValidationErrorDetail struct {
 func FormatValidationErrors(err error) []ValidationErrorDetail {
 	var details []ValidationErrorDetail
 
-	if validationErrors, ok := err.(validator.ValidationErrors); ok {
+	var validationErrors validator.ValidationErrors
+	if errors.As(err, &validationErrors) {
 		for _, fieldError := range validationErrors {
 			detail := ValidationErrorDetail{
 				Field: strings.ToLower(fieldError.Field()),

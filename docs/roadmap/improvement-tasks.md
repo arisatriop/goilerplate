@@ -335,7 +335,7 @@ copy.
 
 ## P2 — Engineering hygiene
 
-### H1 Make the test and lint gate meaningful · M
+### H1 Make the test and lint gate meaningful · M — ✅ done
 **Evidence:** `.github/workflows/ci-cd.yaml:64`, `Makefile:16-27`, `.golangci.yml`
 
 - **No `-race`.** CI runs `go test -v ./...`. This codebase runs background jobs, an in-memory
@@ -347,21 +347,51 @@ copy.
   `rowserrcheck`, `sqlclosecheck`, `noctx`, `contextcheck`, `copyloopvar`, `nilerr`.
 - **No coverage signal.** Numbers are not tracked, so drift is invisible.
 
-- [ ] `go test -race -shuffle=on ./...` in CI and in `make test`
-- [ ] Add the linters above; fix or explicitly `//nolint` what they surface
-- [ ] Emit `-coverprofile` and publish the summary on the PR
-- [ ] Add `make test-race` and `make cover`; complete the `.PHONY` list, which currently omits
-      `swag`, `lint`, `format`, `up` and the `docker-*` targets
+- [x] `go test -race -shuffle=on ./...` in CI and in `make test`
+- [x] Linters added. They surfaced 28 findings once the default `max-same-issues: 3` cap was
+      removed — that cap was hiding a third of them. All resolved: 11 `errorlint`, 14 `gosec`,
+      2 `contextcheck`, 1 `noctx`. Each suppression carries a `#nosec` with its reasoning
+- [x] `-coverprofile` in CI, summary written to the job summary
+- [x] `make test` (race), `make test-quick` (no race), `make cover`, `make vuln`; `.PHONY`
+      completed
+
+Two things `-race` found that no other step would have:
+
+- **A latent bug in the D2 fix.** `drainGRPC` called `GrpcServer.Stop()` in its timeout branch.
+  grpc-go holds `s.mu` via a deferred unlock across `handlersWG.Wait()`
+  (`server.go:1963-1986`, v1.80.0), so a concurrent `Stop()` blocks on that mutex for exactly as
+  long as the stuck handler it was meant to rescue. The drain hung for the full budget. It now
+  fires `Stop()` in a goroutine and returns.
+- **A test passing for the wrong reason.** `TestDrainGRPC_BoundedByTheContext` waited 200ms for
+  its RPC to land. Often it had not, so `GracefulStop` finished on its own and the test passed
+  without exercising the timeout path at all. It now blocks on a signal from the handler.
+
+- [ ] Local `golangci-lint` is 2.11.4 while CI pins v2.12.0 and `make lint-install` installs
+      v2.12.0. Harmless today, but it is how "clean locally, red in CI" starts
 
 **Done when:** a data race or an unchecked SQL error fails the build.
 
 ### H2 Close the supply-chain gaps in CI · M
 **Evidence:** `.github/workflows/ci-cd.yaml`
 
-- [ ] `govulncheck` on every PR — there is no dependency vulnerability scanning at all today
+- [x] `govulncheck` runs on every PR — added with H1, but **`continue-on-error: true`**
+- [ ] **Upgrade, then make it blocking.** The first scan found **27 reachable vulnerabilities**
+      (not merely present — reachable from this module's call graph). All have fixes:
+  - 13 in the Go standard library: `go 1.26.2` → `1.26.6` covers `crypto/tls`, `crypto/x509`,
+    `encoding/asn1`, `encoding/xml`, `html/template`, `net`, `net/http`, `net/mail`,
+    `net/textproto`, `net/url`
+  - `google.golang.org/grpc` v1.80.0 → v1.83.1 (3)
+  - `github.com/gofiber/fiber/v2` v2.52.8 → v2.52.12 (2)
+  - `github.com/go-viper/mapstructure/v2` v2.2.1 → v2.4.0 (2)
+  - `golang.org/x/net` v0.52.0 → v0.55.0 (2)
+  - `github.com/jackc/pgx/v5` v5.7.5 → v5.9.2, `golang.org/x/text` v0.35.0 → v0.39.0,
+    `go.opentelemetry.io/otel` v1.43.0 → v1.44.0,
+    `github.com/aws/aws-sdk-go-v2/service/s3` v1.89.2 → v1.97.3,
+    `.../aws/protocol/eventstream` v1.7.3 → v1.7.8, `github.com/ClickHouse/ch-go` v0.61.5 → v0.65.0
+  - Then drop `continue-on-error` from the workflow step
 - [ ] Pin actions to commit SHAs, not floating major tags
-- [ ] Add a workflow-level least-privilege `permissions:` block
-- [ ] Add a `concurrency:` group so superseded pushes cancel
+- [x] Workflow-level least-privilege `permissions:` block (done with H1, same file)
+- [x] `concurrency:` group so superseded pushes cancel, `main` exempt (done with H1, same file)
 - [ ] Publish an SBOM and build provenance from `docker/build-push-action`
 - [ ] Delete the ~150 lines of commented-out deploy jobs; recover them from git history when the
       GKE deploy is switched on

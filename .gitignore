@@ -15,3 +15,4 @@ tmp
 # .air.toml
 
 *.session.sql
+coverage.out

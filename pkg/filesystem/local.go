@@ -15,6 +15,32 @@ type LocalStorage struct {
 	baseURL  string
 }
 
+// resolveWithin joins parts onto base and refuses any result that escapes it.
+//
+// filepath.Join cleans the result, so a caller-supplied "../../etc/passwd" resolves to a real
+// path outside the storage root. Upload paths and file names reach here from request data, so
+// the check is the difference between a file store and an arbitrary-file-write primitive.
+func resolveWithin(base string, parts ...string) (string, error) {
+	root, err := filepath.Abs(base)
+	if err != nil {
+		return "", fmt.Errorf("resolving storage root: %w", err)
+	}
+
+	full, err := filepath.Abs(filepath.Join(append([]string{root}, parts...)...))
+	if err != nil {
+		return "", fmt.Errorf("resolving path: %w", err)
+	}
+
+	// filepath.Rel reports "..", or a path starting with "../", exactly when full sits outside
+	// root. Comparing prefixes instead would accept a sibling directory such as /storage-evil.
+	rel, err := filepath.Rel(root, full)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes the storage root", filepath.Join(parts...))
+	}
+
+	return full, nil
+}
+
 // NewLocalStorage creates a new local storage instance
 func NewLocalStorage(basePath, baseURL string) *LocalStorage {
 	return &LocalStorage{
@@ -58,12 +84,16 @@ func (l *LocalStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*
 
 // UploadFromReader uploads from io.Reader
 func (l *LocalStorage) UploadFromReader(reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error) {
-	fullPath := filepath.Join(l.basePath, opts.Path)
-	if err := os.MkdirAll(fullPath, 0755); err != nil {
+	destPath, err := resolveWithin(l.basePath, opts.Path, filename)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(destPath), 0750); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	destPath := filepath.Join(fullPath, filename)
+	// #nosec G304 -- destPath is checked by resolveWithin to stay under l.basePath.
 	dst, err := os.Create(destPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)
@@ -94,7 +124,10 @@ func (l *LocalStorage) UploadFromReader(reader io.Reader, filename string, opts 
 
 // Delete deletes a file
 func (l *LocalStorage) Delete(path string) error {
-	fullPath := filepath.Join(l.basePath, path)
+	fullPath, err := resolveWithin(l.basePath, path)
+	if err != nil {
+		return err
+	}
 	if err := os.Remove(fullPath); err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
@@ -103,8 +136,11 @@ func (l *LocalStorage) Delete(path string) error {
 
 // Exists checks if file exists
 func (l *LocalStorage) Exists(path string) (bool, error) {
-	fullPath := filepath.Join(l.basePath, path)
-	_, err := os.Stat(fullPath)
+	fullPath, err := resolveWithin(l.basePath, path)
+	if err != nil {
+		return false, err
+	}
+	_, err = os.Stat(fullPath)
 	if os.IsNotExist(err) {
 		return false, nil
 	}

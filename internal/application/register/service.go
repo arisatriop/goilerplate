@@ -54,7 +54,7 @@ func (s *applicationService) Register(ctx context.Context, register *Register) e
 
 	role, err := s.roleRepo.GetRoleBySlug(ctx, role.OwnerRoleSlug)
 	if err != nil {
-		return fmt.Errorf("failed to get role: %v", err)
+		return fmt.Errorf("failed to get role: %w", err)
 	}
 
 	return s.txManager.Do(ctx, func(txCtx context.Context) error {

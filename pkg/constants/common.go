@@ -24,11 +24,13 @@ const (
 	HeaderServiceName = "X-Service-Name"
 	// HeaderInternalSecret is the shared secret for /internal routes when
 	// internal_auth.mode=shared_secret. Already redacted from logs (see pkg/redact).
+	// #nosec G101 -- the name of a header, not its value.
 	HeaderInternalSecret = "X-Internal-Secret"
 )
 
 // gRPC metadata keys. gRPC lowercases metadata keys, so these are the lowercase forms of the
 // headers above and must stay in step with them.
 const (
+	// #nosec G101 -- the name of a metadata key, not its value.
 	MetadataInternalSecret = "x-internal-secret"
 )

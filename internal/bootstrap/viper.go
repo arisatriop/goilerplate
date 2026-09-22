@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"fmt"
 	"goilerplate/config"
 	"os"
@@ -26,7 +27,8 @@ func Load() *config.Config {
 	if err := v.ReadInConfig(); err != nil {
 		// If the config file is not found, we don't panic.
 		// This allows the app to run using ONLY environment variables (Pure Env).
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) {
 			panic(fmt.Errorf("fatal error config file: %w", err))
 		}
 	}

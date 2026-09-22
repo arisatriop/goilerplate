@@ -17,6 +17,8 @@ import (
 // an attacker which emails are registered.
 //
 // It is a valid hash at the same cost as utils.HashPassword produces, so the timing matches.
+// #nosec G101 -- deliberate: a bcrypt hash of a value nobody knows, existing only to be
+// compared against so the no-password path takes as long as a real one. See the comment above.
 const dummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
 
 // Lockout describes how many consecutive failures an account tolerates and for how long it is

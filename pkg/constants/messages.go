@@ -16,7 +16,7 @@ const (
 	MsgInternalServerError   = "Whoops! Something went wrong"
 	MsgAccountLocked         = "Too many failed attempts, please try again later"
 	MsgAccountDisabled       = "Account is disabled"
-	MsgInvalidCredential     = "Invalid credential"
+	MsgInvalidCredential     = "Invalid credential" // #nosec G101 -- a message shown to users.
 	MsgFeatureNotImplemented = "Feature not implemented"
 	MsgUnauthorizedAccess    = "Anda tidak memiliki akses untuk data tersebut"
 )

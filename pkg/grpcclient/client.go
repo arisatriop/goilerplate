@@ -82,7 +82,9 @@ func loggingUnaryInterceptor(defaultTimeout time.Duration) grpc.UnaryClientInter
 		}
 
 		if strings.ToLower(os.Getenv("APP_ENV")) != "local" {
-			slog.LogAttrs(context.Background(), slog.LevelInfo, "Outgoing gRPC request", logAttrs...)
+			// ctx, not Background: the handler reads the trace from it, so a Background here
+			// would detach every outgoing-call log line from the span that caused it.
+			slog.LogAttrs(ctx, slog.LevelInfo, "Outgoing gRPC request", logAttrs...)
 		}
 
 		return err
@@ -115,7 +117,7 @@ func loggingStreamInterceptor() grpc.StreamClientInterceptor {
 		}
 
 		if strings.ToLower(os.Getenv("APP_ENV")) != "local" {
-			slog.LogAttrs(context.Background(), slog.LevelInfo, "Outgoing gRPC stream", logAttrs...)
+			slog.LogAttrs(ctx, slog.LevelInfo, "Outgoing gRPC stream", logAttrs...)
 		}
 
 		return stream, err

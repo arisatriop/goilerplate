@@ -2,7 +2,7 @@
 package auth
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 )
@@ -71,10 +71,14 @@ func (s *deviceService) detectDeviceType(userAgent string) string {
 	return DeviceTypeWeb
 }
 
-// generateDeviceFingerprint creates a unique device identifier
+// generateDeviceFingerprint creates a unique device identifier.
+//
+// SHA-256 rather than MD5. The fingerprint is not a security control — it labels a device in
+// the session list — but shipping MD5 in a boilerplate invites it into places where collision
+// resistance does matter, and the cost here is identical.
 func (s *deviceService) generateDeviceFingerprint(req DeviceRequest, ip string) string {
 	fingerprint := fmt.Sprintf("%s|%s|%s|%s", req.UserAgent, req.AcceptLanguage, req.AcceptEncoding, ip)
-	hash := md5.Sum([]byte(fingerprint))
+	hash := sha256.Sum256([]byte(fingerprint))
 	return fmt.Sprintf("fp_%x", hash)[:16]
 }
 

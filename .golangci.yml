@@ -11,13 +11,55 @@ linters:
     # being a sweep that decays. It only sees unexported symbols, so exported dead code still
     # needs a human to notice.
     - unused
+
+    # Security. gosec is the reason this list exists: hardcoded credentials, weak crypto and
+    # unhandled file permissions are the failures a boilerplate propagates into every project
+    # copied from it.
+    - gosec
+
+    # Error handling. errcheck proves an error was looked at; these prove it was looked at
+    # correctly — compared with errors.Is/As rather than ==, and not returned as nil after a
+    # branch established it was non-nil.
+    - errorlint
+    - nilerr
+
+    # Resource leaks. Each of these catches a handle that is opened and never closed, which
+    # only shows up in production as a pool slowly draining.
+    - bodyclose
+    - rowserrcheck
+    - sqlclosecheck
+
+    # Context discipline. A request that ignores its context cannot be cancelled, so a client
+    # that hung up still costs a database connection until the query finishes on its own.
+    - noctx
+    - contextcheck
+
+    - copyloopvar
+
+  settings:
+    gosec:
+      excludes:
+          # Integer conversion overflow. Too noisy against the conversions this codebase does
+        # between config ints and library types; revisit if it ever guards arithmetic on input.
+        - G115
+
   exclusions:
     rules:
       - path: _test\.go
         linters:
           - errcheck
+          # Test helpers bind to 127.0.0.1 and build requests without a context on purpose.
+          - gosec
+          - noctx
+          - bodyclose
 
 formatters:
   enable:
     - gofmt
     - goimports
+
+# Defaults cap the report at 3 occurrences of the same message and 50 per linter, which hides
+# findings and makes the gate look cleaner than the code is. Report everything.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

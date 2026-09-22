@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"goilerplate/internal/domain/bar"
 	"goilerplate/internal/infrastructure/model"
@@ -175,7 +176,7 @@ func (r *barRepo) getBarByID(ctx context.Context, id string) (*model.Bar, error)
 		First(&data).Error
 
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, utils.ClientErr(404, "Bar not found")
 		}
 		return nil, utils.WrapErr(err)
