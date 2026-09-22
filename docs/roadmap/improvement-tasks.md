@@ -40,7 +40,7 @@ what every later task is checked against.
 
 Things that are measurably wrong today. Each one is a small change; none needs a design decision.
 
-### D1 Apply the configured server timeouts · S
+### D1 Apply the configured server timeouts · S — ✅ done
 **Evidence:** `internal/bootstrap/fiber.go:15-19`, `config/config.go:186-192`,
 `config/config.example.yaml:16-18`
 
@@ -53,14 +53,15 @@ The consequence is not cosmetic: a Fiber server with no read timeout holds a con
 as long as a client keeps dribbling bytes, which is the whole of a slowloris attack. Operators
 setting `read_timeout: 5s` believe they are protected and are not.
 
-- [ ] Pass `ReadTimeout`, `WriteTimeout` and `IdleTimeout` to `fiber.New`
-- [ ] Reject non-positive values in `config/validate.go`, or document that zero means "no limit"
-      and default them to something sane instead
-- [ ] Test asserting the three values reach the Fiber config
+- [x] Pass `ReadTimeout`, `WriteTimeout` and `IdleTimeout` to `fiber.New`
+- [x] Unset falls back to 15s/15s/60s via `OrDefault` helpers rather than to zero, because zero
+      is "no limit" and is what a minimal config produces. Documented in both example configs
+- [x] Tests asserting the values reach the Fiber config, and a real-socket test proving a
+      stalled request is hung up on
 
 **Done when:** a request that stalls mid-body is cut off at `server.read_timeout`.
 
-### D2 Fix shutdown ordering and bound the gRPC drain · S
+### D2 Fix shutdown ordering and bound the gRPC drain · S — ✅ done
 **Evidence:** `cmd/server/main.go:108-155`
 
 `gracefulShutdown` runs in this order: drain Fiber → close GORM → close the pgx pool → close
@@ -72,11 +73,13 @@ rolling deploy fails on a closed pool rather than completing.
 long-lived stream keeps the process alive past the pod's `terminationGracePeriodSeconds` and the
 container is SIGKILLed instead of exiting cleanly.
 
-- [ ] Stop gRPC and HTTP first, close DB/Redis after both have drained
-- [ ] Bound the gRPC drain: `GracefulStop()` in a goroutine, fall back to `Stop()` when
-      `timeoutCtx` expires
-- [ ] Replace the `fmt.Printf` shutdown messages with `app.Log` — this path currently logs
-      unstructured text to stdout while the rest of the process logs structured JSON
+- [x] `shutdown` now drains HTTP and gRPC concurrently, flushes telemetry, and closes DB/Redis
+      last. Telemetry moved after the drain so spans from in-flight requests are still exported
+- [x] Bounded gRPC drain. Note for anyone revisiting it: `Stop()` does **not** release an
+      in-progress `GracefulStop()`, because `GracefulStop` also waits on `handlersWG` and a
+      handler that never returns is the case this branch exists for. The timeout path calls
+      `Stop()` and returns without waiting, rather than reintroducing the unbounded wait
+- [x] Every `fmt.Printf` on the lifecycle path replaced with `app.Log`
 
 **Done when:** SIGTERM drains both servers before any connection pool closes, and the process
 always exits within the shutdown timeout.
