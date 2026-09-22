@@ -209,3 +209,133 @@ func jsonKeys(value any) []string {
 		return nil
 	}
 }
+
+// The list shape is asserted against the exact bytes. There used to be three descriptions of
+// it and no two agreed — the conventions doc, response.Paginated, and pkg/pagination — and the
+// reference handler's Swagger annotation described none of them. This is the contract now.
+func TestPaginated_ExactShape(t *testing.T) {
+	// Arrange
+	items := []map[string]any{{"id": 1}, {"id": 2}}
+
+	// Act
+	status, body := send(t, func(c *fiber.Ctx) error {
+		return response.Paginated(c, items, response.NewPagination(42, 2, 10),
+			response.WithMessage("Bars fetched successfully"))
+	})
+
+	// Assert
+	assert.Equal(t, fiber.StatusOK, status)
+	assert.JSONEq(t, `{
+		"success": true,
+		"message": "Bars fetched successfully",
+		"data": [{"id": 1}, {"id": 2}],
+		"meta": {
+			"page": 2,
+			"limit": 10,
+			"total": 42,
+			"totalPages": 5,
+			"hasNext": true,
+			"hasPrev": true
+		}
+	}`, body)
+}
+
+// data stays a plain array. Nesting it under data.items — which is what the reference handler
+// used to return — means every client unwraps one level before it can iterate.
+func TestPaginated_DataIsAPlainArray(t *testing.T) {
+	_, body := send(t, func(c *fiber.Ctx) error {
+		return response.Paginated(c, []int{1, 2, 3}, response.NewPagination(3, 1, 10))
+	})
+
+	var payload struct {
+		Data []int `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &payload))
+	assert.Equal(t, []int{1, 2, 3}, payload.Data)
+}
+
+func TestNewPagination_Counters(t *testing.T) {
+	tests := []struct {
+		name                     string
+		total                    int64
+		page, limit              int
+		wantTotalPages           int
+		wantHasNext, wantHasPrev bool
+	}{
+		{"first page of many", 42, 1, 10, 5, true, false},
+		{"middle page", 42, 3, 10, 5, true, true},
+		{"last page", 42, 5, 10, 5, false, true},
+		{"exactly one full page", 10, 1, 10, 1, false, false},
+		{"one row over a page boundary", 11, 1, 10, 2, true, false},
+		{"empty result set", 0, 1, 10, 0, false, false},
+		{"page past the end", 42, 9, 10, 5, false, true},
+		// limit 0 would divide by zero; the parser never produces it, but a direct caller could.
+		{"zero limit does not panic", 5, 1, 0, 5, true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			page := response.NewPagination(tt.total, tt.page, tt.limit)
+
+			assert.Equal(t, tt.wantTotalPages, page.TotalPages)
+			assert.Equal(t, tt.wantHasNext, page.HasNext)
+			assert.Equal(t, tt.wantHasPrev, page.HasPrev)
+			assert.Equal(t, tt.total, page.Total)
+		})
+	}
+}
+
+// An empty page must marshal data as [], not null: a client iterating it should not need a nil
+// check to tell "no results" from "no field".
+func TestPaginated_EmptyPageIsAnEmptyArray(t *testing.T) {
+	tests := []struct {
+		name string
+		data any
+	}{
+		{"nil slice", []int(nil)},
+		{"empty slice", []int{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, body := send(t, func(c *fiber.Ctx) error {
+				return response.Paginated(c, tt.data, response.NewPagination(0, 1, 10))
+			})
+
+			assert.Contains(t, body, `"data":[]`)
+			assert.NotContains(t, body, `"data":null`)
+		})
+	}
+}
+
+// Pagination is embedded by pointer, so a non-list response must not grow empty page counters.
+func TestSuccess_CarriesNoPaginationKeys(t *testing.T) {
+	_, body := send(t, func(c *fiber.Ctx) error {
+		return response.Success(c, fiber.Map{"id": 1},
+			response.WithMeta(&response.Meta{RequestID: "req-1"}))
+	})
+
+	for _, key := range []string{"page", "limit", "total", "totalPages", "hasNext", "hasPrev"} {
+		assert.NotContains(t, body, `"`+key+`"`)
+	}
+}
+
+// WithMeta on a list response sets the request ID without dropping the page counters.
+func TestPaginated_MetaOptionKeepsThePageCounters(t *testing.T) {
+	_, body := send(t, func(c *fiber.Ctx) error {
+		return response.Paginated(c, []int{1}, response.NewPagination(1, 1, 10),
+			response.WithMeta(&response.Meta{RequestID: "req-1"}))
+	})
+
+	var payload struct {
+		Meta struct {
+			RequestID string `json:"requestId"`
+			Page      int    `json:"page"`
+			Total     int64  `json:"total"`
+		} `json:"meta"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &payload))
+	assert.Equal(t, "req-1", payload.Meta.RequestID)
+	assert.Equal(t, 1, payload.Meta.Page)
+	assert.Equal(t, int64(1), payload.Meta.Total)
+}
