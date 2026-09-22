@@ -127,6 +127,12 @@ underscores.**
 | `grpc.auth.secret` | `GRPC_AUTH_SECRET` |
 | `crypto.encryption_key` | `CRYPTO_ENCRYPTION_KEY` |
 
+`crypto.encryption_key` is the one entry in this table nothing reads yet. `pkg/crypto` is a
+working AES-256-GCM primitive with no callers, and the key is the seam for when you encrypt a
+column. Generate it rather than choosing it — the key is derived with a single unsalted
+SHA-256, which does not stretch a memorable passphrase into anything an offline guess cannot
+reach.
+
 There is **no** `JWT_SECRET_KEY`: the access and refresh tokens are signed with separate secrets,
 so that an attacker who obtains one cannot mint the other. There is no `DB_DRIVER` either —
 PostgreSQL is the only supported database.

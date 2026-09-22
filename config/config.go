@@ -8,19 +8,20 @@ import (
 )
 
 type Config struct {
-	App          App                `mapstructure:"app"`
-	Server       Server             `mapstructure:"server"`
-	GRPC         GRPC               `mapstructure:"grpc"`
-	DB           DB                 `mapstructure:"db"`
-	Redis        Redis              `mapstructure:"redis"`
-	JWT          JWT                `mapstructure:"jwt"`
-	Auth         Auth               `mapstructure:"auth"`
-	Log          *Logger            `mapstructure:"log"`
-	OTel         OTel               `mapstructure:"otel"`
-	RateLimit    RateLimit          `mapstructure:"rate_limit"`
-	FileSystem   FileSystem         `mapstructure:"filesystem"`
-	Crypto       Crypto             `mapstructure:"crypto"`
-	Apikeys      map[string]string  `mapstructure:"api_key"`
+	App        App               `mapstructure:"app"`
+	Server     Server            `mapstructure:"server"`
+	GRPC       GRPC              `mapstructure:"grpc"`
+	DB         DB                `mapstructure:"db"`
+	Redis      Redis             `mapstructure:"redis"`
+	JWT        JWT               `mapstructure:"jwt"`
+	Auth       Auth              `mapstructure:"auth"`
+	Log        *Logger           `mapstructure:"log"`
+	OTel       OTel              `mapstructure:"otel"`
+	RateLimit  RateLimit         `mapstructure:"rate_limit"`
+	FileSystem FileSystem        `mapstructure:"filesystem"`
+	Crypto     Crypto            `mapstructure:"crypto"`
+	Apikeys    map[string]string `mapstructure:"api_key"`
+	// Services is an extension point for upstreams this application calls; see Service.
 	Services     map[string]Service `mapstructure:"service"`
 	InternalAuth InternalAuth       `mapstructure:"internal_auth"`
 	Jobs         Jobs               `mapstructure:"jobs"`
@@ -433,12 +434,27 @@ type FileSystem struct {
 	Drive       filesystem.DriveConfig `mapstructure:"drive"`
 }
 
+// Crypto holds the key pkg/crypto encrypts with. Nothing in the boilerplate encrypts anything
+// yet, so this key is a seam rather than a setting in use: read it and pass it to
+// crypto.EncryptString when you add a column that needs it.
+//
+// It must be generated, not chosen. pkg/crypto derives the AES-256 key by taking SHA-256 of
+// whatever string it is given, which is a single unsalted hash — it does not stretch a
+// human-memorable passphrase into something resistant to an offline guess.
+//
+//	openssl rand -base64 32
 type Crypto struct {
 	EncryptionKey string `mapstructure:"encryption_key"`
 }
 
+// Service describes an upstream this application calls. It is a deliberate extension point:
+// the map is keyed by a name of your choosing, so a deployment adds an upstream in config
+// rather than in a new struct. Nothing in the boilerplate reads it — pkg/httpclient and
+// pkg/grpcclient take a base URL from the caller — so an empty `service:` block is correct.
 type Service struct {
 	Name    string `mapstructure:"name"`
 	BaseURL string `mapstructure:"base_url"`
-	Apikey  string `mapstructure:"api_key"`
+	// Apikey is sent to that upstream, not accepted from it. Inbound partner keys are the
+	// separate top-level `api_key` map.
+	Apikey string `mapstructure:"api_key"`
 }

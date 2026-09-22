@@ -47,11 +47,10 @@ func NewFiber(cfg *config.Config) *fiber.App {
 	if cfg.OTel.Enabled {
 		app.Use(otelfiber.Middleware())
 	}
-	// app.Use(cors.New(cors.Config{
-	// 	AllowOrigins: "*",
-	// 	AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-	// 	AllowMethods: "*",
-	// }))
+	// CORS is not enabled here. cfg.Cors exists but nothing reads it yet; wiring it up is F4
+	// in docs/roadmap/improvement-tasks.md, which also has to reject AllowOrigins: "*" together
+	// with AllowCredentials: true — the combination browsers refuse and the one a copied
+	// snippet reaches for first.
 
 	return app
 }

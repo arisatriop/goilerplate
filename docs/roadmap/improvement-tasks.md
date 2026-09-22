@@ -28,7 +28,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ~4–6 days |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ~5–7 days |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
-| [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ~1 day |
+| [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 
 Recommended order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**.
 D1 and D2 are live defects; H1 (`-race`, stronger linters) is placed early because it changes
@@ -341,7 +341,7 @@ a half-applied production schema.
 **Done when:** the migration path is either a maintained dependency or covered by tests, and the
 documentation names the one actually in use.
 
-### A5 Give the two example domains one purpose each · S
+### A5 Give the two example domains one purpose each · S — ✅ done
 **Evidence:** `internal/domain/foo/*` (23 `panic("Implement me")` across 5 files),
 `internal/delivery/http/router/public.go:47`, `.claude/skills/crud-operations/SKILL.md:24`
 
@@ -354,10 +354,15 @@ The problem is only that `foo` is wired into live routes and into the gRPC regis
 gets caught by the recover middleware, and returns 500 — a template shipped as a working
 endpoint.
 
-- [ ] Keep every `foo` file; stop registering its routes by default
-- [ ] Either guard the registration behind a flag or comment the single `r.foo(v1)` line with a
-      pointer to the skill
-- [ ] Say plainly at the top of each `foo` file that it is a template
+- [x] Every `foo` file kept; the single `r.foo(v1)` call is commented out with a pointer to
+      `.claude/skills/crud-operations/SKILL.md`. A config flag was considered and rejected —
+      adding a runtime switch for a template is more machinery than the problem justifies
+- [x] The `foo` method itself is kept (that is the shape a new domain copies) with a `nolint`
+      noting why it is uncalled
+- [x] Each of the ten `foo` files opens with a banner saying it is a template, that `bar` is the
+      worked example, and that the panics are deliberate
+- [x] The gRPC side needed no change: `grpchandler.Foo` already returns `codes.Unimplemented`
+      rather than panicking, which is the correct answer for an unimplemented method
 
 **Done when:** a fresh clone exposes no endpoint that panics, and the template is still there to
 copy.
@@ -601,20 +606,19 @@ One commit's worth of deletions. Listed individually so the diff can be reviewed
 trusted. `golangci-lint` reports 0 issues on all of this: its `unused` linter only sees
 unexported symbols, as `.golangci.yml` itself notes.
 
-### C1 Delete the dead token generators · S
+### C1 Delete the dead token generators · S — ✅ done
 **Evidence:** `pkg/utils/generator.go`
 
 Left behind when access and refresh tokens became JWTs. These names now describe something
 `pkg/jwt` does, so they actively mislead.
 
-- [ ] `GenerateRefreshToken`, `GenerateVerificationToken`, `TokenLength` — no callers
-- [ ] `GenerateRandomString`, `GenerateRandomNumberString` — never called, and both `panic(err)`
-      under a comment reading *"In real applications, handle the error appropriately"*. A
-      boilerplate should not ship an example that documents itself as not production-ready
-- [ ] **Keep `GenerateSecureToken`** — a correct `crypto/rand` primitive that F1 needs for
-      high-entropy reset tokens
+- [x] `GenerateRefreshToken`, `GenerateVerificationToken`, `TokenLength` deleted
+- [x] `GenerateRandomString`, `GenerateRandomNumberString` deleted
+- [x] `GenerateSecureToken` kept, and now has tests plus a doc comment saying what it is for
+      (high-entropy reset and invite tokens) and what it is **not** for (OTPs, which need HMAC
+      because a plain digest of a 6-digit code is brute-forced in seconds if the database leaks)
 
-### C2 Delete the remaining unreferenced exports · S
+### C2 Delete the remaining unreferenced exports · S — ✅ done
 
 | Symbol | Location | Why |
 |---|---|---|
@@ -622,32 +626,41 @@ Left behind when access and refresh tokens became JWTs. These names now describe
 | `GetAuditInfo` | `pkg/auditctx/auditctx.go:44` | thin wrapper over `GetUserID` + `GetUserName`, both already used |
 | `NewSlogWriterWithLevel` | `internal/bootstrap/database/database.go:81` | unused variant of `NewSlogWriter`; also returns an unexported type from an exported function |
 
-**Keep** `filesystem.NewManager` (`pkg/filesystem/manager.go:16`): unused today, but it is the
+All four deleted, including `AuditInfo`, which existed only as `GetAuditInfo`'s return type.
+`NewSlogWriterWithLevel` went with the D5 commit, in a file that change was already editing.
+
+**Kept** `filesystem.NewManager` (`pkg/filesystem/manager.go:16`): unused today, but it is the
 injection seam for substituting `Storage` in tests, and H4 will use it.
 
-### C3 Remove leftovers · S
+### C3 Remove leftovers · S — ✅ done
 
-- [ ] The commented-out CORS block at `internal/bootstrap/fiber.go:42-46` — superseded by F4
-- [ ] `internal/domain/baz/` and `internal/application/product/` — empty directories, untracked by
-      git, present only on disk
-- [ ] `postgres: goilerplate.session.sql` in the repository root — an editor scratch file;
-      untracked, so add the pattern to `.gitignore`
-- [ ] Translate the Indonesian comment in `deploy/k8s/deployment.prod.yaml:73`
+- [x] The commented-out CORS block at `internal/bootstrap/fiber.go:42-46` replaced with a
+      sentence naming F4 and the one rule a copied snippet gets wrong (`AllowOrigins: "*"` with
+      `AllowCredentials: true`). Commented-out code that nobody can run is not guidance
+- [x] `internal/domain/baz/` and `internal/application/product/` removed from disk
+- [x] `postgres: goilerplate.session.sql` deleted. `.gitignore` already had `*.session.sql`,
+      which is why it never showed up as untracked
+- [x] Indonesian comments in all three `deploy/k8s/deployment.*.yaml` translated (done with D4,
+      in files that change was already editing)
 
-### C4 Resolve the config keys nothing reads · S
+### C4 Resolve the config keys nothing reads · S — ✅ done
 
-Three keys are documented but never consulted. Each needs a decision, not a blanket deletion:
+Three keys are documented but never consulted. Each got a decision rather than a blanket
+deletion:
 
-- [ ] **`crypto.encryption_key`** — `pkg/crypto` (239 LOC, 84.4% covered, AES-256-GCM) has zero
-      callers and the config key has zero readers. It is a working primitive; the dangling key is
-      the problem. Either wire the key through or drop it from `config.yaml` and
-      `docs/deployment/configuration.md:128`. A configured encryption key that encrypts nothing
-      is a false assurance
-- [ ] **`service.*` / `config.Services`** — read only in `internal/bootstrap/viper_test.go:28`,
-      but documented in `config.full.example.yaml:218` as a deliberate extension point. **Keep**,
-      and say so in the struct comment
-- [ ] **`Service.Apikey`** (`config/config.go:410`) — part of that same extension point; keep it
-      with `Services`
+- [x] **`crypto.encryption_key`** — **kept, and the assurance made honest.** `pkg/crypto`'s API
+      takes the key per call (`EncryptString(plaintext, key)`), so there is no wiring to do: the
+      config key *is* the seam, and it works the moment something encrypts a column. Deleting it
+      would only mean re-adding the plumbing later. The struct, `config.full.example.yaml` and
+      `docs/deployment/configuration.md` now all say plainly that nothing reads it yet.
+      Also documented while reading the code: the key is derived with **one unsalted SHA-256**,
+      so it must be generated (`openssl rand -base64 32`) and not chosen — that derivation does
+      not stretch a memorable passphrase
+- [x] **`service.*` / `config.Services`** — kept, with the extension point explained in the
+      struct comment: the map is keyed by a name of your choosing so a deployment adds an
+      upstream in config rather than in a new struct, and an empty `service:` block is correct
+- [x] **`Service.Apikey`** — kept, with a comment distinguishing it from the inbound `api_key`
+      map: this one is *sent to* an upstream, that one is *accepted from* a partner
 
 ---
 
