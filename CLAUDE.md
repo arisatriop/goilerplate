@@ -4,7 +4,7 @@
 Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and PostgreSQL.
 
 ## Tech Stack
-- **Language**: Go 1.24
+- **Language**: Go 1.26 (`go.mod` pins the exact toolchain; the Dockerfile builder matches it)
 - **Router**: GoFiber v2
 - **gRPC**: google.golang.org/grpc, proto contract at [goilerplate-proto](https://github.com/arisatriop/goilerplate-proto)
 - **Database**: PostgreSQL only, via GORM + pgx

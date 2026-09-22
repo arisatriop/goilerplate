@@ -1,41 +1,58 @@
-# Build stage
-FROM golang:1.26-alpine AS builder
+# syntax=docker/dockerfile:1
 
-# Install necessary build tools
-RUN apk add --no-cache git 
+# ── Build stage ──────────────────────────────────────────────────────────────
+# Pinned to the toolchain in go.mod. A floating tag means two builds of one
+# commit can be compiled by different compilers, which is the opposite of what a
+# deployable artefact is for.
+FROM golang:1.26.2-alpine AS builder
 
 WORKDIR /app
 
-# Download dependencies first (better caching)
+# Dependencies first, so a source-only change does not re-download the module
+# cache. --mount keeps the caches out of the image layers entirely.
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
-# Copy source code
 COPY . .
 
-# Build the application
-# CGO_ENABLED=0 creates a statically linked binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server/main.go
+# Stamped at build time and read back by config.App.Version, so a running
+# container can say exactly which commit it is.
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
 
-# Final stage
-FROM alpine:latest
+# CGO_ENABLED=0 produces a static binary, which is what lets the runtime stage
+# be distroless/static rather than a full distribution.
+#
+# -trimpath strips the build machine's absolute paths out of the binary; without
+# it the same source compiled in two checkouts produces two different binaries.
+# -s -w drop the symbol table and DWARF data — roughly a third of the size, at
+# the cost of symbol names in a panic trace, which a stack trace from a stripped
+# Go binary still survives.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build \
+      -trimpath \
+      -ldflags="-s -w \
+        -X 'main.version=${VERSION}' \
+        -X 'main.commit=${COMMIT}' \
+        -X 'main.buildDate=${BUILD_DATE}'" \
+      -o /out/goilerplate ./cmd/server
 
-RUN apk --no-cache add ca-certificates
+# ── Runtime stage ────────────────────────────────────────────────────────────
+# distroless/static rather than alpine: no shell, no package manager, no libc,
+# nothing to update and nothing for an attacker who reaches RCE to pivot with.
+# It is pinned by digest — `latest` on a base image makes the build
+# unreproducible and silently changes what ships.
+#
+# :nonroot runs as uid 65532 and needs no adduser step.
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 
-# Buat user non-root
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup -u 1000
-
-# Working directory yang accessible oleh appuser
 WORKDIR /app
 
-# Copy binary dari builder
-COPY --from=builder /app/main .
+COPY --from=builder /out/goilerplate /app/goilerplate
 
-# Beri ownership ke appuser
-RUN chown -R appuser:appgroup /app
-
-# Switch ke non-root user
-USER appuser
-
+USER nonroot:nonroot
 EXPOSE 3000
-CMD ["./main"]
+
+ENTRYPOINT ["/app/goilerplate"]

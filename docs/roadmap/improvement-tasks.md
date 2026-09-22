@@ -434,16 +434,23 @@ Two things `-race` found that no other step would have:
 
 **Done when:** a known-vulnerable dependency fails CI, and the workflow contains no dead YAML.
 
-### H3 Harden the production image · S
+### H3 Harden the production image · S — ✅ done
 **Evidence:** `Dockerfile`
 
-- [ ] Pin the runtime base by digest — `FROM alpine:latest` makes builds unreproducible; prefer
-      `gcr.io/distroless/static` for a CGO-free binary
-- [ ] Build with `-trimpath -ldflags="-s -w"` and stamp version/commit into the binary
-- [ ] Align the builder with `go.mod`: the Dockerfile pins `golang:1.26-alpine`, `go.mod` says
-      `go 1.26.2`, and `CLAUDE.md` still claims Go 1.24
-- [ ] Translate the Indonesian comments — the rest of the codebase is in English
-- [ ] Add a trailing newline to the file
+- [x] Runtime is `gcr.io/distroless/static-debian12:nonroot` **pinned by digest**. No shell, no
+      package manager, no libc — nothing to patch and nothing for an attacker who reaches RCE to
+      pivot with. `:nonroot` runs as uid 65532, so the `adduser` step is gone too
+- [x] `-trimpath -ldflags="-s -w"`, plus `version`, `commit` and `buildDate` stamped in and
+      logged as the process's first line. They default to `dev`/`unknown`, so a locally built
+      binary is distinguishable from a released one rather than pretending to be `0.0.0`.
+      `docker/build-push-action` passes them as build args
+- [x] Builder pinned to `golang:1.26.2-alpine`, matching `go.mod` exactly. `CLAUDE.md`'s
+      "Go 1.24" corrected
+- [x] Indonesian comments translated; trailing newline added; `--mount=type=cache` for the
+      module and build caches, which also keeps them out of the image layers
+- [x] **Found while doing this:** the `build` job runs `if: github.event_name == 'push'`, so
+      nothing ever exercised the Dockerfile on a pull request — a change that broke the image
+      was found on `main`. A `docker-build` job now builds it without pushing on every PR
 
 **Done when:** two builds of one commit produce the same image, on a pinned base.
 
@@ -472,7 +479,7 @@ exactly where A2's three-way disagreement was able to develop unnoticed.
 
 **Done when:** the response contract is pinned by tests rather than by inspection.
 
-### H5 One logger, everywhere · S
+### H5 One logger, everywhere · S — ✅ done
 **Evidence:** `cmd/server/main.go`, `cmd/migrate/main.go`, `pkg/migration/migrator.go`
 
 Three files bypass the structured logger: `main.go` writes startup and shutdown messages with
@@ -482,20 +489,31 @@ stream as the JSON logs and break any structured log pipeline parsing it.
 `pkg/logger/slog.go` also imports `goilerplate/config`, so a general-purpose package depends on
 this application's configuration struct. It should take a small options struct instead.
 
-- [ ] Route every operational message through `slog`
-- [ ] Invert the `pkg/logger` → `config` dependency
+- [x] `pkg/migration` and `cmd/migrate` moved off stdlib `log`. The migrator takes an
+      `*slog.Logger` (nil falls back to `slog.Default()`, so a test can pass one argument), and
+      `log.Fatal` is replaced by a structured error plus an explicit exit code
+- [x] **Not everything moved, on purpose.** The `create` output and the status table are a CLI
+      result a developer reads at a terminal and may redirect; those stay on stdout, and the
+      usage text moved to stderr so `migrate -action=status > report.txt` captures the table
+      rather than the help. Each carries a comment saying why
+- [x] `pkg/logger` → `config` inverted: `logger.New(logger.Options{...})` takes a plain struct,
+      and `internal/bootstrap` does the translation. **No package under `pkg/` imports `config`
+      any more**
+- [x] `cmd/server` was already clean — its `fmt.Printf` calls went with D2
 
 **Done when:** the process emits one log format on one stream.
 
-### H6 Modernise for the Go version in use · S
+### H6 Modernise for the Go version in use · S — ✅ done
 **Evidence:** `go.mod:3` (`go 1.26.2`), 58 occurrences of `interface{}`
 
 The module targets Go 1.26 while 58 sites still use `interface{}` against 74 using `any`. Mixed
 within the same files, this reads as churn rather than intent.
 
-- [ ] `gofmt -r 'interface{} -> any' -w` across the tree
-- [ ] Reconcile the Go version stated in `CLAUDE.md` (1.24), `go.mod` (1.26.2) and the Dockerfile
-- [ ] Review error handling for `errors.Is`/`errors.As` once `errorlint` is enabled (H1)
+- [x] `gofmt -r 'interface{} -> any' -w` across the tree — 43 sites in 8 files, now 0
+- [x] Go version reconciled: `go.mod` is the source of truth (`1.26.2`), the Dockerfile builder
+      pins the same patch, CI already used `go-version-file: go.mod`, and `CLAUDE.md` no longer
+      claims 1.24
+- [x] `errorlint` review landed with H1 — eleven wrapping-unsafe comparisons fixed
 
 **Done when:** one spelling of the empty interface, one stated Go version.
 

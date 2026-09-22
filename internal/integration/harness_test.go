@@ -72,7 +72,7 @@ func openTestDB(t *testing.T) *gorm.DB {
 		Logger:  gormlogger.Discard,
 	})
 	require.NoError(t, err)
-	require.NoError(t, migration.NewMigrator(db).Up(migrationsDir))
+	require.NoError(t, migration.NewMigrator(db, nil).Up(migrationsDir))
 
 	return db
 }

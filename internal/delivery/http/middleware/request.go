@@ -94,7 +94,7 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 		hostname := ctx.Hostname()
 
 		// Capture all request headers
-		headers := make(map[string]interface{})
+		headers := make(map[string]any)
 		for key, values := range ctx.GetReqHeaders() {
 			if len(values) == 1 {
 				headers[key] = values[0]
@@ -121,7 +121,7 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 		omitBody := rl.shouldOmitBody(path)
 
 		// Capture request body
-		var requestPayload interface{}
+		var requestPayload any
 		if body := ctx.Body(); len(body) > 0 {
 			requestPayload = redact.Omitted
 			if !omitBody {
@@ -131,7 +131,7 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 
 		// Variables for defer
 		var panicOccurred bool
-		var panicValue interface{}
+		var panicValue any
 
 		// Defer logging after request (this runs AFTER recover middleware)
 		defer func() {
@@ -150,7 +150,7 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 			}
 
 			// Capture response headers
-			responseHeaders := make(map[string]interface{})
+			responseHeaders := make(map[string]any)
 			ctx.Response().Header.VisitAll(func(key, value []byte) {
 				responseHeaders[string(key)] = string(value)
 			})
@@ -158,12 +158,12 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 			responseSize := len(ctx.Response().Body())
 
 			// Capture response body (now including panic responses from recover middleware)
-			var responseBody interface{}
+			var responseBody any
 			var responseMessage string
 			if body := ctx.Response().Body(); len(body) > 0 {
 				responseContentType := string(ctx.Response().Header.ContentType())
 				responseBody = parseBody(body, responseContentType)
-				if jsonResp, ok := responseBody.(map[string]interface{}); ok {
+				if jsonResp, ok := responseBody.(map[string]any); ok {
 					if msg, exists := jsonResp["message"]; exists {
 						if msgStr, ok := msg.(string); ok {
 							responseMessage = msgStr
@@ -222,7 +222,7 @@ func (rl *RequestLogger) LogRequest() fiber.Handler {
 }
 
 // parseBody parses body data for logging with content type awareness
-func parseBody(body []byte, contentType string) interface{} {
+func parseBody(body []byte, contentType string) any {
 	if len(body) == 0 {
 		return nil
 	}
@@ -233,10 +233,10 @@ func parseBody(body []byte, contentType string) interface{} {
 	// Handle different content types
 	switch {
 	case mediaType == "application/json":
-		var jsonData interface{}
+		var jsonData any
 		if err := json.Unmarshal(body, &jsonData); err != nil {
 			// Unparseable JSON cannot be redacted, so it is not logged
-			return map[string]interface{}{
+			return map[string]any{
 				"content_type": contentType,
 				"message":      "invalid JSON not logged",
 				"size_bytes":   len(body),
@@ -246,7 +246,7 @@ func parseBody(body []byte, contentType string) interface{} {
 
 	case mediaType == "multipart/form-data":
 		// For multipart/form-data (file uploads), don't log the binary content
-		return map[string]interface{}{
+		return map[string]any{
 			"content_type": contentType,
 			"message":      "multipart/form-data content (binary data not logged)",
 			"size_bytes":   len(body),
@@ -254,7 +254,7 @@ func parseBody(body []byte, contentType string) interface{} {
 
 	case mediaType == "application/octet-stream":
 		// For binary data
-		return map[string]interface{}{
+		return map[string]any{
 			"content_type": contentType,
 			"message":      "binary content not logged",
 			"size_bytes":   len(body),
@@ -264,7 +264,7 @@ func parseBody(body []byte, contentType string) interface{} {
 		strings.HasPrefix(mediaType, "video/") ||
 		strings.HasPrefix(mediaType, "audio/"):
 		// For media files
-		return map[string]interface{}{
+		return map[string]any{
 			"content_type": contentType,
 			"message":      "media content not logged",
 			"size_bytes":   len(body),
@@ -277,7 +277,7 @@ func parseBody(body []byte, contentType string) interface{} {
 		// For text-based content types or unknown types
 		if len(body) > 1000 {
 			// Truncate large payloads
-			return map[string]interface{}{
+			return map[string]any{
 				"content_type": contentType,
 				"message":      "content truncated (too large)",
 				"size_bytes":   len(body),

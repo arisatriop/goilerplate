@@ -56,7 +56,7 @@ type slogWriter struct {
 	Level  slog.Level
 }
 
-func (s *slogWriter) Printf(message string, args ...interface{}) {
+func (s *slogWriter) Printf(message string, args ...any) {
 	formattedMessage := fmt.Sprintf(message, args...)
 
 	switch s.Level {

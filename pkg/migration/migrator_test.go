@@ -52,7 +52,7 @@ func TestUp_ConcurrentRunsDoNotCollide(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			errs[i] = migration.NewMigrator(db).Up(migrationsDir)
+			errs[i] = migration.NewMigrator(db, nil).Up(migrationsDir)
 		}(i)
 	}
 
@@ -66,7 +66,7 @@ func TestUp_ConcurrentRunsDoNotCollide(t *testing.T) {
 // Migrating a database that is already up to date must be a no-op rather than an error, which
 // is what lets every test package call Up on start.
 func TestUp_IsIdempotent(t *testing.T) {
-	migrator := migration.NewMigrator(openDB(t))
+	migrator := migration.NewMigrator(openDB(t), nil)
 
 	require.NoError(t, migrator.Up(migrationsDir))
 	require.NoError(t, migrator.Up(migrationsDir))
@@ -77,7 +77,7 @@ func TestUp_IsIdempotent(t *testing.T) {
 func TestUp_ReleasesTheLock(t *testing.T) {
 	db := openDB(t)
 
-	require.NoError(t, migration.NewMigrator(db).Up(migrationsDir))
+	require.NoError(t, migration.NewMigrator(db, nil).Up(migrationsDir))
 
 	var locks int64
 	require.NoError(t, db.Raw(
