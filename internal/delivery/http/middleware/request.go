@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/redact"
+	"goilerplate/pkg/requestid"
 	"goilerplate/pkg/utils"
 	"log/slog"
 	"mime"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 )
 
 const (
@@ -67,8 +67,9 @@ func (rl *RequestLogger) shouldOmitBody(path string) bool {
 // LogRequest returns a Fiber middleware for logging incoming requests
 func (rl *RequestLogger) LogRequest() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		// Generate request ID
-		requestID := ctx.Get(constants.HeaderRequestID, uuid.New().String())
+		// A caller-supplied ID is kept for cross-service tracing only when it is safe to log and
+		// echo; otherwise the request gets a fresh one.
+		requestID := requestid.Resolve(ctx.Get(constants.HeaderRequestID))
 		userAgent := ctx.Get("User-Agent")
 		// ctx.IP() resolves the forwarding header against the trusted-proxy list (see
 		// bootstrap.NewFiber), so this is the caller as the transport actually sees it and not

@@ -10,9 +10,9 @@ import (
 
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/redact"
+	"goilerplate/pkg/requestid"
 	"goilerplate/pkg/utils"
 
-	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -82,13 +82,15 @@ func extractCaller(ctx context.Context) string {
 	return utils.DefaultServiceName
 }
 
+// extractOrGenerateRequestID keeps the caller's request ID when it is safe to log, and
+// generates one otherwise. Metadata is as attacker-controlled as an HTTP header.
 func extractOrGenerateRequestID(ctx context.Context) string {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if ids := md.Get(constants.HeaderRequestID); len(ids) > 0 {
-			return ids[0]
+			return requestid.Resolve(ids[0])
 		}
 	}
-	return uuid.New().String()
+	return requestid.New()
 }
 
 // marshalProto serializes a proto message to a loggable map (duplicated from grpcclient for independence)
