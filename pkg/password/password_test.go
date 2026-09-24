@@ -1,12 +1,11 @@
 package password_test
 
 import (
-	"net/http"
 	"strings"
 	"testing"
 
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/password"
-	"goilerplate/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,10 +19,10 @@ func (c listChecker) IsCommon(p string) bool { return c[p] }
 func assertRejected(t *testing.T, err error, contains string) {
 	t.Helper()
 
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
-	assert.Equal(t, http.StatusBadRequest, clientErr.Code, "choosing a password is request input")
-	assert.Contains(t, clientErr.Error(), contains)
+	appErr, ok := apperr.As(err)
+	require.True(t, ok, "a rejection must be a client error, got %v", err)
+	assert.Equal(t, apperr.Invalid, appErr.Kind, "choosing a password is request input")
+	assert.Contains(t, appErr.Error(), contains)
 }
 
 func TestPolicy_Length(t *testing.T) {

@@ -190,9 +190,9 @@ Observed responses, all `401`:
 
 | Attempt | Response |
 |---|---|
-| wrong password | `{"success": false, "message": "Invalid credential"}` |
-| unknown email | `{"success": false, "message": "Invalid credential"}` — **identical**, so login cannot be used to discover which addresses are registered |
-| correct password, account locked | `{"success": false, "message": "Too many failed attempts, please try again later"}` |
+| wrong password | `{"success": false, "code": "invalid_credentials", "message": "Invalid credential"}` |
+| unknown email | `{"success": false, "code": "invalid_credentials", "message": "Invalid credential"}` — **identical**, so login cannot be used to discover which addresses are registered |
+| correct password, account locked | `{"success": false, "code": "account_locked", "message": "Too many failed attempts, please try again later"}` |
 | wrong password, account locked | same "Too many failed attempts" message |
 
 The locked response does say the account is locked rather than imitating a wrong password. That is
@@ -200,10 +200,10 @@ deliberate: hiding it would leave a locked-out user with a correct password and 
 the only person it tells anything new is someone who just spent the attempts to cause the lock.
 
 ⚠️ **Registration is different, and it is a known gap.** `POST /api/v1/auth/register` answers
-`400 {"message": "email is already registered"}` for a taken address and `201` for a free one, so
+`409 {"code": "email_already_registered", ...}` for a taken address and `201` for a free one, so
 it *can* be used to discover which addresses are registered — undoing on one endpoint what login
 is careful about on another. Closing it is part of
-[T5.1](../roadmap/improvement-tasks.md), which replaces the immediate answer with a verification
+[F1](../roadmap/improvement-tasks.md#f1-email-module-verification-forgotreset-password-email-change--l), which replaces the immediate answer with a verification
 email either way.
 
 ---

@@ -1,13 +1,12 @@
 package response
 
 import (
-	"errors"
 	"net/http"
 	"reflect"
 
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/logger"
-	"goilerplate/pkg/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -66,9 +65,12 @@ func NewPagination(total int64, page, limit int) *Pagination {
 type BaseResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
-	Meta    *Meta  `json:"meta,omitempty"`
-	Errors  any    `json:"errors,omitempty"`
+	// Code is set on every error: a stable, machine-readable, snake_case identifier. Clients
+	// branch on it (and on the status); Message is prose for humans and may change.
+	Code   string `json:"code,omitempty"`
+	Data   any    `json:"data,omitempty"`
+	Meta   *Meta  `json:"meta,omitempty"`
+	Errors any    `json:"errors,omitempty"`
 }
 
 // ResponseOption allows customizing the response
@@ -140,86 +142,6 @@ func NoContent(ctx *fiber.Ctx, options ...ResponseOption) error {
 	return ctx.Status(http.StatusNoContent).JSON(response)
 }
 
-// BadRequest sends a bad request error response
-func BadRequest(ctx *fiber.Ctx, message string, errors any) error {
-	return ctx.Status(http.StatusBadRequest).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-		Errors:  errors,
-	})
-}
-
-// Unauthorized sends an unauthorized error response
-func Unauthorized(ctx *fiber.Ctx, message string) error {
-	if message == "" {
-		message = constants.MsgUnauthorized
-	}
-	return ctx.Status(http.StatusUnauthorized).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-	})
-}
-
-// Forbidden sends a forbidden error response
-func Forbidden(ctx *fiber.Ctx, message string) error {
-	if message == "" {
-		message = constants.MsgForbidden
-	}
-	return ctx.Status(http.StatusForbidden).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-	})
-}
-
-// NotFound sends a not found error response
-func NotFound(ctx *fiber.Ctx, message string) error {
-	if message == "" {
-		message = constants.MsgResourceNotFound
-	}
-	return ctx.Status(http.StatusNotFound).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-	})
-}
-
-// Conflict sends a conflict error response
-func Conflict(ctx *fiber.Ctx, message string, errors any) error {
-	return ctx.Status(http.StatusConflict).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-		Errors:  errors,
-	})
-}
-
-// UnprocessableEntity sends an unprocessable entity error response
-func UnprocessableEntity(ctx *fiber.Ctx, message string, errors any) error {
-	return ctx.Status(http.StatusUnprocessableEntity).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-		Errors:  errors,
-	})
-}
-
-// InternalServerError sends an internal server error response
-func InternalServerError(ctx *fiber.Ctx, message string) error {
-	if message == "" {
-		message = constants.MsgInternalServerError
-	}
-	return ctx.Status(http.StatusInternalServerError).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-	})
-}
-
-// ValidationError formats validation errors in a standardized way
-func ValidationError(ctx *fiber.Ctx, errors any) error {
-	return ctx.Status(http.StatusBadRequest).JSON(&BaseResponse{
-		Success: false,
-		Message: "Validation failed",
-		Errors:  errors,
-	})
-}
-
 // Paginated sends a list response: data is the plain array, and the page counters go in meta.
 //
 // There used to be three descriptions of this shape and no two agreed — one in the conventions
@@ -250,37 +172,147 @@ func Paginated(ctx *fiber.Ctx, data any, page *Pagination, options ...ResponseOp
 	return ctx.Status(http.StatusOK).JSON(response)
 }
 
-// TooManyRequests sends a 429 rate limit exceeded response
-func TooManyRequests(ctx *fiber.Ctx, message string) error {
+// Generic error codes, used when the error has no more specific one. A domain error brings its
+// own (for example "bar_not_found") through apperr.
+const (
+	CodeBadRequest         = "bad_request"
+	CodeValidationFailed   = "validation_failed"
+	CodeUnauthorized       = "unauthorized"
+	CodeForbidden          = "forbidden"
+	CodeNotFound           = "not_found"
+	CodeMethodNotAllowed   = "method_not_allowed"
+	CodeConflict           = "conflict"
+	CodePayloadTooLarge    = "payload_too_large"
+	CodeUnprocessable      = "unprocessable_entity"
+	CodeRateLimited        = "rate_limited"
+	CodeInternal           = "internal_error"
+	CodeServiceUnavailable = "service_unavailable"
+)
+
+// statusByKind is the one place a client error's category becomes an HTTP status.
+var statusByKind = map[apperr.Kind]int{
+	apperr.Invalid:         http.StatusBadRequest,
+	apperr.Unauthenticated: http.StatusUnauthorized,
+	apperr.Forbidden:       http.StatusForbidden,
+	apperr.NotFound:        http.StatusNotFound,
+	apperr.Conflict:        http.StatusConflict,
+}
+
+// Fail sends an error envelope. The helpers below are shorthands for it with the generic code
+// and default message of their status.
+func Fail(ctx *fiber.Ctx, status int, code, message string, details any) error {
+	return ctx.Status(status).JSON(&BaseResponse{
+		Success: false,
+		Code:    code,
+		Message: message,
+		Errors:  details,
+	})
+}
+
+// FailStatus sends an error envelope for a status that did not come from a domain error — a
+// router 404, a 405, a body over the limit — with that status's generic code and text.
+func FailStatus(ctx *fiber.Ctx, status int, message string) error {
 	if message == "" {
-		message = "Too many requests, please try again later"
+		message = http.StatusText(status)
 	}
-	return ctx.Status(http.StatusTooManyRequests).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-	})
+	return Fail(ctx, status, codeForStatus(status), message, nil)
 }
 
-// CustomError sends a custom error response with specified status code
-func CustomError(ctx *fiber.Ctx, statusCode int, message string, errors any) error {
-	return ctx.Status(statusCode).JSON(&BaseResponse{
-		Success: false,
-		Message: message,
-		Errors:  errors,
-	})
+func codeForStatus(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return CodeBadRequest
+	case http.StatusUnauthorized:
+		return CodeUnauthorized
+	case http.StatusForbidden:
+		return CodeForbidden
+	case http.StatusNotFound:
+		return CodeNotFound
+	case http.StatusMethodNotAllowed:
+		return CodeMethodNotAllowed
+	case http.StatusConflict:
+		return CodeConflict
+	case http.StatusRequestEntityTooLarge:
+		return CodePayloadTooLarge
+	case http.StatusUnprocessableEntity:
+		return CodeUnprocessable
+	case http.StatusTooManyRequests:
+		return CodeRateLimited
+	case http.StatusServiceUnavailable:
+		return CodeServiceUnavailable
+	}
+	if status >= http.StatusInternalServerError {
+		return CodeInternal
+	}
+	return CodeBadRequest
 }
 
-// HandleError handles errors from use case calls with consistent error responses
-// It distinguishes between client errors (validation, business logic) and internal errors
-// This is a reusable helper for all handlers to maintain consistent error handling
+func orDefault(message, fallback string) string {
+	if message == "" {
+		return fallback
+	}
+	return message
+}
+
+// BadRequest sends a 400 for a request that could not be parsed.
+func BadRequest(ctx *fiber.Ctx, message string, details any) error {
+	return Fail(ctx, http.StatusBadRequest, CodeBadRequest, orDefault(message, "Bad request"), details)
+}
+
+// ValidationError sends a 400 listing the fields that failed validation.
+func ValidationError(ctx *fiber.Ctx, details any) error {
+	return Fail(ctx, http.StatusBadRequest, CodeValidationFailed, "Validation failed", details)
+}
+
+// Unauthorized sends a 401.
+func Unauthorized(ctx *fiber.Ctx, message string) error {
+	return Fail(ctx, http.StatusUnauthorized, CodeUnauthorized, orDefault(message, constants.MsgUnauthorized), nil)
+}
+
+// Forbidden sends a 403.
+func Forbidden(ctx *fiber.Ctx, message string) error {
+	return Fail(ctx, http.StatusForbidden, CodeForbidden, orDefault(message, constants.MsgForbidden), nil)
+}
+
+// NotFound sends a 404.
+func NotFound(ctx *fiber.Ctx, message string) error {
+	return Fail(ctx, http.StatusNotFound, CodeNotFound, orDefault(message, constants.MsgResourceNotFound), nil)
+}
+
+// Conflict sends a 409.
+func Conflict(ctx *fiber.Ctx, message string, details any) error {
+	return Fail(ctx, http.StatusConflict, CodeConflict, orDefault(message, "Conflict"), details)
+}
+
+// UnprocessableEntity sends a 422.
+func UnprocessableEntity(ctx *fiber.Ctx, message string, details any) error {
+	return Fail(ctx, http.StatusUnprocessableEntity, CodeUnprocessable, orDefault(message, "Unprocessable entity"), details)
+}
+
+// TooManyRequests sends a 429. The limiter has already set Retry-After.
+func TooManyRequests(ctx *fiber.Ctx, message string) error {
+	return Fail(ctx, http.StatusTooManyRequests, CodeRateLimited,
+		orDefault(message, "Too many requests, please try again later"), nil)
+}
+
+// InternalServerError sends a 500 with a generic message; the detail belongs in the log.
+func InternalServerError(ctx *fiber.Ctx, message string) error {
+	return Fail(ctx, http.StatusInternalServerError, CodeInternal, orDefault(message, constants.MsgInternalServerError), nil)
+}
+
+// HandleError answers with a use case's error. A client error (apperr) keeps its status, code
+// and message; anything else is a server fault — logged with its full chain, and answered with
+// a generic 500 so no internal detail reaches the caller.
 func HandleError(ctx *fiber.Ctx, err error) error {
-	var clientError *utils.ClientError
-	if errors.As(err, &clientError) {
-		return CustomError(ctx, clientError.Code, clientError.Message, nil)
+	if appErr, ok := apperr.As(err); ok {
+		status, known := statusByKind[appErr.Kind]
+		if known {
+			return Fail(ctx, status, appErr.Code, appErr.Message, nil)
+		}
 	}
 
 	logger.Error(ctx.UserContext(), err)
-	return InternalServerError(ctx, constants.MsgInternalServerError)
+	return InternalServerError(ctx, "")
 }
 
 // emptySliceIfNil turns a nil slice into an empty one of the same type, so an empty page

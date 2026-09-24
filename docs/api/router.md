@@ -361,15 +361,22 @@ Every response goes through `pkg/response`. Handlers do not build the envelope t
 }
 ```
 
-On failure `success` is `false`, `data` is omitted, and `errors` carries the detail:
+On failure `success` is `false`, `data` is omitted, `code` is always set, and `errors` carries
+detail when there is some:
 
 ```json
 {
   "success": false,
+  "code": "validation_failed",
   "message": "Validation failed",
-  "errors": [{ "field": "email", "message": "email is required" }]
+  "errors": [{ "field": "email", "tag": "required", "message": "email is required" }]
 }
 ```
+
+`code` is the machine-readable contract — clients branch on it and on the status, never on
+`message`. Domain errors bring their own (`bar_not_found`, `invalid_credentials`); everything else
+gets the generic code of its status (`unauthorized`, `not_found`, `rate_limited`,
+`internal_error`, ...). Over gRPC the same code is `google.rpc.ErrorInfo.reason`.
 
 ### Key casing
 
@@ -397,6 +404,7 @@ Two places keep snake_case deliberately and are not part of this rule:
 | Valid token, no permission | 403 |
 | Resource not found | 404 |
 | Duplicate / state conflict | 409 |
+| Body over `server.body_limit` | 413 |
 | Rate limit exceeded | 429 |
 | Server or logic error | 500 |
 | A dependency is down (`/readyz`) | 503 |

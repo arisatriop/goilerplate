@@ -47,12 +47,13 @@ otherwise.
   must not become part of the API (for example a driver error crossing a layer)
 - Compare errors with `errors.Is` / `errors.As` — never `==` on a possibly wrapped error, and never
   by message text
-- Expected outcomes (not found, conflict, invalid state) are sentinel or typed errors owned by
-  the package that produces them, in `domain/<name>/error.go`
-- **Target:** domain errors carry no HTTP knowledge. Delivery maps them to status codes.
-  **Today** the domain builds `utils.ClientErr(http.StatusXxx, ...)` and `response.HandleError`
-  maps only that. Until that is replaced (roadmap R1), follow the existing `ClientErr` pattern.
-  Don't introduce a third style
+- Expected outcomes a client caused are declared once per domain in `domain/<name>/error.go`
+  with `apperr.New(kind, code, message)`: the **kind** (`Invalid`, `Unauthenticated`, `Forbidden`,
+  `NotFound`, `Conflict`) decides the transport status, the **code** is a stable snake_case
+  identifier prefixed with the domain (`bar_not_found`), and the message is safe to show.
+  Compare with `errors.Is` against the sentinel; attach a cause with `WithCause`
+- The domain carries no transport knowledge: no `net/http`, no status codes. `pkg/response` and
+  `pkg/grpcresponse` each map kinds in a single table
 - Don't discard an error with `_` unless a comment says why it is safe
 - Internal error text never reaches a client. `response.HandleError` logs it and sends a generic
   500

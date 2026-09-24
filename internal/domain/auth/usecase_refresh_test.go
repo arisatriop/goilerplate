@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"net/http"
 	"testing"
 	"time"
 
@@ -282,8 +281,6 @@ func TestChangePassword_RejectsWeakNewPassword(t *testing.T) {
 
 	err = uc.ChangePassword(context.Background(), "u1", "s1", "the-current-password", "short")
 
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
-	assert.Equal(t, http.StatusBadRequest, clientErr.Code)
+	assert.ErrorIs(t, err, password.ErrTooShort)
 	assert.Zero(t, repo.revokeCalls)
 }

@@ -4,16 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 
 	"goilerplate/pkg/logger"
-	"goilerplate/pkg/utils"
 )
-
-// MsgSessionNotFound is returned when a session to revoke does not exist, is not the caller's,
-// or is already revoked. The three are deliberately indistinguishable: telling "not yours" apart
-// from "does not exist" would confirm another user's session IDs.
-const MsgSessionNotFound = "Session not found"
 
 // ListSessions returns the user's active sessions, most recently used first.
 func (uc *authUseCase) ListSessions(ctx context.Context, userID string) ([]UserSession, error) {
@@ -30,7 +23,7 @@ func (uc *authUseCase) ListSessions(ctx context.Context, userID string) ([]UserS
 func (uc *authUseCase) RevokeSession(ctx context.Context, userID, sessionID string) error {
 	if err := uc.authRepo.RevokeSession(ctx, userID, sessionID, RevokedReasonLogout); err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return utils.ClientErr(http.StatusNotFound, MsgSessionNotFound)
+			return ErrSessionNotFound
 		}
 		return fmt.Errorf("revoking session: %w", err)
 	}

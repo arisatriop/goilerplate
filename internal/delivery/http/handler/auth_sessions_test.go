@@ -12,7 +12,6 @@ import (
 	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/pkg/constants"
-	"goilerplate/pkg/utils"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -132,7 +131,7 @@ func TestAuthRevokeSession(t *testing.T) {
 	}{
 		{"revoked", otherSessionID, nil, http.StatusOK, true},
 		{"not found, not yours, or already revoked", otherSessionID,
-			utils.ClientErr(http.StatusNotFound, auth.MsgSessionNotFound), http.StatusNotFound, true},
+			auth.ErrSessionNotFound, http.StatusNotFound, true},
 		{"malformed id never reaches the database", "not-a-uuid", nil, http.StatusBadRequest, false},
 		{"database failure", otherSessionID, context.DeadlineExceeded, http.StatusInternalServerError, true},
 	}

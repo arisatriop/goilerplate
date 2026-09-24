@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -66,8 +67,8 @@ func TestDecryptWithWrongKey(t *testing.T) {
 
 	// Try to decrypt with wrong key
 	_, err = DecryptString(encrypted, wrongKey)
-	if err == nil {
-		t.Fatal("DecryptString should fail with wrong key")
+	if !errors.Is(err, ErrDecrypt) {
+		t.Fatalf("DecryptString with the wrong key: got %v, want ErrDecrypt", err)
 	}
 }
 

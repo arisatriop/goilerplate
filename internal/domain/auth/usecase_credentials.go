@@ -6,10 +6,8 @@ package auth
 import (
 	"context"
 	"fmt"
-	"goilerplate/pkg/constants"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/utils"
-	"net/http"
 )
 
 // Register creates a new user account.
@@ -22,7 +20,7 @@ func (uc *authUseCase) Register(ctx context.Context, entity *User, plaintextPass
 		return fmt.Errorf("failed to check if user exists: %w", err)
 	}
 	if existingUser != nil {
-		return utils.ClientErr(http.StatusBadRequest, "User is already registered")
+		return ErrEmailAlreadyRegistered
 	}
 
 	hashedPassword, err := utils.HashPassword(plaintextPassword)
@@ -52,11 +50,11 @@ func (uc *authUseCase) ChangePassword(ctx context.Context, userID, sessionID, cu
 		return fmt.Errorf("getting user: %w", err)
 	}
 	if user == nil || !user.IsActive {
-		return utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return ErrUnauthorized
 	}
 
 	if err := utils.CheckPassword(currentPassword, user.PasswordHash); err != nil {
-		return utils.ClientErr(http.StatusUnauthorized, constants.MsgInvalidCredential)
+		return ErrInvalidCredentials
 	}
 
 	if err := uc.passwordPolicy.Validate(newPassword); err != nil {

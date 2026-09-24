@@ -10,6 +10,7 @@ import (
 
 	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/domain/bar"
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/response"
 
 	"github.com/gofiber/fiber/v2"
@@ -264,8 +265,7 @@ func TestBarCreate_PropagatesTheDomainStatusCode(t *testing.T) {
 	}{
 		{"duplicate code", bar.ErrCodeAlreadyExists, fiber.StatusConflict},
 		{"not found", bar.ErrNotFound, fiber.StatusNotFound},
-		{"cannot be deleted", bar.ErrCannotBeDeleted, fiber.StatusForbidden},
-		{"already deleted", bar.ErrAlreadyDeleted, fiber.StatusGone},
+		{"invalid code", bar.ErrCodeFormat, fiber.StatusBadRequest},
 		{"anything else", errors.New("connection reset"), fiber.StatusInternalServerError},
 	}
 
@@ -280,6 +280,9 @@ func TestBarCreate_PropagatesTheDomainStatusCode(t *testing.T) {
 			// Assert
 			assert.Equal(t, tt.want, status)
 			assert.Contains(t, body, `"success":false`)
+			if appErr, ok := apperr.As(tt.err); ok {
+				assert.Contains(t, body, `"code":"`+appErr.Code+`"`, "the domain's code reaches the client")
+			}
 		})
 	}
 }

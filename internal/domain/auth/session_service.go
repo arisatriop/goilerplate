@@ -3,11 +3,8 @@ package auth
 import (
 	"context"
 	"fmt"
-	"net/http"
 
-	"goilerplate/pkg/constants"
 	"goilerplate/pkg/logger"
-	"goilerplate/pkg/utils"
 )
 
 // SessionService checks sessions through the SessionStore, falling back to the repository.
@@ -30,7 +27,7 @@ func NewSessionService(repo Repository, store SessionStore, checkEveryRequest bo
 // Otherwise it returns a 401 client error.
 func (s *SessionService) GetActive(ctx context.Context, sessionID string) (*UserSession, error) {
 	if sessionID == "" {
-		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, ErrUnauthorized
 	}
 
 	session, found, err := s.store.Get(ctx, sessionID)
@@ -45,7 +42,7 @@ func (s *SessionService) GetActive(ctx context.Context, sessionID string) (*User
 			return nil, fmt.Errorf("getting session: %w", err)
 		}
 		if session == nil {
-			return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+			return nil, ErrUnauthorized
 		}
 		if err := s.store.Set(ctx, session); err != nil {
 			logger.Error(ctx, fmt.Errorf("caching session: %w", err))
@@ -53,7 +50,7 @@ func (s *SessionService) GetActive(ctx context.Context, sessionID string) (*User
 	}
 
 	if !session.IsValidSession() {
-		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, ErrUnauthorized
 	}
 
 	return session, nil

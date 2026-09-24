@@ -9,10 +9,8 @@ package password
 
 import (
 	"fmt"
-	"net/http"
+	"goilerplate/pkg/apperr"
 	"unicode/utf8"
-
-	"goilerplate/pkg/utils"
 )
 
 const (
@@ -54,24 +52,28 @@ func NewPolicy(common CommonChecker) Policy {
 	return Policy{common: common}
 }
 
-// Validate reports why a password is unacceptable, as a 400 client error. Choosing a password
-// is request input, so a rejection is a validation error rather than an authentication one.
+// Rejections Validate can return, all apperr.Invalid: choosing a password is request input, so a
+// rejection is a validation error rather than an authentication one.
+var (
+	ErrTooShort  = apperr.New(apperr.Invalid, "password_too_short", fmt.Sprintf("Password must be at least %d characters", MinLength))
+	ErrTooLong   = apperr.New(apperr.Invalid, "password_too_long", fmt.Sprintf("Password must be at most %d bytes", MaxBytes))
+	ErrTooCommon = apperr.New(apperr.Invalid, "password_too_common", "Password is too common, please choose a less predictable one")
+)
+
+// Validate reports why a password is unacceptable.
 func (p Policy) Validate(password string) error {
 	if count := utf8.RuneCountInString(password); count < MinLength {
-		return utils.ClientErr(http.StatusBadRequest,
-			fmt.Sprintf("Password must be at least %d characters", MinLength))
+		return ErrTooShort
 	}
 
 	// Reported before hashing, because bcrypt would otherwise truncate silently and the user
 	// would never learn that most of what they typed was ignored.
 	if len(password) > MaxBytes {
-		return utils.ClientErr(http.StatusBadRequest,
-			fmt.Sprintf("Password must be at most %d bytes", MaxBytes))
+		return ErrTooLong
 	}
 
 	if p.common.IsCommon(password) {
-		return utils.ClientErr(http.StatusBadRequest,
-			"Password is too common, please choose a less predictable one")
+		return ErrTooCommon
 	}
 
 	return nil

@@ -2,11 +2,14 @@ package response_test
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http/httptest"
 	"regexp"
 	"testing"
 
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/response"
 
 	"github.com/gofiber/fiber/v2"
@@ -88,7 +91,8 @@ func TestEnvelope_ErrorHelpers(t *testing.T) {
 		{"TooManyRequests", func(c *fiber.Ctx) error { return response.TooManyRequests(c, "") }, fiber.StatusTooManyRequests},
 		{"InternalServerError", func(c *fiber.Ctx) error { return response.InternalServerError(c, "") }, fiber.StatusInternalServerError},
 		{"ValidationError", func(c *fiber.Ctx) error { return response.ValidationError(c, nil) }, fiber.StatusBadRequest},
-		{"CustomError", func(c *fiber.Ctx) error { return response.CustomError(c, fiber.StatusTeapot, "nope", nil) }, fiber.StatusTeapot},
+		{"Fail", func(c *fiber.Ctx) error { return response.Fail(c, fiber.StatusTeapot, "teapot", "nope", nil) }, fiber.StatusTeapot},
+		{"FailStatus", func(c *fiber.Ctx) error { return response.FailStatus(c, fiber.StatusRequestEntityTooLarge, "") }, fiber.StatusRequestEntityTooLarge},
 	}
 
 	for _, tt := range tests {
@@ -101,11 +105,13 @@ func TestEnvelope_ErrorHelpers(t *testing.T) {
 
 			var payload struct {
 				Success bool   `json:"success"`
+				Code    string `json:"code"`
 				Message string `json:"message"`
 			}
 			require.NoError(t, json.Unmarshal([]byte(body), &payload))
 			assert.False(t, payload.Success, "an error envelope must never report success")
 			assert.NotEmpty(t, payload.Message, "every error carries a message, default or given")
+			assert.Regexp(t, `^[a-z]+(_[a-z]+)*$`, payload.Code, "every error carries a snake_case code")
 		})
 	}
 }
@@ -338,4 +344,48 @@ func TestPaginated_MetaOptionKeepsThePageCounters(t *testing.T) {
 	assert.Equal(t, "req-1", payload.Meta.RequestID)
 	assert.Equal(t, 1, payload.Meta.Page)
 	assert.Equal(t, int64(1), payload.Meta.Total)
+}
+
+var errWidgetGone = apperr.New(apperr.NotFound, "widget_not_found", "Widget not found")
+
+// A domain error reaches the client with its own status, code and message. The cause stays in
+// the log; the client never sees it.
+func TestHandleError_ClientErrorKeepsItsCode(t *testing.T) {
+	tests := []struct {
+		kind   apperr.Kind
+		status int
+	}{
+		{apperr.Invalid, fiber.StatusBadRequest},
+		{apperr.Unauthenticated, fiber.StatusUnauthorized},
+		{apperr.Forbidden, fiber.StatusForbidden},
+		{apperr.NotFound, fiber.StatusNotFound},
+		{apperr.Conflict, fiber.StatusConflict},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.status), func(t *testing.T) {
+			err := fmt.Errorf("loading widget: %w",
+				apperr.New(tt.kind, "widget_problem", "Widget problem").WithCause(errors.New("secret driver detail")))
+
+			status, body := send(t, func(c *fiber.Ctx) error { return response.HandleError(c, err) })
+
+			assert.Equal(t, tt.status, status)
+			assert.JSONEq(t, `{"success":false,"code":"widget_problem","message":"Widget problem"}`, body)
+		})
+	}
+}
+
+func TestHandleError_AnythingElseIsAGeneric500(t *testing.T) {
+	status, body := send(t, func(c *fiber.Ctx) error {
+		return response.HandleError(c, fmt.Errorf("querying: %w", errors.New("pq: password authentication failed for user admin")))
+	})
+
+	assert.Equal(t, fiber.StatusInternalServerError, status)
+	assert.JSONEq(t, `{"success":false,"code":"internal_error","message":"Whoops! Something went wrong"}`, body)
+}
+
+func TestHandleError_SentinelMatchesAfterWrapping(t *testing.T) {
+	_, body := send(t, func(c *fiber.Ctx) error { return response.HandleError(c, fmt.Errorf("x: %w", errWidgetGone)) })
+
+	assert.Contains(t, body, `"code":"widget_not_found"`)
 }

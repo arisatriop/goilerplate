@@ -13,7 +13,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -34,6 +33,7 @@ import (
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/migration"
 	"goilerplate/pkg/password"
+	"goilerplate/pkg/response"
 	"goilerplate/pkg/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -329,19 +329,14 @@ func asTokens(result *auth.LoginResult) tokens {
 	}
 }
 
-// statusFor answers with the client error's own status and message.
+// statusFor answers exactly as the real handlers do, through response.HandleError.
 //
-// The message is passed through rather than flattened to a status code because the
-// anti-enumeration tests compare whole responses: if the harness invented the body, they would
-// be comparing two strings it had just made identical and would pass however the real code
-// behaved.
+// The whole body matters because the anti-enumeration tests compare responses: if the harness
+// invented the body, they would be comparing two strings it had just made identical and would
+// pass however the real code behaved. Using the production mapping means they also cover the
+// status and the machine-readable code a client sees.
 func statusFor(ctx *fiber.Ctx, err error) error {
-	var clientErr *utils.ClientError
-	if errors.As(err, &clientErr) {
-		return ctx.Status(clientErr.Code).JSON(fiber.Map{"message": clientErr.Error()})
-	}
-
-	return ctx.SendStatus(http.StatusInternalServerError)
+	return response.HandleError(ctx, err)
 }
 
 func testDevice() *auth.DeviceInfo {

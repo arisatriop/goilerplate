@@ -2,8 +2,8 @@ package filesystem
 
 import (
 	"fmt"
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/utils"
-	"net/http"
 	"path/filepath"
 	"strings"
 
@@ -43,7 +43,7 @@ func detectMimeType(filename string) string {
 func validateUpload(fileSize int64, mimeType string, opts UploadOptions) error {
 	// Validate size
 	if opts.MaxSize > 0 && fileSize > opts.MaxSize {
-		return utils.ClientErr(http.StatusBadRequest,
+		return apperr.New(apperr.Invalid, "file_too_large",
 			fmt.Sprintf("File exceeds the maximum size of %s", humanSize(opts.MaxSize)))
 	}
 
@@ -57,7 +57,7 @@ func validateUpload(fileSize int64, mimeType string, opts UploadOptions) error {
 			}
 		}
 		if !allowed {
-			return utils.ClientErr(http.StatusBadRequest, fmt.Sprintf("mime type %s is not allowed", mimeType))
+			return apperr.New(apperr.Invalid, "file_type_not_allowed", fmt.Sprintf("File type %s is not allowed", mimeType))
 		}
 	}
 

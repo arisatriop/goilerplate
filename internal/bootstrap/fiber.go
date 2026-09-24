@@ -6,6 +6,7 @@ import (
 
 	"goilerplate/config"
 	"goilerplate/internal/delivery/http/middleware"
+	"goilerplate/pkg/response"
 
 	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
@@ -75,17 +76,18 @@ func NewFiber(cfg *config.Config) *fiber.App {
 
 func NewErrorHandler() fiber.ErrorHandler {
 	return func(ctx *fiber.Ctx, err error) error {
-		// errors.As rather than a type assertion: a handler that wraps its fiber.Error would
-		// otherwise lose the status code and have every failure reported as a 500.
-		code := fiber.StatusInternalServerError
+		// A fiber.Error is Fiber's own answer — no route (404), wrong method (405), a body over the
+		// limit (413) — and its message is safe to show. errors.As rather than a type assertion,
+		// so one that was wrapped keeps its status.
 		var fiberErr *fiber.Error
 		if errors.As(err, &fiberErr) {
-			code = fiberErr.Code
+			return response.FailStatus(ctx, fiberErr.Code, fiberErr.Message)
 		}
 
-		return ctx.Status(code).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+		// Anything else is an error a handler returned instead of answering. It used to be sent
+		// to the client verbatim as a 500 — driver errors and all. Now a client error keeps its
+		// status and code, and everything else is logged and answered generically.
+		return response.HandleError(ctx, err)
 	}
 }
 

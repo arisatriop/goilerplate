@@ -1,10 +1,8 @@
 package filesystem
 
 import (
-	"net/http"
+	"goilerplate/pkg/apperr"
 	"testing"
-
-	"goilerplate/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,10 +38,11 @@ func TestValidateUpload_Size(t *testing.T) {
 	err := validateUpload(200*1024+1, "image/png", opts)
 
 	// Assert
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
-	assert.Equal(t, http.StatusBadRequest, clientErr.Code)
-	assert.Equal(t, "File exceeds the maximum size of 200KB", clientErr.Error())
+	appErr, ok := apperr.As(err)
+	require.True(t, ok)
+	assert.Equal(t, apperr.Invalid, appErr.Kind)
+	assert.Equal(t, "file_too_large", appErr.Code)
+	assert.Equal(t, "File exceeds the maximum size of 200KB", appErr.Error())
 
 	assert.NoError(t, validateUpload(200*1024, "image/png", opts), "exactly the limit is allowed")
 }
@@ -60,9 +59,9 @@ func TestValidateUpload_MimeType(t *testing.T) {
 	assert.NoError(t, validateUpload(10, "image/jpeg", opts))
 
 	err := validateUpload(10, "application/x-msdownload", opts)
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
-	assert.Equal(t, http.StatusBadRequest, clientErr.Code)
+	appErr, ok := apperr.As(err)
+	require.True(t, ok)
+	assert.Equal(t, "file_type_not_allowed", appErr.Code)
 
 	// An empty allowlist means every type is accepted, which is what an unconfigured caller
 	// gets — worth pinning so it is a decision rather than a surprise.
