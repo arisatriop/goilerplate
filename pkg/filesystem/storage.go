@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"context"
 	"io"
 	"mime/multipart"
 )
@@ -15,23 +16,26 @@ type Storage interface {
 
 // Uploader handles file upload operations
 type Uploader interface {
-	Upload(file *multipart.FileHeader, opts UploadOptions) (*UploadResult, error)
-	UploadFromReader(reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error)
+	Upload(ctx context.Context, file *multipart.FileHeader, opts UploadOptions) (*UploadResult, error)
+	UploadFromReader(ctx context.Context, reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error)
 }
 
 // Deleter handles file deletion
 type Deleter interface {
-	Delete(path string) error
+	Delete(ctx context.Context, path string) error
 }
 
 // Checker checks file existence
 type Checker interface {
-	Exists(path string) (bool, error)
+	Exists(ctx context.Context, path string) (bool, error)
 }
 
 // URLProvider provides file URLs
 type URLProvider interface {
-	URL(path string) (string, error)
+	// URL returns where a client can fetch the file. Depending on the driver it is permanent
+	// (local base URL, CDN) or time-limited (an S3 presigned URL), so it is handed out per request
+	// rather than stored.
+	URL(ctx context.Context, path string) (string, error)
 	GetDriver() Driver
 }
 
@@ -50,7 +54,11 @@ type UploadOptions struct {
 	Filename         string
 	MaxSize          int64
 	AllowedMimeTypes []string
-	Public           bool
+	// Public asks for the file to be readable without credentials. local: served from base_url.
+	// drive: shared with "anyone with the link". s3: ignored — objects stay private, and are
+	// reached through cdn_base_url or a presigned URL, because public ACLs are disabled on new
+	// buckets and make every object's exposure a per-upload decision.
+	Public bool
 }
 
 // UploadResult contains upload result information

@@ -35,14 +35,16 @@ func (h *Upload) UploadFile(ctx *fiber.Ctx) error {
 
 	// Parse upload options from form
 	// Build upload options - server controls everything
+	// The server decides where the file goes and how large it may be; nothing here is taken
+	// from the request. MaxSize was missing on this path, so a single upload was capped only
+	// by the body limit while a multi-file upload was capped by filesystem.max_file_size.
 	opts := filesystem.UploadOptions{
-		Path:     "", // Empty = root folder
-		Filename: "", // Empty = auto-generate
-		Public:   true,
+		Public:  true,
+		MaxSize: h.maxFileSize,
 	}
 
 	// Upload file
-	result, err := h.filesystemMgr.Upload(file, opts)
+	result, err := h.filesystemMgr.Upload(ctx.UserContext(), file, opts)
 	if err != nil {
 		// Log the error for debugging
 		ctx.Locals("upload_error", err.Error())
@@ -81,16 +83,14 @@ func (h *Upload) UploadMultipleFiles(ctx *fiber.Ctx) error {
 	// Parse upload options from form
 	// Build upload options - server controls everything
 	opts := filesystem.UploadOptions{
-		Path:     "trash", // Empty = root folder
-		Filename: "",      // Empty = auto-generate
-		Public:   true,
-		MaxSize:  h.maxFileSize,
+		Public:  true,
+		MaxSize: h.maxFileSize,
 	}
 
 	// Upload all files
 	var results []*dtoresponse.UploadFileResponse
 	for _, file := range files {
-		result, err := h.filesystemMgr.Upload(file, opts)
+		result, err := h.filesystemMgr.Upload(ctx.UserContext(), file, opts)
 		if err != nil {
 			return response.HandleError(ctx, err)
 		}
@@ -120,7 +120,7 @@ func (h *Upload) DeleteFile(ctx *fiber.Ctx) error {
 		return response.BadRequest(ctx, "Path parameter is required", nil)
 	}
 
-	if err := h.filesystemMgr.Delete(path); err != nil {
+	if err := h.filesystemMgr.Delete(ctx.UserContext(), path); err != nil {
 		return response.HandleError(ctx, err)
 	}
 
@@ -134,7 +134,7 @@ func (h *Upload) GetFileURL(ctx *fiber.Ctx) error {
 		return response.BadRequest(ctx, "Path parameter is required", nil)
 	}
 
-	url, err := h.filesystemMgr.URL(path)
+	url, err := h.filesystemMgr.URL(ctx.UserContext(), path)
 	if err != nil {
 		return response.HandleError(ctx, err)
 	}
@@ -152,7 +152,7 @@ func (h *Upload) CheckFileExists(ctx *fiber.Ctx) error {
 		return response.BadRequest(ctx, "Path parameter is required", nil)
 	}
 
-	exists, err := h.filesystemMgr.Exists(path)
+	exists, err := h.filesystemMgr.Exists(ctx.UserContext(), path)
 	if err != nil {
 		return response.HandleError(ctx, err)
 	}

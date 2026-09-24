@@ -83,6 +83,26 @@ func TestConfig_Validate_Rules(t *testing.T) {
 			c.Server.CORS = CORS{AllowOrigin: "https://app.example.com", AllowCredentials: true}
 		}, ""},
 		{"same_site none is irrelevant in body mode", func(c *Config) { c.Auth.RefreshCookie.SameSite = "none" }, ""},
+		{"s3 half a key pair", func(c *Config) {
+			c.FileSystem.Driver = "s3"
+			c.FileSystem.S3 = filesystem.S3Config{Bucket: "b", Region: "r", AccessKeyID: "AKIA123"}
+		}, "must be set together"},
+		{"s3 default credential chain", func(c *Config) {
+			c.FileSystem.Driver = "s3"
+			c.FileSystem.S3 = filesystem.S3Config{Bucket: "b", Region: "r"}
+		}, ""},
+		{"s3 endpoint without scheme", func(c *Config) {
+			c.FileSystem.Driver = "s3"
+			c.FileSystem.S3 = filesystem.S3Config{Bucket: "b", Region: "r", Endpoint: "minio:9000"}
+		}, `filesystem.s3.endpoint "minio:9000" must be an absolute http(s) URL`},
+		{"s3 cdn without scheme", func(c *Config) {
+			c.FileSystem.Driver = "s3"
+			c.FileSystem.S3 = filesystem.S3Config{Bucket: "b", Region: "r", CDNBaseURL: "cdn.example.com"}
+		}, "cdn_base_url"},
+		{"s3 presign past the SigV4 limit", func(c *Config) {
+			c.FileSystem.Driver = "s3"
+			c.FileSystem.S3 = filesystem.S3Config{Bucket: "b", Region: "r", PresignExpiry: 8 * 24 * time.Hour}
+		}, "must not exceed 168h0m0s"},
 		{"grpc enabled without port", func(c *Config) { c.GRPC.Enabled = true }, "grpc.port must be between 1 and 65535, got 0"},
 		{"grpc port equals server port", func(c *Config) { c.GRPC = GRPC{Enabled: true, Port: 3000} }, "grpc.port must differ from server.port"},
 		{"grpc disabled ignores port", func(c *Config) { c.GRPC.Port = 0 }, ""},

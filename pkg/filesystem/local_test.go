@@ -67,7 +67,7 @@ func TestLocalStorage_UploadRefusesToWriteOutsideTheRoot(t *testing.T) {
 	root := t.TempDir()
 	storage := NewLocalStorage(root, "")
 
-	_, err := storage.UploadFromReader(strings.NewReader("payload"), "../escaped.txt", UploadOptions{})
+	_, err := storage.UploadFromReader(t.Context(), strings.NewReader("payload"), "../escaped.txt", UploadOptions{})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "escapes the storage root")
@@ -81,7 +81,7 @@ func TestLocalStorage_DeleteRefusesPathsOutsideTheRoot(t *testing.T) {
 	require.NoError(t, os.WriteFile(victim, []byte("keep me"), 0600))
 	t.Cleanup(func() { _ = os.Remove(victim) })
 
-	err := NewLocalStorage(root, "").Delete("../victim.txt")
+	err := NewLocalStorage(root, "").Delete(t.Context(), "../victim.txt")
 
 	require.Error(t, err)
 	assert.FileExists(t, victim, "the file outside the root must still be there")
