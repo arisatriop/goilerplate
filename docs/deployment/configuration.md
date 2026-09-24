@@ -33,6 +33,12 @@ That is the whole Minimal profile. `config.example.yaml` already has development
 so **no `.env` file is needed** for local work. The `owner` role that registration assigns is
 created by a migration, so `make migrate-up` is enough — there is no seeding step.
 
+`migrate` validates the **whole** config, the same as the server, but connects only to PostgreSQL.
+A setting it never uses (CORS, say) can therefore stop it. That is deliberate: migrations run
+before the new server starts, so a config the server would refuse stops the deploy before the
+schema changes, instead of leaving a migrated database behind a server that cannot boot. Redis
+being down, on the other hand, never blocks a migration.
+
 What you get: HTTP API, JWT auth with server-side sessions, RBAC, local file storage, per-instance
 rate limiting and idempotency. `auth.session_cache` resolves to `none`, so every check reads the
 database.
