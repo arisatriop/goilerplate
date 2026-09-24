@@ -23,6 +23,7 @@ import (
 	"goilerplate/internal/delivery/http/router"
 	"goilerplate/internal/wire"
 	"net"
+	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -42,7 +43,11 @@ func main() {
 	// All times are UTC regardless of the host time zone
 	time.Local = time.UTC
 
-	app := bootstrap.Init()
+	app, err := bootstrap.Init()
+	if err != nil {
+		bootstrap.LogStartupFailure(err)
+		os.Exit(1)
+	}
 
 	// First line out of the process. When a deploy misbehaves, the question is always which
 	// commit is actually running, and a running container is the only thing that can answer it.
@@ -55,7 +60,11 @@ func main() {
 	)
 
 	// 2. Wire all dependencies in dedicated wire package
-	wired := wire.Init(app)
+	wired, err := wire.Init(app)
+	if err != nil {
+		bootstrap.LogStartupFailure(err)
+		os.Exit(1)
+	}
 
 	// 3. Setup HTTP routes
 	router.NewRouteRegistry(app, wired).Register()

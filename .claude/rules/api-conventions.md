@@ -53,7 +53,8 @@ Gaps between these rules and today's code are tracked in
   `validator.Struct`. A parse failure or a validation failure is a 400 before anything reaches
   a use case. Validate path IDs as UUIDs so a malformed one never reaches PostgreSQL
 - Validation errors never echo the submitted value. A rejected password must not come back in
-  the response body, or in a logged one (gap R2)
+  the response body, or in a logged one. Build the validator with `response.NewValidator()` so
+  field names match the JSON keys
 - **The caller comes from the token, never from the request.** Read it with
   `ctx.Locals(string(constants.ContextKeyUserID))` and `ContextKeySessionID`, which the auth
   middleware sets. A user ID in a body or path is an attacker-chosen value

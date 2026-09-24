@@ -37,7 +37,11 @@ func main() {
 	}
 
 	// Every other action needs the database, so the config is loaded and validated first.
-	app := bootstrap.Init()
+	app, err := bootstrap.Init()
+	if err != nil {
+		bootstrap.LogStartupFailure(err)
+		os.Exit(1)
+	}
 	log := app.Log
 
 	if app.DB == nil || app.DB.GDB == nil {

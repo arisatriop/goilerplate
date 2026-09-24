@@ -11,7 +11,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Load() *config.Config {
+// Load reads config/config.yaml (if present) and the environment into a Config. A missing file
+// is not an error, so the app can run from environment variables alone.
+func Load() (*config.Config, error) {
 
 	v := viper.New()
 	v.SetConfigName("config")
@@ -29,7 +31,7 @@ func Load() *config.Config {
 		// This allows the app to run using ONLY environment variables (Pure Env).
 		var notFound viper.ConfigFileNotFoundError
 		if !errors.As(err, &notFound) {
-			panic(fmt.Errorf("fatal error config file: %w", err))
+			return nil, fmt.Errorf("reading config file: %w", err)
 		}
 	}
 
@@ -40,10 +42,10 @@ func Load() *config.Config {
 
 	var cfg config.Config
 	if err := v.Unmarshal(&cfg); err != nil {
-		panic(fmt.Errorf("unable to decode into struct, %w", err))
+		return nil, fmt.Errorf("decoding config: %w", err)
 	}
 
-	return &cfg
+	return &cfg, nil
 }
 
 // bindEnvs recursively binds environment variables for nested structs using reflection.

@@ -29,7 +29,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
-| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R5, R6, R7 done · rest ~4–5 days |
+| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R5–R7, R9 done · rest ~4 days |
 
 **P0, P1, P2 and P4 are complete**, and F2 and F4 with them. What remains is the rest of P3 — feature
 work rather than correction, and each item needs a scope decision before it starts.
@@ -962,11 +962,20 @@ is neither cancelled when its request is nor traced under it.
 
 - [ ] Thread `ctx` through the `Storage` interface methods
 
-### R9 Return startup errors instead of panicking · S
+### R9 Return startup errors instead of panicking · S — ✅ done
 **Evidence:** `internal/wire/infrastructure.go:43,50,92`, `internal/bootstrap/viper.go:32,43`
 
-- [ ] Wiring returns `error` up to `main`, which logs it once with the structured logger and exits
-      non-zero — instead of a panic trace on stderr that bypasses the log pipeline H5 unified
+- [x] `bootstrap.Init`, `Load`, `NewRedis`, `NewGorm`, `wire.Init`, `WireInfrastructure` and the
+      gRPC server wiring return `error` up to `main`, which logs it once through
+      `bootstrap.LogStartupFailure` and exits 1 — instead of a panic trace on stderr that bypassed
+      the log pipeline H5 unified
+- [x] **Found on the way:** it was not only the five panics. `bootstrap/redis.go`,
+      `database/gorm.go` and the gRPC wiring called `os.Exit` from inside bootstrap, which skips
+      every deferred cleanup. None remain under `internal/`. A Redis client whose ping fails is
+      now closed, and a database failure closes the Redis connection opened before it
+- [x] A configuration error logs each problem as its own `problems` entry rather than one
+      newline-joined string. Verified by running the built binary against an empty environment
+      and an unreachable Redis: one JSON `startup failed` line, exit code 1
 
 ### R10 Validate the incoming `X-Request-ID` · S
 **Evidence:** `internal/delivery/http/middleware/request.go:70`

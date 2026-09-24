@@ -5,7 +5,6 @@ import (
 	"goilerplate/config"
 	"goilerplate/pkg/utils"
 	"log/slog"
-	"os"
 	"time"
 
 	gormPostgres "gorm.io/driver/postgres"
@@ -14,7 +13,9 @@ import (
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
-func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
+// NewGorm opens the PostgreSQL pool. gorm.Open pings the server, so an unreachable database
+// fails here, at startup, rather than on the first request.
+func NewGorm(cfg *config.Config, log *slog.Logger) (*gorm.DB, error) {
 	dialector := gormPostgres.Open(PostgresDSN(cfg.DB))
 
 	gdb, err := gorm.Open(dialector, &gorm.Config{
@@ -31,20 +32,19 @@ func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
 		}),
 	})
 	if err != nil {
-		log.Error(fmt.Sprintf("failed to connect to gorm: %v", err))
-		os.Exit(1)
+		return nil, fmt.Errorf("connecting to postgres: %w", err)
 	}
 
 	if cfg.OTel.Enabled {
 		if err := gdb.Use(tracing.NewPlugin(tracing.WithoutMetrics())); err != nil {
-			log.Error(fmt.Sprintf("failed to register GORM OTel plugin: %v", err))
+			// Tracing is optional: without the plugin queries still run, they are just not traced.
+			log.Error("registering GORM OTel plugin", "error", err)
 		}
 	}
 
 	connection, err := gdb.DB()
 	if err != nil {
-		log.Error(fmt.Sprintf("failed to get sql.DB from gorm: %v", err))
-		os.Exit(1)
+		return nil, fmt.Errorf("getting sql.DB from gorm: %w", err)
 	}
 
 	connection.SetMaxOpenConns(cfg.DB.MaxOpenConnections)
@@ -55,5 +55,5 @@ func NewGorm(cfg *config.Config, log *slog.Logger) *gorm.DB {
 	connection.SetConnMaxLifetime(time.Second * time.Duration(cfg.DB.ConnectionMaxLifetime))
 	connection.SetConnMaxIdleTime(time.Second * time.Duration(cfg.DB.ConnectionMaxIdleTime))
 
-	return gdb
+	return gdb, nil
 }
