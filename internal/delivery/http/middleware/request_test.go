@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -207,4 +208,50 @@ func TestRequestLogger_ContextIPIgnoresSpoofedHeader(t *testing.T) {
 
 	assert.NotEqual(t, "203.0.113.7", spoofed)
 	assert.Equal(t, plain, spoofed)
+}
+
+// X-Request-ID is chosen by the caller and becomes the request_id of every log line of the
+// request, and the response header. A well-formed one is kept, so a request can be traced across services; anything
+// else is replaced before it reaches either.
+func TestRequestLogger_RequestIDFromTheCaller(t *testing.T) {
+	tests := []struct {
+		name     string
+		incoming string
+		wantKept bool
+	}{
+		{"well-formed id is kept", "trace-0190a6f0.abc_1", true},
+		{"forged log line is replaced", "x\" level=ERROR msg=\"forged", false},
+		{"oversized id is replaced", strings.Repeat("a", 129), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			logs := captureLogs(t)
+			app := newLoggedApp()
+			req := httptest.NewRequest(fiber.MethodGet, "/partner/v1/orders", nil)
+			req.Header.Set(constants.HeaderRequestID, tt.incoming)
+
+			// Act
+			resp, err := app.Test(req)
+			require.NoError(t, err)
+			_ = resp.Body.Close()
+
+			// Assert
+			echoed := resp.Header.Get(constants.HeaderRequestID)
+			require.NotEmpty(t, echoed)
+			if tt.wantKept {
+				assert.Equal(t, tt.incoming, echoed)
+				return
+			}
+			assert.NotEqual(t, tt.incoming, echoed)
+
+			// The raw header still appears under request_headers — that is the record of what the
+			// client sent, JSON-escaped and bounded by the server's header buffer. What must be
+			// safe is the correlation field every line of the request is keyed by.
+			var entry map[string]any
+			require.NoError(t, json.Unmarshal(logs.Bytes(), &entry))
+			assert.Equal(t, echoed, entry["request_id"])
+		})
+	}
 }

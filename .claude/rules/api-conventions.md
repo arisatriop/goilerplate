@@ -118,7 +118,8 @@ for byte, so changing it here without changing the code fails the build.
 ## Headers and cross-cutting behaviour
 - `Authorization: Bearer <accessToken>`. `/auth/refresh` takes the refresh token the same way
   (F3 adds an httpOnly cookie mode)
-- `X-Request-ID` is echoed on every response and attached to every log line of the request
+- `X-Request-ID` is echoed on every response and attached to every log line of the request. A
+  caller's own ID is kept only when `requestid.Valid` accepts it; otherwise a new one is generated
 - CORS, security headers, body limits and timeouts are configured in `internal/bootstrap`.
   Handlers don't set them
 

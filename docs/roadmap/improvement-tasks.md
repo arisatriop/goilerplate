@@ -29,7 +29,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
-| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R5–R7, R9 done · rest ~4 days |
+| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R5–R7, R9, R10 done · rest ~3–4 days |
 
 **P0, P1, P2 and P4 are complete**, and F2 and F4 with them. What remains is the rest of P3 — feature
 work rather than correction, and each item needs a scope decision before it starts.
@@ -977,14 +977,20 @@ is neither cancelled when its request is nor traced under it.
       newline-joined string. Verified by running the built binary against an empty environment
       and an unreachable Redis: one JSON `startup failed` line, exit code 1
 
-### R10 Validate the incoming `X-Request-ID` · S
+### R10 Validate the incoming `X-Request-ID` · S — ✅ done
 **Evidence:** `internal/delivery/http/middleware/request.go:70`
 
 The header is taken verbatim from the client, so any length and any content lands in every log
 line of the request and is echoed back.
 
-- [ ] Accept it only when it is a bounded, safe token (for example ≤ 128 chars of
-      `[A-Za-z0-9._-]`); otherwise generate one
+- [x] `pkg/requestid.Resolve` keeps a caller's ID only when it is 1–128 characters of
+      `[A-Za-z0-9._-]`, and generates a UUIDv7 otherwise — replaced rather than rejected, since a
+      bad correlation ID is no reason to fail the request
+- [x] **Found on the way:** gRPC had the same hole — the ID was taken from metadata verbatim —
+      and both sides generated random UUIDv4s. Both now go through `requestid`
+- [x] Tests: well-formed formats kept (UUID, ULID, W3C trace ID, prefixed IDs); newline, CRLF,
+      quote, control and non-ASCII characters and over-length values replaced; over HTTP, the
+      echoed header and the log's `request_id` carry the replacement
 
 ---
 
