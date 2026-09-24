@@ -153,6 +153,12 @@ type stack struct {
 	db   *gorm.DB
 	repo auth.Repository
 	uc   auth.Usecase
+
+	// The collaborators the auth middleware is built from, so a test can build another app with
+	// a different refresh transport over the same use case and database.
+	jwt         *jwt.JWTService
+	sessions    *auth.SessionService
+	permissions *auth.PermissionService
 }
 
 // newStack wires one application instance using the given cache mode.
@@ -197,13 +203,16 @@ func newStack(t *testing.T, mode cacheMode) *stack {
 		password.NewPolicy(nil),
 	)
 
-	authMiddleware := middleware.NewAuth(jwtService, repo, sessionService, permissionService, nil, config.InternalAuth{})
+	authMiddleware := middleware.NewAuth(jwtService, repo, sessionService, permissionService, nil, config.InternalAuth{}, nil)
 
 	return &stack{
-		app:  newApp(useCase, authMiddleware),
-		db:   db,
-		repo: repo,
-		uc:   useCase,
+		app:         newApp(useCase, authMiddleware),
+		db:          db,
+		repo:        repo,
+		uc:          useCase,
+		jwt:         jwtService,
+		sessions:    sessionService,
+		permissions: permissionService,
 	}
 }
 

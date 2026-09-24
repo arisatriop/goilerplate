@@ -77,6 +77,34 @@ Authorization: Bearer <refreshToken>
 The **refresh** token goes in the header, not the access token. The response is the same shape as
 login, with a new token pair and the **same session ID** — refreshing does not start a new login.
 
+### Refresh token in a cookie (browsers)
+
+With `auth.refresh_transport: cookie` the refresh token never appears in a response body. Login and
+refresh set it as a cookie instead, and refresh reads it from there:
+
+```http
+Set-Cookie: __Secure-refresh_token=<token>; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Expires=...
+
+POST /api/v1/auth/refresh          # no Authorization header; the browser sends the cookie
+```
+
+| Property | Why |
+|---|---|
+| `HttpOnly` | Page JavaScript cannot read it, so an XSS anywhere on the site does not yield a long-lived credential |
+| `Path=/api/v1/auth` | Only refresh and logout receive it; no other request carries it |
+| `Secure` + `__Secure-` prefix | Sent only over HTTPS, and a network attacker cannot plant one over HTTP. Off only for `app.env` local/dev/development/test, so the flow works on `http://localhost` |
+| `SameSite=Strict` (default) | The browser does not attach it to a request another site starts |
+| `Origin` check | A request carrying `Origin` must come from the API's own origin or `server.cors.allow_origin`, else `403 origin_not_allowed`. A request without `Origin` is not a browser page (curl, a server) and cannot be CSRF, so it passes |
+
+- The access token still comes in the body; keep it in memory, not `localStorage`
+- Cookie mode reads **only** the cookie — a refresh token sent as a Bearer header gets 401 — so a
+  deployment has one answer to where the refresh token lives. Mobile and server clients use
+  `body`, the default
+- `logout` clears the cookie; `logout-all` clears it unless `keep_current=true`
+- **Frontend on another site** (not just another subdomain): `same_site: none`, which config
+  validation accepts only with a Secure cookie and `server.enable_cors` + `allow_credentials` +
+  explicit origins. The browser must send `credentials: "include"`
+
 ### Logout
 
 ```http

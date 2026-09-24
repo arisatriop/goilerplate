@@ -27,7 +27,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ✅ complete |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
-| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F4 done |
+| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F3, F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 | [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | all done except R8 (with F5) |
 
@@ -691,26 +691,29 @@ hardcoded body limit found during this scan.
 
 **Done when:** a user can list their devices and sign out one specific other device.
 
-### F3 Refresh token via httpOnly cookie · M
-**Depends on:** F4 (CORS with credentials)
+### F3 Refresh token via httpOnly cookie · M — ✅ done
 
-The refresh token is currently returned in the login JSON and presented on
-`POST /api/v1/auth/refresh` as `Authorization: Bearer <refreshToken>`
-(`internal/delivery/http/middleware/auth.go:78-112`). For browser clients that means JavaScript
-must be able to read it, so any XSS anywhere in the page yields long-lived account access.
-
-- [ ] Config `auth.refresh_transport: body | cookie` (default `body`, which suits mobile and
-      service-to-service clients)
-- [ ] In `cookie` mode: `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`, refresh token omitted
-      from the JSON body
-- [ ] `Secure` follows `app.env` rather than a separate switch — always on in production, off in
-      development so the flow is testable over `http://localhost`. There is precedent for this at
-      `internal/delivery/http/router/router.go:133`
-- [ ] CSRF defence: check `Origin` against an allowlist **only when the header is present**.
-      Browsers always send `Origin` on cross-site POSTs, so absence means a non-browser client —
-      which is not a CSRF vector and must keep working for curl, Postman and server-to-server
-- [ ] Document that `SameSite=Strict` requires the frontend and API to be same-site; a cross-site
-      frontend needs `SameSite=None` plus a CSRF token
+- [x] `auth.refresh_transport: body | cookie` (default `body`, for mobile and service clients).
+      Each mode accepts only its own transport — cookie mode ignores a Bearer header — so there
+      is one answer to where the refresh token lives
+- [x] Cookie mode: `HttpOnly`, `SameSite` from `auth.refresh_cookie.same_site` (default `strict`),
+      `Path=/api/v1/auth`, expiring with the token, and absent from the JSON body. Logout clears
+      it; logout-all clears it unless the current session is kept
+- [x] `Secure` follows `app.env`: on everywhere except local/dev/development/test (the roadmap
+      said "on in production"; on-by-default is the safer reading). With `Secure` the name takes
+      the `__Secure-` prefix, so a network attacker cannot plant one over HTTP
+- [x] CSRF: `Origin`, when present, must be the API's own origin or a `server.cors.allow_origin`
+      entry (`*.` subdomain syntax included, `*` never), else `403 origin_not_allowed` — checked
+      before the token is read, so a refused request rotates nothing. No `Origin` passes: curl,
+      Postman and servers keep working
+- [x] `same_site: none` is refused unless the cookie is Secure and CORS allows credentials from
+      explicit origins — a browser drops a non-Secure `None` cookie, and the login would appear
+      to work while every refresh failed
+- [x] Tests: transport unit tests (attributes, prefix, per-mode reading, origin matching incl.
+      `app.example.com.evil.org`), config validation, and integration through the **real**
+      handler and middleware in all three cache modes — login sets the cookie and no body token,
+      refresh rotates it, replaying an old cookie revokes the session, a foreign origin is 403 and
+      rotates nothing, a Bearer header is refused, logout clears the cookie
 
 **Done when:** in cookie mode, browser JavaScript cannot read the refresh token, refresh still
 works, and a non-browser client is unaffected.

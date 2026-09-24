@@ -3,7 +3,9 @@ package handler
 import (
 	"goilerplate/internal/application/register"
 	dtorequest "goilerplate/internal/delivery/http/dto/request"
+	dtoresponse "goilerplate/internal/delivery/http/dto/response"
 	"goilerplate/internal/delivery/http/presenter"
+	"goilerplate/internal/delivery/http/refreshtoken"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/user"
 	"goilerplate/pkg/constants"
@@ -18,15 +20,29 @@ type Auth struct {
 	validator          *validator.Validate
 	applicationService register.ApplicationService
 	usecase            auth.Usecase
+	// refresh hands out the refresh token: in the body or as an HttpOnly cookie. Nil is body.
+	refresh *refreshtoken.Transport
 }
 
-func NewAuth(deviceService auth.DeviceService, validator *validator.Validate, applicationService register.ApplicationService, usecase auth.Usecase) *Auth {
+func NewAuth(deviceService auth.DeviceService, validator *validator.Validate, applicationService register.ApplicationService, usecase auth.Usecase, refresh *refreshtoken.Transport) *Auth {
 	return &Auth{
 		validator:          validator,
 		deviceService:      deviceService,
 		usecase:            usecase,
 		applicationService: applicationService,
+		refresh:            refresh,
 	}
+}
+
+// tokenResponse shapes a login or refresh result, handing the refresh token over the configured
+// transport: in cookie mode it goes into the cookie and never into the body.
+func (h *Auth) tokenResponse(ctx *fiber.Ctx, result *auth.LoginResult) *dtoresponse.LoginResponse {
+	body := presenter.ToLoginResponse(result)
+	body.Tokens.RefreshToken = h.refresh.Issue(ctx, result.Tokens.RefreshToken, result.Tokens.RefreshTokenExpiresAt)
+	if body.Tokens.RefreshToken == "" {
+		body.Tokens.RefreshTokenType = ""
+	}
+	return body
 }
 
 // Register handles user registration
@@ -100,10 +116,7 @@ func (h *Auth) Login(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	// Map to response DTO
-	responseData := presenter.ToLoginResponse(loginResult)
-
-	return response.Success(ctx, responseData, response.WithMessage("Login successful"))
+	return response.Success(ctx, h.tokenResponse(ctx, loginResult), response.WithMessage("Login successful"))
 }
 
 // Logout handles user logout by invalidating the access token
@@ -124,6 +137,7 @@ func (h *Auth) Logout(ctx *fiber.Ctx) error {
 	if err := h.usecase.Logout(ctx.UserContext(), userID, sessionID); err != nil {
 		return response.HandleError(ctx, err)
 	}
+	h.refresh.Clear(ctx)
 
 	return response.Success(ctx, nil, response.WithMessage("Logout successful"))
 }
@@ -157,6 +171,11 @@ func (h *Auth) LogoutAll(ctx *fiber.Ctx) error {
 
 	if err := h.usecase.LogoutAll(ctx.UserContext(), userID, keepSessionID); err != nil {
 		return response.HandleError(ctx, err)
+	}
+	// The kept session is this browser's, so its cookie stays; otherwise this device is signed
+	// out along with the rest.
+	if keepSessionID == "" {
+		h.refresh.Clear(ctx)
 	}
 
 	return response.Success(ctx, nil, response.WithMessage(message))
@@ -279,10 +298,7 @@ func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	// Map to response DTO
-	responseData := presenter.ToLoginResponse(loginResult)
-
-	return response.Success(ctx, responseData, response.WithMessage("Token refreshed successfully"))
+	return response.Success(ctx, h.tokenResponse(ctx, loginResult), response.WithMessage("Token refreshed successfully"))
 }
 
 // newDeviceRequest collects the request attributes the auth domain uses to identify a device.

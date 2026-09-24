@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"goilerplate/config"
+	"goilerplate/internal/delivery/http/refreshtoken"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/pkg/apikey"
-	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/hash"
 	jwtService "goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/response"
 	"goilerplate/pkg/utils"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -30,9 +29,12 @@ type Auth struct {
 	// internalSecret is the digest of internal_auth.secret, or "" when the mode is none. Empty
 	// means /internal is open to whatever reaches it, which is what D5 leaves to the gateway.
 	internalSecret string
+	// refresh decides where the refresh token is read from (auth.refresh_transport). Nil is
+	// body mode: the Authorization header.
+	refresh *refreshtoken.Transport
 }
 
-func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, sessionService *auth.SessionService, permissionService *auth.PermissionService, apikeys map[string]string, internalAuth config.InternalAuth) *Auth {
+func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, sessionService *auth.SessionService, permissionService *auth.PermissionService, apikeys map[string]string, internalAuth config.InternalAuth, refresh *refreshtoken.Transport) *Auth {
 	internalSecret := ""
 	if internalAuth.RequiresSecret() {
 		internalSecret = hash.Token(internalAuth.Secret)
@@ -47,6 +49,7 @@ func NewAuth(jwtService *jwtService.JWTService, authRepository auth.Repository, 
 		// held in memory for the life of the process.
 		apikeys:        apikey.NewRegistry(apikeys),
 		internalSecret: internalSecret,
+		refresh:        refresh,
 	}
 }
 
@@ -76,7 +79,13 @@ func (m *Auth) Authenticate() fiber.Handler {
 // This validates REFRESH tokens, not access tokens
 func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		token, err := bearerToken(ctx)
+		// Before anything else: in cookie mode the browser attaches the cookie to any request,
+		// including one a hostile page makes, so where the request came from is checked first.
+		if err := m.refresh.CheckOrigin(ctx); err != nil {
+			return response.HandleError(ctx, err)
+		}
+
+		token, err := m.refresh.Read(ctx)
 		if err != nil {
 			return response.Unauthorized(ctx, "")
 		}
@@ -201,7 +210,7 @@ func (m *Auth) PartnerAuthenticate() fiber.Handler {
 
 // validateAuthHeader extracts and validates the authorization header
 func (m *Auth) validateAuthHeader(ctx *fiber.Ctx) (*jwtService.Claims, error) {
-	token, err := bearerToken(ctx)
+	token, err := refreshtoken.BearerToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -226,26 +235,4 @@ func (m *Auth) setUserContext(ctx *fiber.Ctx, userID, userName, sessionID string
 	ctx.Locals(string(constants.ContextKeyUserID), userID)
 	ctx.Locals(string(constants.ContextKeyUserName), userName)
 	ctx.Locals(string(constants.ContextKeySessionID), sessionID)
-}
-
-// errMissingBearer is what bearerToken reports for every malformed Authorization header.
-var errMissingBearer = apperr.New(apperr.Unauthenticated, "unauthorized", constants.MsgUnauthorized)
-
-// bearerToken reads the token out of the Authorization header.
-//
-// Every failure answers the same way. Telling a caller whether the header was missing, not a
-// Bearer scheme, or empty after the scheme describes our parser, not their mistake, and the one
-// thing it reliably tells an attacker is which of their guesses got further.
-func bearerToken(ctx *fiber.Ctx) (string, error) {
-	parts := strings.SplitN(ctx.Get(fiber.HeaderAuthorization), " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-		return "", errMissingBearer
-	}
-
-	token := strings.TrimSpace(parts[1])
-	if token == "" {
-		return "", errMissingBearer
-	}
-
-	return token, nil
 }

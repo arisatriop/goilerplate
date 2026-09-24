@@ -1002,6 +1002,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "refreshToken": {
+                    "description": "absent in cookie mode",
                     "type": "string"
                 },
                 "refreshTokenExpiresAt": {

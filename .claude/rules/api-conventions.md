@@ -124,8 +124,10 @@ return response.Paginated(ctx, items, page, response.WithMessage(domain.MsgListF
 for byte, so changing it here without changing the code fails the build.
 
 ## Headers and cross-cutting behaviour
-- `Authorization: Bearer <accessToken>`. `/auth/refresh` takes the refresh token the same way
-  (F3 adds an httpOnly cookie mode)
+- `Authorization: Bearer <accessToken>`. `/auth/refresh` takes the refresh token the same way in
+  `body` mode, or from an HttpOnly cookie in `cookie` mode (`auth.refresh_transport`; see
+  `docs/guides/auth.md`). Handlers hand tokens out through `refreshtoken.Transport`, never by
+  writing the refresh token into a DTO themselves
 - `X-Request-ID` is echoed on every response and attached to every log line of the request. A
   caller's own ID is kept only when `requestid.Valid` accepts it; otherwise a new one is generated
 - CORS, security headers, body limits and timeouts are configured in `internal/bootstrap`.

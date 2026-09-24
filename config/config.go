@@ -375,6 +375,32 @@ type Auth struct {
 	RememberMeExpiry   time.Duration `mapstructure:"remember_me_expiry"`   // absolute session lifetime when remember_me = true
 	RefreshReuseGrace  time.Duration `mapstructure:"refresh_reuse_grace"`  // window in which the just-replaced refresh token is still accepted
 	Lockout            Lockout       `mapstructure:"lockout"`
+	// RefreshTransport is where the refresh token travels: body (default; JSON body and
+	// Authorization header, for mobile and server clients) or cookie (HttpOnly cookie, for
+	// browsers, so page JavaScript can never read it).
+	RefreshTransport string        `mapstructure:"refresh_transport"`
+	RefreshCookie    RefreshCookie `mapstructure:"refresh_cookie"`
+}
+
+// Refresh token transports for auth.refresh_transport.
+const (
+	RefreshTransportBody   = "body"
+	RefreshTransportCookie = "cookie"
+)
+
+// RefreshCookie configures the refresh cookie in cookie mode. Secure is not configurable: it is
+// on everywhere except a local environment (see Config.IsLocal), because a refresh token sent
+// over plain HTTP is a stolen refresh token.
+type RefreshCookie struct {
+	// SameSite is strict (default), lax, or none. strict and lax require the frontend and the
+	// API to be same-site; a frontend on another site needs none, which also requires CORS with
+	// credentials and explicit origins.
+	SameSite string `mapstructure:"same_site"`
+}
+
+// UsesRefreshCookie reports whether auth.refresh_transport is cookie.
+func (a Auth) UsesRefreshCookie() bool {
+	return strings.EqualFold(strings.TrimSpace(a.RefreshTransport), RefreshTransportCookie)
 }
 
 // Lockout bounds password guessing: after MaxAttempts consecutive failures the account stops
