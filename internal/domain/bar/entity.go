@@ -11,7 +11,7 @@ type Bar struct {
 }
 
 func (e *Bar) validate() error {
-	code := strings.ToUpper(strings.TrimSpace(e.Code))
+	code := normalizeCode(e.Code)
 	if code == "" {
 		return ErrCodeRequired
 	}
@@ -27,8 +27,12 @@ func (e *Bar) validate() error {
 // normalize puts the fields in their stored form. Code comparisons, including the database's
 // uniqueness check, happen on this form, so "exp-1" and " EXP-1 " are the same code.
 func (e *Bar) normalize() {
-	e.Code = strings.ToUpper(strings.TrimSpace(e.Code))
+	e.Code = normalizeCode(e.Code)
 	e.Bar = strings.TrimSpace(e.Bar)
+}
+
+func normalizeCode(code string) string {
+	return strings.ToUpper(strings.TrimSpace(code))
 }
 
 func (e *Bar) Clone() *Bar {

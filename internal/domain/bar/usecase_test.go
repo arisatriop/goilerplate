@@ -3,7 +3,6 @@ package bar
 import (
 	"context"
 	"errors"
-	"fmt"
 	"goilerplate/pkg/apperr"
 	"testing"
 
@@ -18,7 +17,19 @@ type fakeRepo struct {
 	created  *Bar
 	updated  *Bar
 	bulk     []*Bar
+	stored   *Bar  // what GetBarByID returns
+	loadErr  error // what GetBarByID fails with
 	writeErr error
+}
+
+func (r *fakeRepo) GetBarByID(_ context.Context, id string) (*Bar, error) {
+	if r.loadErr != nil {
+		return nil, r.loadErr
+	}
+	if r.stored == nil || r.stored.ID != id {
+		return nil, ErrNotFound
+	}
+	return r.stored.Clone(), nil
 }
 
 func (r *fakeRepo) CreateBar(_ context.Context, entity *Bar) (*Bar, error) {
@@ -86,24 +97,58 @@ func TestUsecase_Create_RepositoryFailureIsNotAClientError(t *testing.T) {
 	assert.False(t, isClientErr)
 }
 
-// The old code compared the stored code with the request's before normalising, so re-saving a
-// bar with its own code in lower case looked like a clash with itself and answered 409.
-func TestUsecase_Update_ChangingOnlyTheCaseOfItsOwnCodeIsNotAConflict(t *testing.T) {
-	repo := &fakeRepo{}
+// The code is the business key, so an update may leave it out or repeat it, but never change it.
+func TestUsecase_Update_Code(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		wantErr  error
+		wantCode string
+	}{
+		{name: "omitted code keeps the stored one", code: "", wantCode: "EXP-1"},
+		{name: "the same code is accepted", code: "EXP-1", wantCode: "EXP-1"},
+		{name: "the same code in another case or spacing is accepted", code: " exp-1 ", wantCode: "EXP-1"},
+		{name: "another code is refused", code: "EXP-2", wantErr: ErrCodeImmutable},
+	}
 
-	updated, err := NewUseCase(repo).Update(context.Background(), &Bar{ID: "b1", Code: "exp-1", Bar: "thing"})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &fakeRepo{stored: &Bar{ID: "b1", Code: "EXP-1", Bar: "old"}}
 
-	require.NoError(t, err)
-	assert.Equal(t, "EXP-1", repo.updated.Code)
-	assert.Equal(t, "EXP-1", updated.Code)
+			updated, err := NewUseCase(repo).Update(context.Background(), &Bar{ID: "b1", Code: tt.code, Bar: " new "})
+
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				assertKind(t, err, apperr.Invalid)
+				assert.Nil(t, repo.updated, "a refused update must not be written")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantCode, repo.updated.Code)
+			assert.Equal(t, "new", repo.updated.Bar)
+			assert.Equal(t, tt.wantCode, updated.Code)
+		})
+	}
 }
 
-func TestUsecase_Update_NotFoundPassesThrough(t *testing.T) {
-	repo := &fakeRepo{writeErr: fmt.Errorf("wrapped: %w", ErrNotFound)}
+func TestUsecase_Update_UnknownBarIsNotFound(t *testing.T) {
+	repo := &fakeRepo{}
 
-	_, err := NewUseCase(repo).Update(context.Background(), &Bar{ID: "b1", Code: "EXP-1", Bar: "thing"})
+	_, err := NewUseCase(repo).Update(context.Background(), &Bar{ID: "missing", Bar: "thing"})
 
+	assert.ErrorIs(t, err, ErrNotFound)
 	assertKind(t, err, apperr.NotFound)
+	assert.Nil(t, repo.updated)
+}
+
+func TestUsecase_Update_InvalidContentNeverReachesTheRepository(t *testing.T) {
+	repo := &fakeRepo{stored: &Bar{ID: "b1", Code: "EXP-1", Bar: "old"}}
+
+	_, err := NewUseCase(repo).Update(context.Background(), &Bar{ID: "b1", Bar: "   "})
+
+	assert.ErrorIs(t, err, ErrDescriptionRequired)
+	assert.Nil(t, repo.updated)
 }
 
 func TestUsecase_BulkCreate(t *testing.T) {

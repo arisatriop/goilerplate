@@ -49,9 +49,12 @@ A complete CRUD entity touches these files:
   internal). Apply idempotency middleware (`RequireIdempotencyKey()` +
   `Middleware.Idempotency`) to sensitive `POST` endpoints only — `PUT`/`DELETE`
   are already idempotent.
-- **Uniqueness**: enforce it with a partial unique index (`WHERE deleted_at IS NULL`) and map
-  the violation to 409 — a check-then-insert in the use case alone is racy, and two concurrent
-  requests can both pass it.
+- **Uniqueness**: enforce it with a database constraint and map the violation to 409 — a
+  check-then-insert in the use case alone is racy, and two concurrent requests can both pass it.
+  A business key such as `code` is unique across every row, deleted ones included, and
+  immutable: the update use case loads the record and refuses a different code, and the
+  repository never writes the column on update (see `bar`). The `db-migrations` skill covers
+  when a key may instead be unique among live rows only.
 - **Multi-domain**: if an endpoint needs data from more than one domain, add an
   application-layer service in `internal/application/` to orchestrate them, and
   have the handler call that service instead of a single usecase.

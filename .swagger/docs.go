@@ -480,6 +480,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Replaces the bar's content. code may be omitted or repeated but not changed: it is the business key (400 bar_code_immutable).",
                 "consumes": [
                     "application/json"
                 ],
@@ -512,7 +513,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.BaseResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dtoresponse.BarResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -779,16 +792,14 @@ const docTemplate = `{
         "dtorequest.BarUpdateRequest": {
             "type": "object",
             "required": [
-                "bar",
-                "code"
+                "bar"
             ],
             "properties": {
                 "bar": {
                     "type": "string"
                 },
                 "code": {
-                    "type": "string",
-                    "minLength": 3
+                    "type": "string"
                 }
             }
         },

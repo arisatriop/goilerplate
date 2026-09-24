@@ -16,11 +16,9 @@ definitions:
       bar:
         type: string
       code:
-        minLength: 3
         type: string
     required:
     - bar
-    - code
     type: object
   dtorequest.ChangePasswordRequest:
     properties:
@@ -548,6 +546,8 @@ paths:
     put:
       consumes:
       - application/json
+      description: 'Replaces the bar''s content. code may be omitted or repeated but
+        not changed: it is the business key (400 bar_code_immutable).'
       parameters:
       - description: Bar ID
         in: path
@@ -566,7 +566,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.BaseResponse'
+            allOf:
+            - $ref: '#/definitions/response.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dtoresponse.BarResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
