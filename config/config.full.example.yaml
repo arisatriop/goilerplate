@@ -32,11 +32,25 @@ server:
     - 10.0.0.0/8
   proxy_header: X-Forwarded-For # header consulted, but only from a trusted proxy
   hsts: true # send Strict-Transport-Security; only where TLS terminates in front of the app
+  # Caps the request body. Fiber buffers it before a handler runs, so this is the ceiling on
+  # what one request can cost in memory. Unset means 10MB; raise it only for routes that
+  # genuinely accept large uploads.
+  body_limit: 10485760 # 10MB
+  # CORS relaxes a browser default that exists for a reason; leave it off for a service with no
+  # browser client. Startup validation rejects a configuration Fiber would panic on.
   enable_cors: false
   cors:
+    # Comma-separated, each with a scheme. "https://*.example.com" matches subdomains.
+    # "*" is allowed outside production, but never together with allow_credentials.
     allow_origin: https://app.example.com
     allow_methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
     allow_headers: Origin,Content-Type,Accept,Authorization
+    # Lets the browser send cookies and Authorization cross-origin. Requires a named origin.
+    allow_credentials: false
+    # Response headers JavaScript may read; without this a browser sees only the safelisted ones.
+    expose_headers: ""
+    # How long a browser may cache the preflight result, in seconds.
+    max_age: 0
 
 db:
   host: <DB_HOST>

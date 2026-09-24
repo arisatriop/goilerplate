@@ -292,3 +292,146 @@ func TestConfig_Warnings_InternalAuthNoneInProduction(t *testing.T) {
 	require.NoError(t, development.Validate())
 	assert.Empty(t, development.Warnings(), "only production is warned")
 }
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
+
+// Fiber's cors.New panics on an insecure or malformed configuration rather than returning an
+// error. Catching it here is the difference between a named startup error and a stack trace
+// out of a middleware constructor.
+func TestValidate_CORS(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     string
+		cors    CORS
+		wantErr string
+	}{
+		{
+			name:    "origin is required once CORS is on",
+			cors:    CORS{},
+			wantErr: "server.cors.allow_origin is required",
+		},
+		{
+			// The combination browsers themselves refuse: "*" with credentials would let any
+			// site on the internet make authenticated requests with the user's cookies.
+			name:    "wildcard with credentials",
+			cors:    CORS{AllowOrigin: "*", AllowCredentials: true},
+			wantErr: "cannot be combined with",
+		},
+		{
+			name:    "wildcard in production",
+			env:     "production",
+			cors:    CORS{AllowOrigin: "*"},
+			wantErr: "not allowed in production",
+		},
+		{
+			// "app.example.com" is the natural thing to write and it makes Fiber panic.
+			name:    "origin without a scheme",
+			cors:    CORS{AllowOrigin: "app.example.com"},
+			wantErr: "must include a scheme",
+		},
+		{
+			name:    "origin with a trailing slash",
+			cors:    CORS{AllowOrigin: "https://app.example.com/"},
+			wantErr: "must not end in a slash",
+		},
+		{
+			name:    "empty entry in the list",
+			cors:    CORS{AllowOrigin: "https://app.example.com,"},
+			wantErr: "empty entry",
+		},
+		{
+			name:    "negative max age",
+			cors:    CORS{AllowOrigin: "https://app.example.com", MaxAge: -1},
+			wantErr: "server.cors.max_age must not be negative",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			cfg := validConfig()
+			if tt.env != "" {
+				cfg.App.Env = tt.env
+			}
+			cfg.Server.EnableCORS = true
+			cfg.Server.CORS = tt.cors
+
+			// Act
+			err := cfg.Validate()
+
+			// Assert
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidate_CORSAcceptsSaneConfigurations(t *testing.T) {
+	tests := []struct {
+		name string
+		cors CORS
+	}{
+		{"one origin", CORS{AllowOrigin: "https://app.example.com"}},
+		{"several origins", CORS{AllowOrigin: "https://app.example.com,https://admin.example.com"}},
+		{"wildcard subdomain", CORS{AllowOrigin: "https://*.example.com"}},
+		{"credentials with a named origin", CORS{AllowOrigin: "https://app.example.com", AllowCredentials: true}},
+		{"wildcard outside production", CORS{AllowOrigin: "*"}},
+		{"localhost over http", CORS{AllowOrigin: "http://localhost:5173"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := validConfig()
+			cfg.Server.EnableCORS = true
+			cfg.Server.CORS = tt.cors
+
+			assert.NoError(t, cfg.Validate())
+		})
+	}
+}
+
+// With CORS off, the block is never read, so a half-filled one must not block startup.
+func TestValidate_CORSIsNotCheckedWhenDisabled(t *testing.T) {
+	cfg := validConfig()
+	cfg.Server.EnableCORS = false
+	cfg.Server.CORS = CORS{AllowOrigin: "*", AllowCredentials: true}
+
+	assert.NoError(t, cfg.Validate())
+}
+
+// ── Body limit ───────────────────────────────────────────────────────────────
+
+func TestValidate_BodyLimitRejectsNegative(t *testing.T) {
+	cfg := validConfig()
+	cfg.Server.BodyLimit = -1
+
+	err := cfg.Validate()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "server.body_limit must not be negative")
+}
+
+func TestServer_BodyLimitOrDefault(t *testing.T) {
+	tests := []struct {
+		configured int
+		want       int
+	}{
+		{0, DefaultServerBodyLimit},
+		// Negative is treated as unset rather than passed through: Fiber reads a negative
+		// limit as no limit at all, which is the opposite of what the operator asked for.
+		{-1, DefaultServerBodyLimit},
+		{1024, 1024},
+		{100 * 1024 * 1024, 100 * 1024 * 1024},
+	}
+
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, Server{BodyLimit: tt.configured}.BodyLimitOrDefault())
+	}
+}
+
+func TestCORS_AllowMethodsOrDefault(t *testing.T) {
+	// Fiber's own default omits PATCH; this project has PATCH routes.
+	assert.Contains(t, CORS{}.AllowMethodsOrDefault(), "PATCH")
+	assert.Equal(t, "GET,POST", CORS{AllowMethods: "GET,POST"}.AllowMethodsOrDefault())
+	assert.Contains(t, CORS{AllowMethods: "   "}.AllowMethodsOrDefault(), "PATCH")
+}

@@ -192,6 +192,8 @@ type Server struct {
 	IdleTimeout  time.Duration `mapstructure:"idle_timeout"`
 	EnableCORS   bool          `mapstructure:"enable_cors"`
 	CORS         CORS
+	// BodyLimit caps the request body in bytes. Zero means the default below, not "no limit".
+	BodyLimit int `mapstructure:"body_limit"`
 	// TrustedProxies lists the CIDRs or addresses allowed to set forwarding headers. Empty
 	// means trust nobody, so the client IP is always the peer that actually connected.
 	TrustedProxies []string `mapstructure:"trusted_proxies"`
@@ -210,7 +212,25 @@ const (
 	DefaultServerReadTimeout  = 15 * time.Second
 	DefaultServerWriteTimeout = 15 * time.Second
 	DefaultServerIdleTimeout  = 60 * time.Second
+
+	// DefaultServerBodyLimit caps a request body at 10MB when server.body_limit is unset.
+	//
+	// It used to be hardcoded at 100MB, which is an invitation to exhaust memory on a service
+	// whose own filesystem.max_file_size defaults to 200KB: Fiber buffers the body before a
+	// handler sees it, so the limit is reached long before any upload validation runs. Raise
+	// it deliberately if a route genuinely accepts large uploads.
+	DefaultServerBodyLimit = 10 * 1024 * 1024
 )
+
+// BodyLimitOrDefault returns the configured body limit, or the 10MB default. A negative value
+// is treated as unset rather than passed through, because Fiber reads a negative limit as "no
+// limit at all".
+func (s Server) BodyLimitOrDefault() int {
+	if s.BodyLimit > 0 {
+		return s.BodyLimit
+	}
+	return DefaultServerBodyLimit
+}
 
 // ProxyHeaderOrDefault returns the configured proxy header, or X-Forwarded-For.
 func (s Server) ProxyHeaderOrDefault() string {
@@ -244,10 +264,33 @@ func (s Server) IdleTimeoutOrDefault() time.Duration {
 	return DefaultServerIdleTimeout
 }
 
+// CORS configures the browser cross-origin policy. It is read only when server.enable_cors is
+// true; a service with no browser client should leave it off, because CORS relaxes a default
+// that exists for a reason.
 type CORS struct {
+	// AllowOrigin is a comma-separated list of origins, or "*". Each entry must carry a scheme
+	// (https://app.example.com), not a bare host.
 	AllowOrigin  string `mapstructure:"allow_origin"`
 	AllowMethods string `mapstructure:"allow_methods"`
 	AllowHeaders string `mapstructure:"allow_headers"`
+	// AllowCredentials lets the browser send cookies and Authorization on cross-origin
+	// requests. It cannot be combined with AllowOrigin "*" — see validateServer.
+	AllowCredentials bool `mapstructure:"allow_credentials"`
+	// ExposeHeaders names response headers JavaScript may read. Without it a browser sees only
+	// the CORS-safelisted ones, whatever the server sent.
+	ExposeHeaders string `mapstructure:"expose_headers"`
+	// MaxAge is how long a browser may cache the preflight result, in seconds.
+	MaxAge int `mapstructure:"max_age"`
+}
+
+// AllowMethodsOrDefault returns the configured methods, or the set this API actually uses.
+// Fiber's own default omits PATCH, which would make every PATCH route fail its preflight for
+// no reason a reader of the config could see.
+func (c CORS) AllowMethodsOrDefault() string {
+	if strings.TrimSpace(c.AllowMethods) != "" {
+		return c.AllowMethods
+	}
+	return "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 }
 
 type DB struct {

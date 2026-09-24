@@ -144,6 +144,69 @@ func (c *Config) validateServer(v *validation) {
 			v.addf("server.trusted_proxies[%d] %q is not a valid IP or CIDR", i, proxy)
 		}
 	}
+
+	if c.Server.BodyLimit < 0 {
+		v.addf("server.body_limit must not be negative, got %d "+
+			"(Fiber reads a negative limit as no limit; leave it unset for the %dMB default)",
+			c.Server.BodyLimit, DefaultServerBodyLimit/(1024*1024))
+	}
+
+	c.validateCORS(v)
+}
+
+// validateCORS checks what Fiber's CORS middleware would otherwise panic about.
+//
+// cors.New panics on an insecure or malformed configuration rather than returning an error, so
+// without this the operator gets a stack trace from inside a middleware constructor. Checking
+// here turns it into a startup message that names the key.
+func (c *Config) validateCORS(v *validation) {
+	if !c.Server.EnableCORS {
+		return
+	}
+
+	origin := strings.TrimSpace(c.Server.CORS.AllowOrigin)
+	if origin == "" {
+		v.addf("server.cors.allow_origin is required when server.enable_cors is true")
+		return
+	}
+
+	// The combination the browser itself refuses: with credentials allowed, the response must
+	// name one concrete origin, because "*" would let any site on the internet make
+	// authenticated requests with the user's cookies.
+	if origin == "*" && c.Server.CORS.AllowCredentials {
+		v.addf("server.cors.allow_origin=* cannot be combined with " +
+			"server.cors.allow_credentials=true: that would let any origin make credentialed " +
+			"requests. List the origins explicitly, or turn credentials off")
+	}
+
+	if origin == "*" && c.IsProduction() {
+		v.addf("server.cors.allow_origin=* is not allowed in production; list the origins explicitly")
+	}
+
+	if origin == "*" {
+		return
+	}
+
+	// Fiber panics on an origin without a scheme, and "app.example.com" is the natural thing to
+	// write. Wildcard subdomains (https://*.example.com) are Fiber's own syntax and valid.
+	for _, entry := range strings.Split(origin, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			v.addf("server.cors.allow_origin contains an empty entry")
+			continue
+		}
+		if !strings.Contains(entry, "://") {
+			v.addf("server.cors.allow_origin %q must include a scheme, e.g. https://%s", entry, entry)
+			continue
+		}
+		if strings.HasSuffix(entry, "/") {
+			v.addf("server.cors.allow_origin %q must not end in a slash: an Origin header never does", entry)
+		}
+	}
+
+	if c.Server.CORS.MaxAge < 0 {
+		v.addf("server.cors.max_age must not be negative, got %d", c.Server.CORS.MaxAge)
+	}
 }
 
 func (c *Config) validateDB(v *validation) {
