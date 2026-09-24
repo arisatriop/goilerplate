@@ -42,15 +42,22 @@ A complete CRUD entity touches these files:
 - **DTOs**: never expose the GORM model directly — map model → domain entity →
   response DTO via the presenter. Request DTOs use `validate` struct tags.
 - **Handler** struct is built with `NewFoo(validator, usecase)`; methods are
-  `Create`, `Update`, `Delete`, `GetList`, `GetByID`.
+  `Create`, `Update`, `Delete`, `List`, `Get`.
 - **Permissions**: add `PermissionFooCreate/Read/Update/Delete` constants in
   `pkg/constants/permission.go`.
 - **Routes**: register in the router file matching the scope (public / partner /
   internal). Apply idempotency middleware (`RequireIdempotencyKey()` +
   `Middleware.Idempotency`) to sensitive `POST` endpoints only — `PUT`/`DELETE`
   are already idempotent.
+- **Uniqueness**: enforce it with a partial unique index (`WHERE deleted_at IS NULL`) and map
+  the violation to 409 — a check-then-insert in the use case alone is racy, and two concurrent
+  requests can both pass it.
 - **Multi-domain**: if an endpoint needs data from more than one domain, add an
   application-layer service in `internal/application/` to orchestrate them, and
   have the handler call that service instead of a single usecase.
 
-After changes, run `go build ./...` to confirm everything compiles.
+Conventions for every layer are in `.claude/rules/`; where `bar` or `foo` disagree with them,
+the rules win (known gaps: phase R of `docs/roadmap/improvement-tasks.md`).
+
+After changes, run `go build ./...`, `make lint` and `make test`, and add or update tests for the
+behaviour you changed.

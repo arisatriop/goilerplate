@@ -5,86 +5,107 @@ description: Conventions for writing SQL database migrations in this project. Us
 
 # Database Migrations
 
-Migrations use **golang-migrate** with plain SQL files in `internal/migrations/`.
-Each migration is a pair: `<version>_<name>.up.sql` and `<version>_<name>.down.sql`.
+Migrations run through the **in-house migrator** in `pkg/migration` — not golang-migrate. It takes
+a PostgreSQL advisory lock and applies each file in **one transaction**, sending the whole file to
+the server (so dollar-quoted function bodies and comments work). A failed file rolls back both the
+schema change and its bookkeeping row: there is no dirty state to force.
 
-## Creating a migration
+Each migration is a pair in `internal/migrations/`: `<version>_<name>.up.sql` and
+`<version>_<name>.down.sql`.
 
-Always generate the file pair with the Makefile target — never create the files
-by hand (it produces the correct timestamp version prefix):
+## Creating and running
 
 ```bash
-make migrate-create name=create_products_table
+make migrate-create name=create_products_table   # generates the pair with a timestamp version
+make migrate-up        # apply pending
+make migrate-down      # roll back the last one
+make migrate-status    # applied / pending
 ```
 
-Version prefix is a `YYYYMMDDHHMMSS` timestamp. Name uses `snake_case`, e.g.
-`create_<plural>_table`, `add_<field>_to_<table>`, `create_<a>_<b>_table` (join table).
+- Always generate the pair with `make migrate-create`. The version prefix is `YYYYMMDDHHMMSS`.
+  Names are snake_case: `create_<plural>_table`, `add_<column>_to_<table>`,
+  `create_<a>_<b>_table` for a join table
+- Don't run migrations against a shared database on the user's behalf
+- **Never edit a migration that has been applied anywhere else.** Add a new one. The migrator
+  records applied versions, not checksums, so an edited file silently diverges between
+  environments
 
-Run / roll back / inspect:
-```bash
-make migrate-up       # apply all pending migrations
-make migrate-down     # roll back the last migration
-make migrate-status   # show applied / pending
-```
-Never run migrations against the database automatically — leave that to the user.
-
-## up.sql conventions
-
-Header comment, then `CREATE TABLE`. A standard CRUD table:
+## Table conventions
 
 ```sql
 -- Migration: create_products_table
--- Created at: 2026-05-15T03:00:00Z
 
 CREATE TABLE products (
     id          UUID PRIMARY KEY,
-    code        VARCHAR(255) NOT NULL UNIQUE,
+    code        TEXT NOT NULL,
     name        TEXT NOT NULL,
+    price       NUMERIC(19, 4) NOT NULL CHECK (price >= 0),
+    category_id UUID NOT NULL REFERENCES categories(id),
     is_active   BOOLEAN NOT NULL DEFAULT true,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by  VARCHAR(255) NOT NULL,
+    created_by  TEXT NOT NULL,
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by  VARCHAR(255) NOT NULL,
-    deleted_at  TIMESTAMPTZ NULL DEFAULT NULL,
-    deleted_by  VARCHAR(255) DEFAULT NULL
+    updated_by  TEXT NOT NULL,
+    deleted_at  TIMESTAMPTZ NULL,
+    deleted_by  TEXT NULL
 );
 
--- Comments
-COMMENT ON TABLE products IS 'Products table';
-COMMENT ON COLUMN products.code IS 'Unique code identifier';
--- ... one COMMENT ON COLUMN per column
+COMMENT ON TABLE products IS 'Products offered for sale';
+COMMENT ON COLUMN products.code IS 'Business key; unique among rows that are not soft-deleted';
 
--- Indexes
-CREATE INDEX idx_products_code ON products(code);
-CREATE INDEX idx_products_is_active ON products(is_active);
-CREATE INDEX idx_products_deleted_at ON products(deleted_at);
+-- A soft-deleted row must not block reuse of its code, so uniqueness applies to live rows only.
+CREATE UNIQUE INDEX uq_products_code_live ON products (code) WHERE deleted_at IS NULL;
+
+-- PostgreSQL does not index foreign keys automatically; without this, joins and
+-- ON DELETE checks on categories scan products.
+CREATE INDEX idx_products_category_id ON products (category_id);
 ```
 
-Rules:
-- Primary key is always `id UUID PRIMARY KEY` with **no DB default**: the repository sets it
-  with `utils.GenerateUUID()` (UUIDv7, time-ordered for index locality). An insert that
-  forgets the ID fails loudly instead of silently getting a random UUIDv4.
-- Every time column is `TIMESTAMPTZ` (never `TIMESTAMP`); the app and DB session run in UTC.
-- PostgreSQL only.
-- Every table has the full audit column set: `created_at` / `created_by` /
-  `updated_at` / `updated_by` (all `NOT NULL`) and `deleted_at` / `deleted_by`
-  (both nullable — soft delete).
-- `is_active BOOLEAN NOT NULL DEFAULT true` when the entity has an active flag.
-- Add `COMMENT ON TABLE` and a `COMMENT ON COLUMN` for every column.
-- Index the business key, `deleted_at`, and `is_active` (if present). Add a
-  composite index when queries filter on several columns together.
-- Match column names/types to the GORM model in `internal/infrastructure/model/`.
+- **Primary key** `id UUID PRIMARY KEY` with **no database default**. The repository assigns it with
+  `utils.GenerateUUID()` (UUIDv7, time-ordered for index locality). An insert that forgets the ID
+  then fails loudly instead of quietly getting a random one
+- **Types**: `TEXT` for strings; add a `CHECK (char_length(x) <= n)` when a limit is a real rule.
+  `VARCHAR(255)` is a MySQL habit that buys nothing in PostgreSQL. `TIMESTAMPTZ` for every time
+  column, never `TIMESTAMP`. `NUMERIC(p, s)` for money, never `REAL`/`DOUBLE PRECISION`
+- **Constraints belong in the database**: `NOT NULL` by default, `CHECK` for invariants,
+  `REFERENCES` for relations. They are the last line of defence when application code is wrong
+- **Audit columns**: `created_at/by`, `updated_at/by` (`NOT NULL`) and `deleted_at/by` (nullable)
+  on tables that model business entities. Log-like and join tables need not carry them
+- **Soft delete and uniqueness**: a plain `UNIQUE` on a soft-deleted table makes a deleted row
+  block its key forever. Use a partial unique index `WHERE deleted_at IS NULL`
+- **Comments**: `COMMENT ON TABLE`, plus `COMMENT ON COLUMN` wherever the name doesn't say
+  everything (units, allowed values, why it is nullable)
 
-## down.sql conventions
+## Indexes — derive them from queries
+- Index every foreign key column
+- Index what the queries filter and sort on, as composites in the order of the predicates, rather
+  than one index per column
+- Don't index a boolean or other low-cardinality column on its own; it is rarely used. If most
+  queries read live rows, make the index partial (`WHERE deleted_at IS NULL`)
+- Don't duplicate an index a constraint already creates: `UNIQUE` and `PRIMARY KEY` are indexes
+- Name them `idx_<table>_<columns>` and `uq_<table>_<columns>`
 
-Header comment, then the reverse operation. For a `CREATE TABLE`:
+## Changing a live table
+Every file runs inside one transaction, which shapes what is safe:
 
-```sql
--- Rollback: create_products_table
--- Created at: 2026-05-15T03:00:00Z
+- `CREATE INDEX CONCURRENTLY` and `ALTER TYPE ... ADD VALUE` (on older PostgreSQL) **cannot run in a
+  transaction**, so they cannot go through this migrator. On a large table, build the index out of
+  band and add a migration that only records it (`CREATE INDEX IF NOT EXISTS`)
+- A plain `CREATE INDEX` or a table rewrite holds a lock that blocks writes for its whole duration.
+  That is fine on a small table and an outage on a large one. Set `SET LOCAL lock_timeout = '5s'`
+  at the top of the file so a blocked migration fails fast instead of queueing every query behind it
+- Use **expand → migrate → contract** for anything the running version still reads. For example,
+  to rename a column: add the new column, deploy code that writes both, backfill, switch reads,
+  then drop the old column in a later release. A one-step rename breaks the pods still running
+  the previous version during a rolling deploy
+- Adding a column with a constant `DEFAULT` is cheap (no rewrite). Adding `NOT NULL` to an existing
+  column scans the table; add a `CHECK (...) NOT VALID`, then `VALIDATE CONSTRAINT` separately
 
-DROP TABLE IF EXISTS products;
-```
-
-The `down` file must fully reverse the `up` file — every migration is reversible.
-For `ALTER TABLE ... ADD COLUMN`, the down is `ALTER TABLE ... DROP COLUMN`.
+## down.sql
+- Reverses the `up` schema change exactly: `CREATE TABLE` → `DROP TABLE IF EXISTS`,
+  `ADD COLUMN` → `DROP COLUMN`
+- A `down` that drops data cannot restore it. In production, prefer a new forward migration over
+  running `down`. `down` is for development and for rolling back a release that has not written
+  data yet
+- Baseline rows the application cannot start without (for example the `owner` role) belong in a
+  migration, not a seeder

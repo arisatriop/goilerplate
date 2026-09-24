@@ -15,10 +15,9 @@ Follow these steps in order:
 - Check that none of the target files already exist. If any do, abort and report which ones — do not overwrite.
 
 ## 2. Reference the canonical pattern
-Before writing any file, read these `bar` files in full and mirror their structure exactly. They are the source of truth for naming, imports, error wrapping, and layer boundaries:
+Before writing any file, read these `bar` files in full and mirror their structure. Where `bar` departs from `.claude/rules/*` or `.claude/skills/db-migrations/SKILL.md`, follow the rules, not `bar` — the known gaps are listed in phase R of `docs/roadmap/improvement-tasks.md`:
 
 - `internal/domain/bar/{entity,usecase,repository,error,filter,message}.go`
-- `internal/application/bar/{entity,service}.go` (only create application service if the new domain orchestrates multiple domains — otherwise skip)
 - `internal/infrastructure/repository/bar.go`
 - `internal/infrastructure/model/bar.go`
 - `internal/delivery/http/handler/bar.go`
@@ -60,15 +59,19 @@ Edit these existing files to register the new domain (insert alphabetically betw
 - `internal/delivery/http/router/internal.go` — add `r.<name>(internal)` to the `register` method, then add a `<name>(internal fiber.Router)` method that registers `POST /`, `PUT /:id`, `DELETE /:id`, `GET /`, `GET /:id` on the `<names>` group
 
 ## 5. Create migration
-Run `make migrate-create name=create_<names>_table` to generate up/down SQL files. Populate the up migration with a `CREATE TABLE <names>` matching the GORM model fields (use a `UUID PRIMARY KEY` without a DB default — the repository sets it with `utils.GenerateUUID()` — `TIMESTAMPTZ` audit columns, `code TEXT UNIQUE`, soft delete via `deleted_at`). Populate the down migration with `DROP TABLE`.
+Run `make migrate-create name=create_<names>_table` to generate up/down SQL files. Write the up migration by the `db-migrations` skill: `UUID PRIMARY KEY` without a DB default (the repository sets it with `utils.GenerateUUID()`), `TEXT` columns, `TIMESTAMPTZ` audit columns, soft delete via `deleted_at`, and `code` unique **among live rows only** (`CREATE UNIQUE INDEX uq_<names>_code_live ON <names> (code) WHERE deleted_at IS NULL`) — a plain `UNIQUE` would stop a deleted row's code from ever being reused. Populate the down migration with `DROP TABLE IF EXISTS`.
 
-## 6. Verify
-- Run `go build ./...` — must succeed.
-- Run `golangci-lint run ./...` if configured.
+## 6. Create tests
+Scaffolded code ships with tests, like any other code (`.claude/rules/testing.md`):
+- `internal/domain/<name>/usecase_test.go` — a hand-written fake `Repository` (embed the interface, implement what is called); cover create, the duplicate-code 409, not-found 404 on get/update/delete, and a repository error surfacing as a non-client error
+- `internal/delivery/http/handler/<name>_test.go` — mirror `bar_test.go`: status codes and body shape for success, malformed JSON, validation failure, and each domain error
+- `internal/infrastructure/repository/<name>_test.go` — against real PostgreSQL (skips without `POSTGRES_TEST_DSN`): create/get, soft delete hides the row, and a deleted row's code can be reused
+
+## 7. Verify
+- Run `go build ./...`, `make lint`, and `make test` — all must pass. Run `make test-integration` if PostgreSQL is available.
 - Report a checklist of every file created/modified and any compile errors. Do not run migrations against the database — leave that to the user.
 
 ## Notes
 - Skip the `application/<name>/` layer unless the user asks for cross-domain orchestration. Most simple CRUD domains don't need it.
 - Do not register the route on `public.go` or `partner.go` — internal is the default. The user can move it manually if needed.
-- Do not create tests automatically — the user can request them separately.
 - Do not commit. Leave the changes staged or unstaged for the user to review.
