@@ -58,8 +58,8 @@ storage/        Uploaded file storage
 ## Development
 ```bash
 make run              # run application via air (hot reload)
-make test             # go test -v ./...
-make test-integration # go test ./... against a real PostgreSQL + Redis
+make test             # go test -race -shuffle=on ./... (no database needed)
+make test-integration # the same, against a real PostgreSQL + Redis
 make lint             # golangci-lint run
 make migrate-up       # run pending migrations
 make migrate-down     # rollback last migration
@@ -83,7 +83,7 @@ never ran — use `make test-integration` before trusting a result. CI sets both
 - Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`
 
 ## Important Rules
-Detailed coding rules live in `.claude/rules/` (`code-style.md`, `api-conventions.md`, `testing.md`) and are always in effect — financial values, error handling, Clean Architecture boundaries, naming, and API conventions are defined there. Project-specific notes not covered by those rules:
+Detailed coding rules live in `.claude/rules/` (`code-style.md`, `api-conventions.md`, `testing.md`) and are always in effect — financial values, error handling, Clean Architecture boundaries, naming, and API conventions are defined there. They follow general Go and backend practice; where a rule and common practice disagree, practice wins and the rule is corrected in the same change. Where the code still falls short of a rule, the gap is tracked in phase R of `docs/roadmap/improvement-tasks.md` — follow the rule in new code, and don't copy the gap. Project-specific notes not covered by those rules:
 
 - Secrets come from environment variables (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `DB_PASSWORD`, ...); never hardcode credentials and never put them in `config.yaml`. There is no `JWT_SECRET_KEY` — access and refresh tokens are signed with separate secrets
 - Auth behaviour (rotation, revocation modes, cache-mode trade-offs, client contract) is documented in [docs/guides/auth.md](docs/guides/auth.md) — read it before changing anything under `domain/auth` or the auth middleware

@@ -29,6 +29,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
+| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R5, R6, R7 done · rest ~4–5 days |
 
 **P0, P1, P2 and P4 are complete**, and F2 and F4 with them. What remains is the rest of P3 — feature
 work rather than correction, and each item needs a scope decision before it starts.
@@ -844,6 +845,137 @@ deletion:
       upstream in config rather than in a new struct, and an empty `service:` block is correct
 - [x] **`Service.Apikey`** — kept, with a comment distinguishing it from the inbound `api_key`
       map: this one is *sent to* an upstream, that one is *accepted from* a partner
+
+---
+
+## R — Alignment with the rules
+
+On 2026-09-24 `.claude/rules/*`, the `go-reviewer` agent, the `db-migrations` and `crud-operations`
+skills and `/add-domain` were rewritten against general Go and backend practice, not against the
+code as it stood. Each rule the code does not yet meet is listed here, so a rule never
+silently describes behaviour that does not exist — the failure A2 was about. New code follows the
+rule; these tasks bring the old code up to it.
+
+**Order:** R2 → R5 → R6 first (defects, each S), then the rest by value. R2, R5, R6 and R7 landed
+in #87, #88 and #89.
+
+### R2 Stop echoing submitted values in validation errors · S — **security** — ✅ done (#87)
+**Evidence:** `pkg/response/errors.go:27-29`, `internal/delivery/http/middleware/request.go:24,160-170`,
+`pkg/redact/redact.go:18-27`
+
+`FormatValidationErrors` puts `fieldError.Value()` in every detail. Send
+`PUT /api/v1/users/me/password` with a 7-character `newPassword` and the 400 **returns the
+password in the body**. That path is not under the default `omit_body_paths` (`/api/v1/auth`),
+the logger records response bodies, and `value` is not a redacted key — so the password is
+also **written to the log in plaintext**. A short password that fails our policy is often one the
+user really uses elsewhere.
+
+- [x] `Value` dropped from `ValidationErrorDetail`
+- [x] Fields are named by their `json`/`query`/`params` tag through `response.NewValidator()`,
+      which bootstrap and the handler tests use — `newPassword`, not `newpassword`
+- [x] `/api/v1/auth` and `/api/v1/users/me/password` are always omitted from body logging.
+      `log.omit_body_paths` now **adds** to them; it used to *replace* the default, so listing one
+      extra path silently started logging login bodies
+- [x] Tests: the handler test fails on the old code with `"value":"hunter2"`; field names per tag
+      kind; the password route's bodies omitted whole; configured paths never drop credential ones
+
+### R5 Finish A5: `foo` is still routed on `/internal` and `/partner` · S — defect — ✅ done (#88)
+**Evidence:** `internal/delivery/http/router/internal.go:13`, `internal/delivery/http/router/partner.go:19`
+
+A5 unrouted `foo` from `public.go` only. `POST /internal/foos` and `POST /partner/v1/foos` still
+reach `panic("Implement me")` and answer 500, so A5's "done when" does not hold.
+
+- [x] `r.foo(...)` commented out in both, with the same pointer to the template docs
+- [x] `TestRegister_NoAudienceExposesTheFooTemplate` registers every audience on a fresh app and
+      fails if any route reaches `/foos` — verified by re-enabling `r.foo(internal)`. A companion
+      test asserts `bar` is still registered everywhere, so the first cannot pass vacuously
+
+### R6 Make `bar` uniqueness correct under soft delete and concurrency · S — defect — ✅ done (#89)
+**Evidence:** `internal/migrations/*_create_bars_table.up.sql`, `internal/domain/bar/usecase.go:35-63`,
+`internal/infrastructure/repository/bar.go:106`
+
+- `code` is `UNIQUE` across **all** rows, but `ExistsByCode` only looks at live ones. Deleting a bar
+  and creating another with the same code passes the check and then violates the constraint:
+  **500 instead of 201**
+- The check-then-insert is racy: two concurrent creates both pass `ExistsByCode`, and the loser
+  gets a 500 instead of a 409
+- `ExistsByCode` loads a list through `GetBarList` to answer a yes/no question
+- `idx_bars_code` duplicates the index `UNIQUE` already creates; `idx_bars_is_active` and
+  `idx_bars_deleted_at` index low-cardinality columns alone
+
+- [x] `uq_bars_code_live ... WHERE deleted_at IS NULL` replaces `UNIQUE`, and the four redundant
+      indexes are dropped — in a **new** migration rather than an edited baseline, since an
+      edited migration never re-runs where it has already been applied
+- [x] The repository maps SQLSTATE 23505 on that index to `bar.ErrCodeAlreadyExists`;
+      `ExistsByCode` and its pre-checks are gone
+- [x] Repository tests: a deleted code can be reused; eight concurrent creates yield exactly one
+      winner and conflict errors for the rest; a clashing bulk batch writes nothing
+- [x] **Found on the way:** re-saving a bar's own code in another case answered 409 (compared
+      before normalising); a code repeated inside one bulk request was a 500 (now 400); and the
+      list paged with no `ORDER BY`, so rows could repeat or vanish between pages (now `id DESC`)
+
+### R7 Give the worked example the tests it tells others to write · M — ✅ done (#89)
+**Evidence:** `internal/domain/bar/` and `internal/infrastructure/repository/` have no `bar` tests
+
+`bar` is what `/add-domain` copies, and the testing rules rank use-case tests first — yet
+`bar` has handler and presenter tests only. The scaffold now generates use-case and repository
+tests; the example it copies from should have them too.
+
+- [x] `domain/bar/usecase_test.go` with a hand-written fake repository
+- [x] `infrastructure/repository/bar_test.go` against real PostgreSQL (landed with R6's cases)
+
+### R1 Take HTTP out of the domain layer · M
+**Evidence:** `net/http` imported by five files in `internal/domain/auth/`; `internal/domain/bar/error.go:7`
+(`utils.ClientErr(409, ...)`)
+
+Domain errors are built with HTTP status codes, so the domain knows its transport. The gRPC side
+already has to translate them back (`pkg/grpcresponse/errors.go`). The rule says domain errors
+carry meaning, delivery maps them.
+
+- [ ] A small error kind in the domain (`NotFound`, `Conflict`, `Invalid`, `Unauthenticated`,
+      `Forbidden`) carrying a safe message; no `net/http`
+- [ ] `response.HandleError` and the gRPC mapper translate kinds to status codes in one table each
+- [ ] Migrate `auth` and `bar`; delete `utils.ClientErr` once nothing uses it
+
+### R3 Decide on a machine-readable error contract · M — decision first
+Clients can branch only on the status code; `message` is prose and may change. Two options:
+
+- a stable `code` field in the existing envelope (`"code": "session_not_found"`) — smallest change
+- RFC 9457 Problem Details (`application/problem+json`) for errors — the standard, and what
+  gateways and client libraries increasingly understand, but a second response shape
+
+Either pairs naturally with R1's error kinds. Needs a decision before code.
+
+### R4 `Location` on 201 and `Retry-After` on 429 · S
+**Evidence:** `internal/delivery/http/handler/bar.go:59`, `internal/delivery/http/middleware/ratelimit.go:48,68`
+
+- [ ] `response.Created` takes the new resource's path and sets `Location`; `bar` returns the
+      created resource (or at least its ID) rather than `nil`
+- [ ] The limiters set `Retry-After` from the window's remaining time, so clients back off
+      instead of hammering
+
+### R8 Stop storing contexts in structs · S — fold into F5
+**Evidence:** `pkg/filesystem/s3.go:24`, `pkg/filesystem/drive.go:20`
+
+Both drivers keep the context they were constructed with and use it for every call, so an upload
+is neither cancelled when its request is nor traced under it.
+
+- [ ] Thread `ctx` through the `Storage` interface methods
+
+### R9 Return startup errors instead of panicking · S
+**Evidence:** `internal/wire/infrastructure.go:43,50,92`, `internal/bootstrap/viper.go:32,43`
+
+- [ ] Wiring returns `error` up to `main`, which logs it once with the structured logger and exits
+      non-zero — instead of a panic trace on stderr that bypasses the log pipeline H5 unified
+
+### R10 Validate the incoming `X-Request-ID` · S
+**Evidence:** `internal/delivery/http/middleware/request.go:70`
+
+The header is taken verbatim from the client, so any length and any content lands in every log
+line of the request and is echoed back.
+
+- [ ] Accept it only when it is a bounded, safe token (for example ≤ 128 chars of
+      `[A-Za-z0-9._-]`); otherwise generate one
 
 ---
 
