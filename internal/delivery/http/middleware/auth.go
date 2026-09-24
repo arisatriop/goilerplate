@@ -2,18 +2,17 @@ package middleware
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"goilerplate/config"
 	"goilerplate/internal/domain/auth"
 	"goilerplate/pkg/apikey"
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/hash"
 	jwtService "goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/response"
 	"goilerplate/pkg/utils"
-	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -77,8 +76,6 @@ func (m *Auth) Authenticate() fiber.Handler {
 // This validates REFRESH tokens, not access tokens
 func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		var clientError *utils.ClientError
-
 		token, err := bearerToken(ctx)
 		if err != nil {
 			return response.Unauthorized(ctx, "")
@@ -94,11 +91,7 @@ func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 		// Refresh always checks the session, whatever auth.revocation says: this is the point
 		// where a revoked login must stop being able to mint new access tokens.
 		if _, err := m.sessionService.GetActive(ctx.UserContext(), claims.SessionID); err != nil {
-			if errors.As(err, &clientError) {
-				return response.CustomError(ctx, clientError.Code, clientError.Error(), nil)
-			}
-			logger.Error(ctx.UserContext(), err)
-			return response.InternalServerError(ctx, "")
+			return response.HandleError(ctx, err)
 		}
 
 		// Set context for handler to use
@@ -235,6 +228,9 @@ func (m *Auth) setUserContext(ctx *fiber.Ctx, userID, userName, sessionID string
 	ctx.Locals(string(constants.ContextKeySessionID), sessionID)
 }
 
+// errMissingBearer is what bearerToken reports for every malformed Authorization header.
+var errMissingBearer = apperr.New(apperr.Unauthenticated, "unauthorized", constants.MsgUnauthorized)
+
 // bearerToken reads the token out of the Authorization header.
 //
 // Every failure answers the same way. Telling a caller whether the header was missing, not a
@@ -243,12 +239,12 @@ func (m *Auth) setUserContext(ctx *fiber.Ctx, userID, userName, sessionID string
 func bearerToken(ctx *fiber.Ctx) (string, error) {
 	parts := strings.SplitN(ctx.Get(fiber.HeaderAuthorization), " ", 2)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return "", errMissingBearer
 	}
 
 	token := strings.TrimSpace(parts[1])
 	if token == "" {
-		return "", utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return "", errMissingBearer
 	}
 
 	return token, nil

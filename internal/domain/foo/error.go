@@ -9,14 +9,11 @@
 
 package foo
 
-import "goilerplate/pkg/utils"
+import "goilerplate/pkg/apperr"
 
+// Declare each error the domain can return with a kind (which decides the status) and a stable
+// snake_case code prefixed with the domain name. See bar/error.go for a worked example.
 var (
-	// Business logic errors
-	ErrCodeAlreadyExists = utils.ClientErr(409, "Code already exists")
-	ErrAlreadyDeleted    = utils.ClientErr(410, "Foo is already deleted")
-	ErrCannotBeDeleted   = utils.ClientErr(403, "Foo cannot be deleted due to business rules")
-
-	// Operation errors
-	ErrNotFound = utils.ClientErr(404, "Foo not found")
+	ErrNotFound          = apperr.New(apperr.NotFound, "foo_not_found", "Foo not found")
+	ErrCodeAlreadyExists = apperr.New(apperr.Conflict, "foo_code_already_exists", "Code already exists")
 )

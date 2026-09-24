@@ -6,11 +6,16 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
-	"goilerplate/pkg/utils"
 	"io"
-	"net/http"
 )
+
+// ErrDecrypt means a ciphertext could not be opened: the key is wrong, or the data was altered or
+// truncated. GCM cannot tell those apart, and neither can the caller — so it is a server-side
+// fault to investigate, never something a client caused. (It used to be reported as a 404
+// "tenant not found", left over from a product this package was lifted from.)
+var ErrDecrypt = errors.New("crypto: decryption failed")
 
 // EncryptString encrypts a plaintext string using AES-256-GCM
 func EncryptString(plainText string, key string) (string, error) {
@@ -66,7 +71,7 @@ func DecryptString(encrypted string, key string) (string, error) {
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return "", utils.ClientErr(http.StatusNotFound, "tenant not found", err)
+		return "", fmt.Errorf("%w: %w", ErrDecrypt, err)
 	}
 
 	return string(plaintext), nil

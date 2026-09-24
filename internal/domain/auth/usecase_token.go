@@ -7,11 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"goilerplate/pkg/constants"
 	"goilerplate/pkg/jwt"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/utils"
-	"net/http"
 	"time"
 )
 
@@ -68,7 +66,7 @@ func (uc *authUseCase) rotateRefreshToken(ctx context.Context, userID, sessionID
 			return nil, fmt.Errorf("reading rotated session: %w", err)
 		}
 		if session == nil {
-			return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+			return nil, ErrUnauthorized
 		}
 		return session, nil
 	}
@@ -89,7 +87,7 @@ func (uc *authUseCase) resolveFailedRotation(ctx context.Context, userID, sessio
 		return nil, fmt.Errorf("re-reading session after failed rotation: %w", err)
 	}
 	if session == nil || !session.IsValidSession() {
-		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+		return nil, ErrUnauthorized
 	}
 
 	// The token we were handed is the one the previous rotation just replaced, and that
@@ -118,7 +116,7 @@ func (uc *authUseCase) resolveFailedRotation(ctx context.Context, userID, sessio
 		Reason:    RevokedReasonReuseDetected,
 	})
 
-	return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgUnauthorized)
+	return nil, ErrUnauthorized
 }
 
 // withinReuseGrace reports whether refreshJTI is the token the last rotation replaced, and

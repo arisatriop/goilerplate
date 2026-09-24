@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
+	"goilerplate/pkg/apperr"
 	"testing"
-
-	"goilerplate/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,11 +36,11 @@ func (r *fakeRepo) BulkCreate(_ context.Context, entities []*Bar) error {
 	return r.writeErr
 }
 
-func assertClientStatus(t *testing.T, err error, status int) {
+func assertKind(t *testing.T, err error, kind apperr.Kind) {
 	t.Helper()
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
-	assert.Equal(t, status, clientErr.Code)
+	appErr, ok := apperr.As(err)
+	require.True(t, ok, "want a client error, got %v", err)
+	assert.Equal(t, kind, appErr.Kind)
 }
 
 func TestUsecase_Create_StoresTheNormalisedForm(t *testing.T) {
@@ -66,7 +64,7 @@ func TestUsecase_Create_ConflictFromTheRepositoryIs409(t *testing.T) {
 	_, err := NewUseCase(repo).Create(context.Background(), &Bar{Code: "EXP-1", Bar: "thing"})
 
 	assert.ErrorIs(t, err, ErrCodeAlreadyExists)
-	assertClientStatus(t, err, http.StatusConflict)
+	assertKind(t, err, apperr.Conflict)
 }
 
 func TestUsecase_Create_InvalidInputNeverReachesTheRepository(t *testing.T) {
@@ -74,7 +72,7 @@ func TestUsecase_Create_InvalidInputNeverReachesTheRepository(t *testing.T) {
 
 	_, err := NewUseCase(repo).Create(context.Background(), &Bar{Code: "NOPE", Bar: "thing"})
 
-	assertClientStatus(t, err, http.StatusBadRequest)
+	assertKind(t, err, apperr.Invalid)
 	assert.Nil(t, repo.created)
 }
 
@@ -84,8 +82,8 @@ func TestUsecase_Create_RepositoryFailureIsNotAClientError(t *testing.T) {
 	_, err := NewUseCase(repo).Create(context.Background(), &Bar{Code: "EXP-1", Bar: "thing"})
 
 	require.Error(t, err)
-	var clientErr *utils.ClientError
-	assert.False(t, errors.As(err, &clientErr))
+	_, isClientErr := apperr.As(err)
+	assert.False(t, isClientErr)
 }
 
 // The old code compared the stored code with the request's before normalising, so re-saving a
@@ -105,22 +103,22 @@ func TestUsecase_Update_NotFoundPassesThrough(t *testing.T) {
 
 	_, err := NewUseCase(repo).Update(context.Background(), &Bar{ID: "b1", Code: "EXP-1", Bar: "thing"})
 
-	assertClientStatus(t, err, http.StatusNotFound)
+	assertKind(t, err, apperr.NotFound)
 }
 
 func TestUsecase_BulkCreate(t *testing.T) {
 	tests := []struct {
-		name       string
-		entities   []*Bar
-		writeErr   error
-		wantStatus int
-		wantWrite  bool
+		name      string
+		entities  []*Bar
+		writeErr  error
+		wantKind  apperr.Kind
+		wantWrite bool
 	}{
 		{"all new", []*Bar{{Code: "EXP-1", Bar: "a"}, {Code: "EXP-2", Bar: "b"}}, nil, 0, true},
 		{"same code twice in the request, differing only in case", []*Bar{{Code: "EXP-1", Bar: "a"}, {Code: " exp-1", Bar: "b"}},
-			nil, http.StatusBadRequest, false},
-		{"clash with a stored bar", []*Bar{{Code: "EXP-1", Bar: "a"}}, ErrCodeAlreadyExists, http.StatusConflict, true},
-		{"one invalid entity", []*Bar{{Code: "EXP-1", Bar: "a"}, {Code: "BAD", Bar: "b"}}, nil, http.StatusBadRequest, false},
+			nil, apperr.Invalid, false},
+		{"clash with a stored bar", []*Bar{{Code: "EXP-1", Bar: "a"}}, ErrCodeAlreadyExists, apperr.Conflict, true},
+		{"one invalid entity", []*Bar{{Code: "EXP-1", Bar: "a"}, {Code: "BAD", Bar: "b"}}, nil, apperr.Invalid, false},
 	}
 
 	for _, tt := range tests {
@@ -129,10 +127,10 @@ func TestUsecase_BulkCreate(t *testing.T) {
 
 			err := NewUseCase(repo).BulkCreate(context.Background(), tt.entities)
 
-			if tt.wantStatus == 0 {
+			if tt.wantKind == 0 {
 				require.NoError(t, err)
 			} else {
-				assertClientStatus(t, err, tt.wantStatus)
+				assertKind(t, err, tt.wantKind)
 			}
 			assert.Equal(t, tt.wantWrite, repo.bulk != nil, "whether the batch reached the repository")
 		})

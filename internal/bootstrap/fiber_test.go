@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"goilerplate/config"
+	"goilerplate/pkg/apperr"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -295,4 +297,56 @@ func TestNewFiber_BodyWithinTheLimitIsAccepted(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, fiber.StatusOK, res.StatusCode)
+}
+
+func errorBody(t *testing.T, app *fiber.App, method, target string) (int, map[string]any) {
+	t.Helper()
+
+	resp, err := app.Test(httptest.NewRequest(method, target, nil))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	var body map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	return resp.StatusCode, body
+}
+
+// Errors Fiber raises itself used to answer {"message": ...} outside the envelope, so a client
+// had to parse two error shapes.
+func TestErrorHandler_FiberErrorsUseTheEnvelope(t *testing.T) {
+	app := NewFiber(baseConfig())
+	app.Get("/probe", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
+
+	status, body := errorBody(t, app, fiber.MethodGet, "/nowhere")
+
+	assert.Equal(t, fiber.StatusNotFound, status)
+	assert.Equal(t, false, body["success"])
+	assert.Equal(t, "not_found", body["code"])
+	assert.NotEmpty(t, body["message"])
+}
+
+// A handler that returns a raw error instead of answering must not hand its text to the client.
+func TestErrorHandler_RawErrorIsAGeneric500(t *testing.T) {
+	app := NewFiber(baseConfig())
+	app.Get("/boom", func(*fiber.Ctx) error {
+		return errors.New(`pq: password authentication failed for user "admin"`)
+	})
+
+	status, body := errorBody(t, app, fiber.MethodGet, "/boom")
+
+	assert.Equal(t, fiber.StatusInternalServerError, status)
+	assert.Equal(t, "internal_error", body["code"])
+	assert.NotContains(t, fmt.Sprint(body), "admin", "the driver error must stay in the log")
+}
+
+func TestErrorHandler_ReturnedClientErrorKeepsItsStatusAndCode(t *testing.T) {
+	app := NewFiber(baseConfig())
+	app.Get("/missing", func(*fiber.Ctx) error {
+		return apperr.New(apperr.NotFound, "widget_not_found", "Widget not found")
+	})
+
+	status, body := errorBody(t, app, fiber.MethodGet, "/missing")
+
+	assert.Equal(t, fiber.StatusNotFound, status)
+	assert.Equal(t, "widget_not_found", body["code"])
 }

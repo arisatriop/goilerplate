@@ -1044,6 +1044,10 @@ const docTemplate = `{
         "response.BaseResponse": {
             "type": "object",
             "properties": {
+                "code": {
+                    "description": "Code is set on every error: a stable, machine-readable, snake_case identifier. Clients\nbranch on it (and on the status); Message is prose for humans and may change.",
+                    "type": "string"
+                },
                 "data": {},
                 "errors": {},
                 "message": {

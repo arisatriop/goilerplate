@@ -68,17 +68,25 @@ themselves, so the envelope exists in exactly one place.
 { "success": true, "message": "...", "data": { } }
 ```
 
-Errors use the same envelope. `errors` carries details when they help the client fix the request:
+Errors use the same envelope, always with a `code`. `errors` carries details when they help the
+client fix the request:
 
 ```json
-{ "success": false, "message": "Validation failed",
+{ "success": false, "code": "validation_failed", "message": "Validation failed",
   "errors": [ { "field": "email", "tag": "email", "message": "email must be a valid email address" } ] }
 ```
 
-- Return use-case errors through `response.HandleError(ctx, err)`. It maps a `utils.ClientError`
-  to its status and turns anything else into a logged, generic 500
-- Clients branch on the **status code**. `message` is for humans and may change. A stable,
-  machine-readable error code — or a move to RFC 9457 Problem Details — is gap R3
+- **`code` is the contract.** A stable, snake_case identifier on every error: a domain's own
+  (`bar_not_found`, `session_not_found`, `invalid_credentials`) or a generic one for its status
+  (`validation_failed`, `unauthorized`, `rate_limited`, `internal_error`). Clients branch on the
+  status and the code; `message` is prose for humans and may change. Renaming a code is a
+  breaking change
+- Chosen over RFC 9457 Problem Details deliberately: one response shape for success and error,
+  as in the Microsoft and Google (AIP-193) guidelines. gRPC carries the same code as
+  `google.rpc.ErrorInfo.reason`
+- Return use-case errors through `response.HandleError(ctx, err)`. An `apperr` error keeps its
+  status, code and message; anything else is logged and answered with a generic 500. Fiber's own
+  errors (unknown route, 405, 413) go through the same envelope via the app's error handler
 - All keys are camelCase (`TestEnvelope_EveryKeyIsCamelCase` enforces it). Timestamps are RFC 3339
   in UTC. IDs are strings. Decimal amounts are JSON strings
 - A collection is never `null`. An empty one is `[]`

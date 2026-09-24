@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"errors"
-	"net/http"
 	"testing"
 	"time"
 
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -106,9 +106,9 @@ func activeSession(id, userID string) *UserSession {
 
 func assertUnauthorized(t *testing.T, err error) {
 	t.Helper()
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
-	assert.Equal(t, http.StatusUnauthorized, clientErr.Code)
+	appErr, ok := apperr.As(err)
+	require.True(t, ok, "want a client error, got %v", err)
+	assert.Equal(t, apperr.Unauthenticated, appErr.Kind)
 }
 
 func TestSessionService_GetActive_CacheMissReadsRepositoryAndCaches(t *testing.T) {
@@ -186,8 +186,8 @@ func TestSessionService_GetActive_RepositoryErrorIsReturned(t *testing.T) {
 	_, err := service.GetActive(context.Background(), "s1")
 
 	require.Error(t, err)
-	var clientErr *utils.ClientError
-	assert.False(t, errors.As(err, &clientErr), "infrastructure errors are not reported as 401")
+	_, isClientErr := apperr.As(err)
+	assert.False(t, isClientErr, "infrastructure errors are not reported as 401")
 }
 
 func TestSessionService_Evict(t *testing.T) {

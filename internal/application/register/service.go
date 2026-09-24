@@ -9,8 +9,6 @@ import (
 	"goilerplate/internal/domain/userrole"
 	"goilerplate/pkg/auditctx"
 	"goilerplate/pkg/password"
-	"goilerplate/pkg/utils"
-	"net/http"
 )
 
 type ApplicationService interface {
@@ -91,7 +89,7 @@ func (s *applicationService) checkExistingEmail(ctx context.Context, email strin
 		return fmt.Errorf("failed to check existing email: %w", err)
 	}
 	if existingUser != nil {
-		return utils.ClientErr(http.StatusBadRequest, "email is already registered")
+		return user.ErrEmailAlreadyRegistered
 	}
 	return nil
 }

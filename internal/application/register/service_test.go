@@ -134,8 +134,7 @@ func TestRegister_DuplicateEmailIsRefusedBeforeHashing(t *testing.T) {
 
 	// Assert
 	require.Error(t, err)
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
+	assert.ErrorIs(t, err, user.ErrEmailAlreadyRegistered)
 	assert.Nil(t, userRepo.created)
 	assert.Nil(t, userRoleRepo.created)
 	assert.False(t, tx.entered)

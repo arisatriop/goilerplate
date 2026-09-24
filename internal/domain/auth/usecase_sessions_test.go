@@ -3,10 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
-	"net/http"
+	"goilerplate/pkg/apperr"
 	"testing"
-
-	"goilerplate/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,8 +60,8 @@ func TestAuthUseCase_ListSessions_RepositoryErrorIsWrapped(t *testing.T) {
 	_, err := newSessionsUseCase(repo, newFakeSessionStore()).ListSessions(context.Background(), "u1")
 
 	require.Error(t, err)
-	var clientErr *utils.ClientError
-	assert.False(t, errors.As(err, &clientErr), "a database failure is a 500, not a client error")
+	_, isClientErr := apperr.As(err)
+	assert.False(t, isClientErr, "a database failure is a 500, not a client error")
 }
 
 // A revoked session must also leave the cache, or it keeps authenticating until the cache TTL.
@@ -91,10 +89,8 @@ func TestAuthUseCase_RevokeSession_NotFoundIs404(t *testing.T) {
 
 	err := newSessionsUseCase(repo, newFakeSessionStore()).RevokeSession(context.Background(), "u1", "s2")
 
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
-	assert.Equal(t, http.StatusNotFound, clientErr.Code)
-	assert.Equal(t, MsgSessionNotFound, clientErr.Error())
+	assert.ErrorIs(t, err, ErrSessionNotFound)
+	assert.Equal(t, MsgSessionNotFound, err.Error())
 }
 
 func TestAuthUseCase_RevokeSession_RepositoryErrorIsNotAClientError(t *testing.T) {
@@ -103,8 +99,8 @@ func TestAuthUseCase_RevokeSession_RepositoryErrorIsNotAClientError(t *testing.T
 	err := newSessionsUseCase(repo, newFakeSessionStore()).RevokeSession(context.Background(), "u1", "s2")
 
 	require.Error(t, err)
-	var clientErr *utils.ClientError
-	assert.False(t, errors.As(err, &clientErr))
+	_, isClientErr := apperr.As(err)
+	assert.False(t, isClientErr)
 }
 
 func TestAuthUseCase_LogoutAll_KeepsTheGivenSession(t *testing.T) {

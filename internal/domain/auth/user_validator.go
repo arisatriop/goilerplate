@@ -3,10 +3,8 @@ package auth
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
-	"goilerplate/pkg/constants"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/utils"
 )
@@ -90,7 +88,7 @@ func (uv *UserValidator) ValidateUserForLogin(ctx context.Context, email, passwo
 			UserID:  user.ID,
 			Reason:  logger.ReasonAccountLocked,
 		})
-		return nil, utils.ClientErr(http.StatusUnauthorized, constants.MsgAccountLocked)
+		return nil, ErrAccountLocked
 	}
 
 	if err := utils.CheckPassword(password, user.PasswordHash); err != nil {
@@ -111,7 +109,7 @@ func (uv *UserValidator) ValidateUserForLogin(ctx context.Context, email, passwo
 			UserID:  user.ID,
 			Reason:  logger.ReasonAccountDisabled,
 		})
-		return nil, utils.ClientErr(http.StatusForbidden, constants.MsgAccountDisabled)
+		return nil, ErrAccountDisabled
 	}
 
 	return user, nil
@@ -124,12 +122,15 @@ func (uv *UserValidator) ValidateUserForRefresh(ctx context.Context, userID stri
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	// A refresh token for a user who no longer exists is a credential that stopped being valid:
+	// 401, like any other dead credential. It used to be a 404, which told the caller the
+	// account had been deleted.
 	if user == nil {
-		return nil, utils.ClientErr(http.StatusNotFound, constants.MsgResourceNotFound)
+		return nil, ErrUnauthorized
 	}
 
 	if !user.IsActive {
-		return nil, utils.ClientErr(http.StatusForbidden, constants.MsgAccountDisabled)
+		return nil, ErrAccountDisabled
 	}
 
 	return user, nil
@@ -171,5 +172,5 @@ func (uv *UserValidator) spendPasswordCheckTime(password string) {
 // the two are indistinguishable. 401 rather than 400: the request was well formed, the
 // credentials were not accepted.
 func invalidCredentials() error {
-	return utils.ClientErr(http.StatusUnauthorized, constants.MsgInvalidCredential)
+	return ErrInvalidCredentials
 }

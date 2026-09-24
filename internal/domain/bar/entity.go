@@ -2,8 +2,6 @@ package bar
 
 import (
 	"strings"
-
-	"goilerplate/pkg/utils"
 )
 
 type Bar struct {
@@ -15,13 +13,13 @@ type Bar struct {
 func (e *Bar) validate() error {
 	code := strings.ToUpper(strings.TrimSpace(e.Code))
 	if code == "" {
-		return utils.ClientErr(400, "code is required")
+		return ErrCodeRequired
 	}
 	if len(code) < 3 || !strings.HasPrefix(code, "EXP") {
-		return utils.ClientErr(400, "code must start with 'EXP'")
+		return ErrCodeFormat
 	}
 	if strings.TrimSpace(e.Bar) == "" {
-		return utils.ClientErr(400, "bar is required")
+		return ErrDescriptionRequired
 	}
 	return nil
 }

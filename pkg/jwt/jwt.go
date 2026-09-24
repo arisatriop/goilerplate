@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"time"
 
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/utils"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// Verification failures. All three are Unauthenticated; the codes let a client tell an expired
+// token (refresh it) from one that will never verify (sign in again).
 var (
-	ErrInvalidToken = utils.ClientErr(401, "Invalid token")
-	ErrExpiredToken = utils.ClientErr(401, "Token has expired")
-	ErrTokenClaims  = utils.ClientErr(401, "Invalid token claims")
+	ErrInvalidToken = apperr.New(apperr.Unauthenticated, "invalid_token", "Invalid token")
+	ErrExpiredToken = apperr.New(apperr.Unauthenticated, "token_expired", "Token has expired")
+	ErrTokenClaims  = apperr.New(apperr.Unauthenticated, "invalid_token_claims", "Invalid token claims")
 )
 
 // Token types, carried in the "type" claim.

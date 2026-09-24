@@ -35,7 +35,7 @@ Substitute `bar` → `<name>` and `Bar` → `<Name>` throughout. Use sensible de
 - `entity.go` — entity struct + `validate()` + `Clone()`
 - `usecase.go` — `Usecase` interface + `usecase` struct + `NewUseCase` constructor + Create/Update/Delete/GetByID/GetList/BulkCreate methods
 - `repository.go` — `Repository` interface with `WithTx` + CRUD + Count/List/GetByID
-- `error.go` — `Err<Name>NotFound`, `ErrCodeAlreadyExists`, etc., using `utils.ClientErr`
+- `error.go` — `ErrNotFound`, `ErrCodeAlreadyExists`, etc., declared with `apperr.New(kind, "<name>_...", message)` as in `bar/error.go`
 - `filter.go` — `Filter` struct with `Keyword`, `Code`, `Pagination`
 - `message.go` — `Msg<Name>CreatedSuccessfully`, etc.
 

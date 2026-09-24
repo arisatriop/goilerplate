@@ -29,7 +29,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
-| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R4–R7, R9, R10 done · R1, R3, R8 left |
+| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | all done except R8 (with F5) |
 
 **P0, P1, P2 and P4 are complete**, and F2 and F4 with them. What remains is the rest of P3 — feature
 work rather than correction, and each item needs a scope decision before it starts.
@@ -924,27 +924,41 @@ tests; the example it copies from should have them too.
 - [x] `domain/bar/usecase_test.go` with a hand-written fake repository
 - [x] `infrastructure/repository/bar_test.go` against real PostgreSQL (landed with R6's cases)
 
-### R1 Take HTTP out of the domain layer · M
-**Evidence:** `net/http` imported by five files in `internal/domain/auth/`; `internal/domain/bar/error.go:7`
-(`utils.ClientErr(409, ...)`)
+### R1 Take HTTP out of the domain layer · M — ✅ done
+**Evidence:** `net/http` imported by five files in `internal/domain/auth/`; 39 `utils.ClientErr`
+call sites, including in `pkg/jwt`, `pkg/password`, `pkg/filesystem` and `pkg/crypto`
 
-Domain errors are built with HTTP status codes, so the domain knows its transport. The gRPC side
-already has to translate them back (`pkg/grpcresponse/errors.go`). The rule says domain errors
-carry meaning, delivery maps them.
+- [x] `pkg/apperr`: an error has a **kind** (`Invalid`, `Unauthenticated`, `Forbidden`, `NotFound`,
+      `Conflict`), a stable **code** and a safe message. Sentinels match through wrapping and
+      `WithCause` by kind and code
+- [x] One table per transport: `pkg/response` (HTTP status) and `pkg/grpcresponse` (gRPC code +
+      `ErrorInfo`). The gRPC side no longer translates HTTP status codes back
+- [x] `auth`, `bar`, `foo`, `user`, `application/register`, the auth middleware and the four `pkg`
+      libraries migrated; `utils.ClientError` deleted. No `net/http` under `internal/domain/`
+- [x] **Found on the way:**
+  - Fiber's error handler sent **any raw error's text to the client** as a 500, and answered its
+    own 404/405/413 as `{"message": ...}` outside the envelope. Both now go through
+    `response.HandleError` / `FailStatus`
+  - `pkg/crypto` reported a decryption failure as a 404 **"tenant not found"** — a leftover from
+    another product. It is now `crypto.ErrDecrypt`, a server fault
+  - Duplicate email on registration was a 400 with two different messages depending on the path;
+    it is one 409 `email_already_registered`
+  - A refresh for a user that no longer exists answered 404, telling the caller the account had
+    been deleted. It is now the same 401 as any dead credential
+  - `bar.ErrAlreadyDeleted` (410) and `ErrCannotBeDeleted` (403) were used only by a test; deleted
+  - The integration harness mirrored the error mapping with its own `statusFor`; it now calls
+    `response.HandleError`, so the anti-enumeration tests compare real response bodies
 
-- [ ] A small error kind in the domain (`NotFound`, `Conflict`, `Invalid`, `Unauthenticated`,
-      `Forbidden`) carrying a safe message; no `net/http`
-- [ ] `response.HandleError` and the gRPC mapper translate kinds to status codes in one table each
-- [ ] Migrate `auth` and `bar`; delete `utils.ClientErr` once nothing uses it
+### R3 Decide on a machine-readable error contract · M — ✅ done (with R1)
 
-### R3 Decide on a machine-readable error contract · M — decision first
-Clients can branch only on the status code; `message` is prose and may change. Two options:
+**Decision: a stable `code` in the existing envelope**, not RFC 9457. One response shape for
+success and error, as in the Microsoft REST guidelines and Google AIP-193; Problem Details is
+mandated by some guidelines (Zalando) but would give clients a second shape to parse. gRPC carries
+the same code as `google.rpc.ErrorInfo.reason`.
 
-- a stable `code` field in the existing envelope (`"code": "session_not_found"`) — smallest change
-- RFC 9457 Problem Details (`application/problem+json`) for errors — the standard, and what
-  gateways and client libraries increasingly understand, but a second response shape
-
-Either pairs naturally with R1's error kinds. Needs a decision before code.
+- [x] `code` on every error: the domain's own, or the generic code of the status
+- [x] Documented in `api-conventions.md` and `docs/api/router.md`; renaming a code is a breaking
+      change
 
 ### R4 `Location` on 201 and `Retry-After` on 429 · S — ✅ done
 **Evidence:** `internal/delivery/http/handler/bar.go:59`, `internal/delivery/http/middleware/ratelimit.go`

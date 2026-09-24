@@ -2,11 +2,10 @@ package auth
 
 import (
 	"context"
-	"net/http"
 	"testing"
 	"time"
 
-	"goilerplate/pkg/constants"
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -62,13 +61,11 @@ func newValidator(repo *validatorRepo) *UserValidator {
 	return NewUserValidator(repo, Lockout{MaxAttempts: 5, Duration: 10 * time.Minute})
 }
 
-func assertClientErr(t *testing.T, err error, code int, message string) {
+func assertClientErr(t *testing.T, err error, want *apperr.Error) {
 	t.Helper()
 
-	var clientErr *utils.ClientError
-	require.ErrorAs(t, err, &clientErr)
-	assert.Equal(t, code, clientErr.Code)
-	assert.Equal(t, message, clientErr.Error())
+	require.ErrorIs(t, err, want)
+	assert.Equal(t, want.Message, err.Error(), "the message a client sees")
 }
 
 // An unregistered email and a wrong password must be indistinguishable: same status, same
@@ -83,8 +80,8 @@ func TestValidateUserForLogin_UnknownEmailMatchesWrongPassword(t *testing.T) {
 	_, wrongErr := newValidator(known).ValidateUserForLogin(context.Background(), "user@example.test", "wrong-password")
 
 	// Assert
-	assertClientErr(t, unknownErr, http.StatusUnauthorized, constants.MsgInvalidCredential)
-	assertClientErr(t, wrongErr, http.StatusUnauthorized, constants.MsgInvalidCredential)
+	assertClientErr(t, unknownErr, ErrInvalidCredentials)
+	assertClientErr(t, wrongErr, ErrInvalidCredentials)
 	assert.Equal(t, unknownErr.Error(), wrongErr.Error())
 
 	assert.Zero(t, unknown.failedLogins, "there is no account to count an attempt against")
@@ -106,7 +103,7 @@ func TestValidateUserForLogin_LockedHidesWhetherPasswordIsRight(t *testing.T) {
 		got, err := newValidator(repo).ValidateUserForLogin(context.Background(), user.Email, password)
 
 		assert.Nil(t, got)
-		assertClientErr(t, err, http.StatusUnauthorized, constants.MsgAccountLocked)
+		assertClientErr(t, err, ErrAccountLocked)
 		assert.Zero(t, repo.failedLogins, "a locked account does not evaluate or count the password")
 	}
 }
@@ -134,11 +131,11 @@ func TestValidateUserForLogin_DisabledOnlyAfterCorrectPassword(t *testing.T) {
 
 	withWrong := &validatorRepo{user: disabled}
 	_, err := newValidator(withWrong).ValidateUserForLogin(context.Background(), disabled.Email, "wrong-password")
-	assertClientErr(t, err, http.StatusUnauthorized, constants.MsgInvalidCredential)
+	assertClientErr(t, err, ErrInvalidCredentials)
 
 	withRight := &validatorRepo{user: disabled}
 	_, err = newValidator(withRight).ValidateUserForLogin(context.Background(), disabled.Email, correctPassword)
-	assertClientErr(t, err, http.StatusForbidden, constants.MsgAccountDisabled)
+	assertClientErr(t, err, ErrAccountDisabled)
 }
 
 func TestValidateUserForLogin_Success(t *testing.T) {

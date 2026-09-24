@@ -2,49 +2,49 @@ package grpcresponse
 
 import (
 	"context"
-	"errors"
-	"net/http"
 
+	"goilerplate/pkg/apperr"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/logger"
-	"goilerplate/pkg/utils"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-// HandleError converts a domain error into a gRPC status error.
-// Mirrors pkg/response.HandleError for the gRPC transport layer.
+// ErrorDomain names who issued an ErrorInfo, as google.rpc.ErrorInfo asks. Clients read the
+// machine-readable code from ErrorInfo.Reason.
+const ErrorDomain = "goilerplate"
+
+// codeByKind is the one place a client error's category becomes a gRPC status code.
+var codeByKind = map[apperr.Kind]codes.Code{
+	apperr.Invalid:         codes.InvalidArgument,
+	apperr.Unauthenticated: codes.Unauthenticated,
+	apperr.Forbidden:       codes.PermissionDenied,
+	apperr.NotFound:        codes.NotFound,
+	apperr.Conflict:        codes.AlreadyExists,
+}
+
+// HandleError converts a use case error into a gRPC status, mirroring pkg/response.HandleError:
+// a client error keeps its message and carries its code in an ErrorInfo detail (Google AIP-193);
+// anything else is logged and answered with a generic Internal.
 func HandleError(ctx context.Context, err error) error {
-	var clientError *utils.ClientError
-	if errors.As(err, &clientError) {
-		return status.Error(httpCodeToGRPC(clientError.Code), clientError.Message)
+	if appErr, ok := apperr.As(err); ok {
+		if code, known := codeByKind[appErr.Kind]; known {
+			return withReason(status.New(code, appErr.Message), appErr.Code).Err()
+		}
 	}
 
 	logger.Error(ctx, err)
 	return status.Error(codes.Internal, constants.MsgInternalServerError)
 }
 
-// httpCodeToGRPC maps HTTP status codes (used by ClientError) to gRPC codes.
-func httpCodeToGRPC(httpCode int) codes.Code {
-	switch httpCode {
-	case http.StatusBadRequest:
-		return codes.InvalidArgument
-	case http.StatusUnauthorized:
-		return codes.Unauthenticated
-	case http.StatusForbidden:
-		return codes.PermissionDenied
-	case http.StatusNotFound:
-		return codes.NotFound
-	case http.StatusConflict:
-		return codes.AlreadyExists
-	case http.StatusUnprocessableEntity:
-		return codes.InvalidArgument
-	case http.StatusTooManyRequests:
-		return codes.ResourceExhausted
-	case http.StatusServiceUnavailable:
-		return codes.Unavailable
-	default:
-		return codes.Internal
+// withReason attaches the machine-readable code. Attaching a detail only fails if it cannot be
+// marshalled, which an ErrorInfo always can; the status without it is still a correct answer.
+func withReason(st *status.Status, reason string) *status.Status {
+	detailed, err := st.WithDetails(&errdetails.ErrorInfo{Reason: reason, Domain: ErrorDomain})
+	if err != nil {
+		return st
 	}
+	return detailed
 }
