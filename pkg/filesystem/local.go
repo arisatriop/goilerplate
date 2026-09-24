@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -50,7 +51,7 @@ func NewLocalStorage(basePath, baseURL string) *LocalStorage {
 }
 
 // Upload uploads file from multipart form
-func (l *LocalStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*UploadResult, error) {
+func (l *LocalStorage) Upload(ctx context.Context, file *multipart.FileHeader, opts UploadOptions) (*UploadResult, error) {
 	// Validate
 	if err := validateUpload(file.Size, file.Header.Get("Content-Type"), opts); err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func (l *LocalStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*
 		filename = generateFilename(originalName)
 	}
 
-	result, err := l.UploadFromReader(src, filename, opts)
+	result, err := l.UploadFromReader(ctx, src, filename, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +84,7 @@ func (l *LocalStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*
 }
 
 // UploadFromReader uploads from io.Reader
-func (l *LocalStorage) UploadFromReader(reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error) {
+func (l *LocalStorage) UploadFromReader(_ context.Context, reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error) {
 	destPath, err := resolveWithin(l.basePath, opts.Path, filename)
 	if err != nil {
 		return nil, err
@@ -123,7 +124,7 @@ func (l *LocalStorage) UploadFromReader(reader io.Reader, filename string, opts 
 }
 
 // Delete deletes a file
-func (l *LocalStorage) Delete(path string) error {
+func (l *LocalStorage) Delete(_ context.Context, path string) error {
 	fullPath, err := resolveWithin(l.basePath, path)
 	if err != nil {
 		return err
@@ -135,7 +136,7 @@ func (l *LocalStorage) Delete(path string) error {
 }
 
 // Exists checks if file exists
-func (l *LocalStorage) Exists(path string) (bool, error) {
+func (l *LocalStorage) Exists(_ context.Context, path string) (bool, error) {
 	fullPath, err := resolveWithin(l.basePath, path)
 	if err != nil {
 		return false, err
@@ -151,7 +152,7 @@ func (l *LocalStorage) Exists(path string) (bool, error) {
 }
 
 // URL gets public URL for file
-func (l *LocalStorage) URL(path string) (string, error) {
+func (l *LocalStorage) URL(_ context.Context, path string) (string, error) {
 	if l.baseURL == "" {
 		return "", fmt.Errorf("base URL not configured")
 	}

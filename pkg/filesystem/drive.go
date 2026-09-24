@@ -2,14 +2,16 @@ package filesystem
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"mime/multipart"
+	"net/http"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -17,7 +19,6 @@ import (
 type DriveStorage struct {
 	service      *drive.Service
 	folderID     string
-	ctx          context.Context
 	tokenManager *TokenManager // For OAuth token management
 	useOAuth     bool          // Flag to indicate OAuth vs Service Account
 }
@@ -91,14 +92,13 @@ func NewDriveStorage(ctx context.Context, cfg DriveConfig) (*DriveStorage, error
 	return &DriveStorage{
 		service:      service,
 		folderID:     cfg.FolderID,
-		ctx:          ctx,
 		tokenManager: tokenManager,
 		useOAuth:     useOAuth,
 	}, nil
 }
 
 // Upload uploads file from multipart form
-func (d *DriveStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*UploadResult, error) {
+func (d *DriveStorage) Upload(ctx context.Context, file *multipart.FileHeader, opts UploadOptions) (*UploadResult, error) {
 	if err := validateUpload(file.Size, file.Header.Get("Content-Type"), opts); err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (d *DriveStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*
 	}
 
 	// Pass file metadata to avoid extra API calls
-	result, err := d.uploadWithMetadata(src, filename, file.Size, file.Header.Get("Content-Type"), opts)
+	result, err := d.uploadWithMetadata(ctx, src, filename, file.Size, file.Header.Get("Content-Type"), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -131,12 +131,12 @@ func (d *DriveStorage) Upload(file *multipart.FileHeader, opts UploadOptions) (*
 }
 
 // UploadFromReader uploads from io.Reader (without known size/mimeType)
-func (d *DriveStorage) UploadFromReader(reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error) {
-	return d.uploadWithMetadata(reader, filename, 0, "", opts)
+func (d *DriveStorage) UploadFromReader(ctx context.Context, reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error) {
+	return d.uploadWithMetadata(ctx, reader, filename, 0, "", opts)
 }
 
 // uploadWithMetadata performs the actual upload with known metadata to avoid extra API calls
-func (d *DriveStorage) uploadWithMetadata(reader io.Reader, filename string, fileSize int64, mimeType string, opts UploadOptions) (*UploadResult, error) {
+func (d *DriveStorage) uploadWithMetadata(ctx context.Context, reader io.Reader, filename string, fileSize int64, mimeType string, opts UploadOptions) (*UploadResult, error) {
 	// Detect MIME type if not provided
 	if mimeType == "" {
 		mimeType = detectMimeType(filename)
@@ -150,27 +150,24 @@ func (d *DriveStorage) uploadWithMetadata(reader io.Reader, filename string, fil
 	driveFile, err := d.service.Files.Create(fileMetadata).
 		Media(reader).
 		SupportsAllDrives(true).
-		Context(d.ctx).
+		Context(ctx).
 		Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload to drive: %w", err)
 	}
 
-	// Make public asynchronously (don't block upload response)
+	// Sharing happens before the upload is reported as done. It used to run in a detached
+	// goroutine on a context stored at construction, so a failure left a private file behind a
+	// URL the caller had been told was public, and nothing could wait for it at shutdown.
 	if opts.Public {
-		go func(fileID string) {
-			permission := &drive.Permission{
-				Type: "anyone",
-				Role: "reader",
+		permission := &drive.Permission{Type: "anyone", Role: "reader"}
+		if _, err := d.service.Permissions.Create(driveFile.Id, permission).SupportsAllDrives(true).Context(ctx).Do(); err != nil {
+			// Remove the upload rather than leave an orphan the caller has no ID for.
+			if delErr := d.Delete(ctx, driveFile.Id); delErr != nil {
+				err = errors.Join(err, fmt.Errorf("removing the unshared upload: %w", delErr))
 			}
-			_, err := d.service.Permissions.Create(fileID, permission).SupportsAllDrives(true).Context(d.ctx).Do()
-			if err != nil {
-				// Does not fail the upload, but it is a real failure and belongs in the logs
-				// with a level rather than on stdout. slog rather than pkg/logger: that
-				// package imports config, which imports this one.
-				slog.ErrorContext(d.ctx, "setting public permission on drive file", "file_id", fileID, "error", err)
-			}
-		}(driveFile.Id)
+			return nil, fmt.Errorf("sharing drive file: %w", err)
+		}
 	}
 
 	// Use provided file size or 0 if unknown
@@ -194,24 +191,30 @@ func (d *DriveStorage) uploadWithMetadata(reader io.Reader, filename string, fil
 }
 
 // Delete deletes a file
-func (d *DriveStorage) Delete(fileID string) error {
-	if err := d.service.Files.Delete(fileID).SupportsAllDrives(true).Context(d.ctx).Do(); err != nil {
+func (d *DriveStorage) Delete(ctx context.Context, fileID string) error {
+	if err := d.service.Files.Delete(fileID).SupportsAllDrives(true).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete from drive: %w", err)
 	}
 	return nil
 }
 
 // Exists checks if file exists
-func (d *DriveStorage) Exists(fileID string) (bool, error) {
-	_, err := d.service.Files.Get(fileID).SupportsAllDrives(true).Context(d.ctx).Do()
-	if err != nil {
-		return false, fmt.Errorf("failed to check file: %w", err)
+func (d *DriveStorage) Exists(ctx context.Context, fileID string) (bool, error) {
+	_, err := d.service.Files.Get(fileID).SupportsAllDrives(true).Context(ctx).Do()
+	if err == nil {
+		return true, nil
 	}
-	return true, nil
+	// A missing file is an answer, not a failure. It used to be reported as an error, so
+	// Exists could never return false.
+	var apiErr *googleapi.Error
+	if errors.As(err, &apiErr) && apiErr.Code == http.StatusNotFound {
+		return false, nil
+	}
+	return false, fmt.Errorf("checking drive file: %w", err)
 }
 
 // URL gets direct view URL for file
-func (d *DriveStorage) URL(fileID string) (string, error) {
+func (d *DriveStorage) URL(_ context.Context, fileID string) (string, error) {
 	return fmt.Sprintf("https://drive.google.com/uc?export=view&id=%s", fileID), nil
 }
 

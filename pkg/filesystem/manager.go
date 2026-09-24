@@ -35,28 +35,28 @@ func NewManagerFromConfig(ctx context.Context, cfg Config) (*Manager, error) {
 }
 
 // Upload uploads a file
-func (m *Manager) Upload(file *multipart.FileHeader, opts UploadOptions) (*UploadResult, error) {
-	return m.storage.Upload(file, opts)
+func (m *Manager) Upload(ctx context.Context, file *multipart.FileHeader, opts UploadOptions) (*UploadResult, error) {
+	return m.storage.Upload(ctx, file, opts)
 }
 
 // UploadFromReader uploads from reader
-func (m *Manager) UploadFromReader(reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error) {
-	return m.storage.UploadFromReader(reader, filename, opts)
+func (m *Manager) UploadFromReader(ctx context.Context, reader io.Reader, filename string, opts UploadOptions) (*UploadResult, error) {
+	return m.storage.UploadFromReader(ctx, reader, filename, opts)
 }
 
 // Delete deletes a file
-func (m *Manager) Delete(path string) error {
-	return m.storage.Delete(path)
+func (m *Manager) Delete(ctx context.Context, path string) error {
+	return m.storage.Delete(ctx, path)
 }
 
 // Exists checks if file exists
-func (m *Manager) Exists(path string) (bool, error) {
-	return m.storage.Exists(path)
+func (m *Manager) Exists(ctx context.Context, path string) (bool, error) {
+	return m.storage.Exists(ctx, path)
 }
 
 // URL gets public URL
-func (m *Manager) URL(path string) (string, error) {
-	return m.storage.URL(path)
+func (m *Manager) URL(ctx context.Context, path string) (string, error) {
+	return m.storage.URL(ctx, path)
 }
 
 // GetDriver returns current driver

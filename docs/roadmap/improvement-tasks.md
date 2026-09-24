@@ -27,14 +27,14 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ✅ complete |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
-| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F3, F4 done |
+| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2–F5 done · F1, F6 deferred |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
-| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | all done except R8 (with F5) |
+| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | ✅ complete |
 
-**P0, P1, P2 and P4 are complete**, and F2 and F4 with them. What remains is the rest of P3 — feature
-work rather than correction, and each item needs a scope decision before it starts.
-
-F3 (refresh token via httpOnly cookie) lists F4 as a dependency, so it is now unblocked.
+**P0, P1, P2, P4 and R are complete, and so are F2–F5.** What remains is F1 (email module) and F6
+(Google login), both deferred: they are new features rather than corrections, and each needs
+product decisions — an email provider, whether verification is mandatory, how accounts link —
+before it starts.
 
 Original order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**. H2 was
 deferred and A3–A5 pulled forward; everything else was done in this order.
@@ -761,17 +761,43 @@ POST over body limit          413  handler never ran
 
 **Done when:** CORS headers appear only when enabled, and an oversized request gets 413.
 
-### F5 S3 storage improvements · M
+### F5 S3 storage improvements · M — ✅ done
 
-- [ ] `use_path_style` for MinIO and Cloudflare R2
-- [ ] Correct bucket parameter per provider (bucket-in-domain vs path style)
-- [ ] `cdn_base_url`: serve through a CDN, keep the bucket private, set
-      `Cache-Control: public, max-age=31536000, immutable`
-- [ ] Presigned GET URLs (`presigned_url_expiry`, default 1h) when no CDN is configured
-- [ ] Pass the multipart file size through to avoid the `HeadObject` per upload at
-      `pkg/filesystem/s3.go:99` — which also currently discards its error
-- [ ] Allow `.webp`; English validation messages with KB/MB formatting
-- [ ] Every new field zero-value safe
+The driver turned out to be broken rather than incomplete, which reframed the task:
+
+- **It could not upload to AWS.** `PutObject` sent `Bucket: ""` and `Delete`/`Exists` sent no
+  bucket at all — it only worked against an endpoint with the bucket baked into its domain
+- **It set a `public-read` ACL**, which buckets created since April 2023 reject (ACLs disabled by
+  default), and which makes exposure a per-upload decision
+- **Empty keys did not mean the default credential chain**, although the example config said so;
+  it built a static provider from two empty strings, so IAM roles and IRSA could not work
+- `Exists` recognised "not found" by searching the error text; `HeadObject`'s error after every
+  upload was discarded
+
+What changed:
+
+- [x] Bucket always sent. `endpoint` is the service endpoint (no bucket) and `use_path_style`
+      selects `endpoint/bucket/key` for MinIO; AWS and R2 use virtual-hosted addressing
+- [x] No ACLs; the bucket stays private. `cdn_base_url` serves files through a CDN and writes
+      `Cache-Control: public, max-age=31536000, immutable` (keys are random per upload);
+      otherwise `URL` returns a presigned GET valid for `presign_expiry` (default 1h, max 7d)
+- [x] Keys optional: both empty → default AWS credential chain; half a pair is a config error
+- [x] Size from the upload itself — no `HeadObject` per upload. A non-seekable reader is buffered
+      so the SDK always gets a seekable body of known length (it refuses otherwise over plain
+      HTTP, as MinIO often runs)
+- [x] `Exists` uses the SDK's typed `NotFound` / a 404 response; a 403 is an error, not "missing"
+- [x] `.webp` allowed. English messages with KB/MB formatting landed in H4 and R1
+- [x] Every new field zero-value safe; config validation checks URLs and the SigV4 expiry cap
+- [x] **Found on the way (Drive and the upload handler):** Drive shared a file "publicly" from a
+      detached goroutine, so a failure left a private file behind a URL reported as public — now
+      synchronous, and an unshareable upload is removed; Drive's `Exists` could never return
+      `false`. `UploadFile` applied no size limit and the multi-file path wrote into `"trash"`
+- [x] Tests against a fake S3 endpoint (`httptest`, no new dependency): bucket in the path, no
+      ACL header, size, CDN caching and URL, presign expiry, `Exists` true/false/403, delete,
+      AWS virtual-hosted vs path-style hosts, and credentials from the environment chain
+
+The upload handler is still not routed: exposing it needs a decision about who may upload and
+delete what, which is a feature, not a fix.
 
 **Done when:** upload and URL generation work for AWS S3, for MinIO/R2 path style, and behind a CDN.
 
@@ -979,13 +1005,11 @@ the same code as `google.rpc.ErrorInfo.reason`.
 - Registration still answers 201 without `Location`: there is no user resource to name yet, and
   F1's anti-enumeration work will reshape that response anyway
 
-### R8 Stop storing contexts in structs · S — fold into F5
+### R8 Stop storing contexts in structs · S — ✅ done (with F5)
 **Evidence:** `pkg/filesystem/s3.go:24`, `pkg/filesystem/drive.go:20`
 
-Both drivers keep the context they were constructed with and use it for every call, so an upload
-is neither cancelled when its request is nor traced under it.
-
-- [ ] Thread `ctx` through the `Storage` interface methods
+- [x] Every `Storage` method takes `ctx`; neither driver keeps one. Uploads are cancelled with
+      their request and traced under it. The construction context is used only to build clients
 
 ### R9 Return startup errors instead of panicking · S — ✅ done
 **Evidence:** `internal/wire/infrastructure.go:43,50,92`, `internal/bootstrap/viper.go:32,43`

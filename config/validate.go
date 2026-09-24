@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"regexp"
 	"strings"
 
 	"goilerplate/pkg/apikey"
+	"goilerplate/pkg/filesystem"
 )
 
 const (
@@ -419,6 +421,7 @@ func (c *Config) validateFileSystem(v *validation) {
 		if c.IsProduction() && fs.S3.SecretAccessKey != "" {
 			v.notSample("filesystem.s3.secret_access_key", fs.S3.SecretAccessKey)
 		}
+		c.validateS3Options(v)
 	case "drive":
 		hasOAuth := fs.Drive.ClientID != "" && fs.Drive.ClientSecret != "" && fs.Drive.RefreshToken != ""
 		if fs.Drive.CredentialsFile == "" && !hasOAuth {
@@ -431,6 +434,33 @@ func (c *Config) validateFileSystem(v *validation) {
 	if fs.MaxFileSize <= 0 {
 		v.addf("filesystem.max_file_size must be greater than 0")
 	}
+}
+
+// validateS3Options checks the optional S3 settings. Each is safe at its zero value; these catch
+// the values that would fail on the first upload rather than at startup.
+func (c *Config) validateS3Options(v *validation) {
+	s3 := c.FileSystem.S3
+
+	// Half a static key pair would silently fall back to the default credential chain.
+	if (s3.AccessKeyID == "") != (s3.SecretAccessKey == "") {
+		v.addf("filesystem.s3.access_key_id and secret_access_key must be set together, or both left empty for the default AWS credential chain")
+	}
+	if s3.Endpoint != "" && !absoluteHTTPURL(s3.Endpoint) {
+		v.addf("filesystem.s3.endpoint %q must be an absolute http(s) URL", s3.Endpoint)
+	}
+	if s3.CDNBaseURL != "" && !absoluteHTTPURL(s3.CDNBaseURL) {
+		v.addf("filesystem.s3.cdn_base_url %q must be an absolute http(s) URL", s3.CDNBaseURL)
+	}
+	if s3.PresignExpiry < 0 {
+		v.addf("filesystem.s3.presign_expiry must not be negative")
+	} else if s3.PresignExpiry > filesystem.MaxPresignExpiry {
+		v.addf("filesystem.s3.presign_expiry must not exceed %s, the SigV4 maximum", filesystem.MaxPresignExpiry)
+	}
+}
+
+func absoluteHTTPURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
 
 func (c *Config) validateAPIKeys(v *validation) {

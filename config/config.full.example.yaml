@@ -175,13 +175,21 @@ filesystem:
     base_path: ./storage
     base_url: http://localhost:3000/storage
 
-  # Leave access_key_id / secret_access_key empty to use the default AWS credential chain (e.g. IAM role).
+  # Leave access_key_id / secret_access_key both empty to use the default AWS credential chain
+  # (environment, IAM role, IRSA) — preferred on AWS. The bucket stays private: no ACLs are set.
   s3:
     access_key_id: <S3_ACCESS_KEY_ID>
     secret_access_key: <S3_SECRET_ACCESS_KEY>
-    region: us-east-1 # required
+    region: us-east-1 # required; "auto" for Cloudflare R2
     bucket: <S3_BUCKET> # required
-    endpoint: "" # S3-compatible services, e.g. http://localhost:9000 for MinIO
+    # S3-compatible stores only, without the bucket: http://minio:9000,
+    # https://<account>.r2.cloudflarestorage.com. Empty = AWS.
+    endpoint: ""
+    use_path_style: false # true for MinIO (endpoint/bucket/key instead of bucket.endpoint/key)
+    # Serve files through a CDN in front of the private bucket (CloudFront with OAC, Cloudflare).
+    # Objects get Cache-Control: public, max-age=31536000, immutable — keys are random per upload.
+    cdn_base_url: https://cdn.example.com
+    presign_expiry: 1h # without a CDN, files are handed out as presigned URLs valid this long (max 168h)
 
   # Either credentials_file (service account) or client_id + client_secret + refresh_token (OAuth2).
   drive:
