@@ -28,8 +28,8 @@ type TokenPairResponse struct {
 	AccessTokenType       string    `json:"accessTokenType"`
 	AccessTokenExpiresIn  int64     `json:"accessTokenExpiresIn"`
 	AccessTokenExpiresAt  time.Time `json:"accessTokenExpiresAt"`
-	RefreshToken          string    `json:"refreshToken"`
-	RefreshTokenType      string    `json:"refreshTokenType"`
+	RefreshToken          string    `json:"refreshToken,omitempty"` // absent in cookie mode
+	RefreshTokenType      string    `json:"refreshTokenType,omitempty"`
 	RefreshTokenExpiresIn int64     `json:"refreshTokenExpiresIn"`
 	RefreshTokenExpiresAt time.Time `json:"refreshTokenExpiresAt"`
 }

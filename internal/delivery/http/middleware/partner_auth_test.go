@@ -33,7 +33,7 @@ type partnerCall struct {
 func callPartnerRoute(t *testing.T, keys map[string]string, header string) partnerCall {
 	t.Helper()
 
-	auth := NewAuth(nil, nil, nil, nil, keys, config.InternalAuth{})
+	auth := NewAuth(nil, nil, nil, nil, keys, config.InternalAuth{}, nil)
 
 	var got partnerCall
 	app := fiber.New()

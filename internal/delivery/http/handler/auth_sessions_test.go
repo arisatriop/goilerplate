@@ -53,7 +53,7 @@ func (u *sessionsUsecase) LogoutAll(_ context.Context, userID, keepSessionID str
 // newSessionsApp mounts the handlers behind a stand-in for the auth middleware, which is what
 // puts the caller's user and session IDs in Locals.
 func newSessionsApp(usecase auth.Usecase) *fiber.App {
-	h := handler.NewAuth(nil, validator.New(), nil, usecase)
+	h := handler.NewAuth(nil, validator.New(), nil, usecase, nil)
 
 	app := fiber.New()
 	app.Use(func(ctx *fiber.Ctx) error {

@@ -36,7 +36,7 @@ func TestAuthChangePassword_RejectionDoesNotEchoThePassword(t *testing.T) {
 	// Arrange
 	const current, rejected = "the-current-password", "hunter2"
 	usecase := &passwordUsecase{}
-	h := handler.NewAuth(nil, response.NewValidator(), nil, usecase)
+	h := handler.NewAuth(nil, response.NewValidator(), nil, usecase, nil)
 
 	app := fiber.New()
 	app.Put("/users/me/password", func(ctx *fiber.Ctx) error {

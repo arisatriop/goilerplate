@@ -24,7 +24,7 @@ type internalCall struct {
 func callInternalRoute(t *testing.T, internalAuth config.InternalAuth, headers map[string]string) internalCall {
 	t.Helper()
 
-	auth := NewAuth(nil, nil, nil, nil, nil, internalAuth)
+	auth := NewAuth(nil, nil, nil, nil, nil, internalAuth, nil)
 
 	var got internalCall
 	app := fiber.New()

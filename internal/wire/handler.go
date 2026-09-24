@@ -1,12 +1,14 @@
 package wire
 
 import (
+	"strings"
 	"time"
 
 	"goilerplate/config"
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/delivery/http/middleware"
+	"goilerplate/internal/delivery/http/refreshtoken"
 	"goilerplate/internal/domain/auth"
 	pkgcache "goilerplate/pkg/cache"
 
@@ -43,7 +45,7 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 	deviceService := auth.NewDeviceService()
 
 	return &Handlers{
-		Auth:   handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC),
+		Auth:   handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC, refreshTransport(app.Config)),
 		Upload: handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
 		Foo:    handler.NewFoo(app.Validator, useCases.FooUC),
 		Bar:    handler.NewBar(app.Validator, useCases.BarUC),
@@ -57,7 +59,7 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 	permissionService := auth.NewPermissionService(repos.AuthRepo, infrastructure.PermissionCache)
 
 	return &Middleware{
-		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, sessionService, permissionService, cfg.Apikeys, cfg.InternalAuth),
+		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, sessionService, permissionService, cfg.Apikeys, cfg.InternalAuth, refreshTransport(cfg)),
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(omitBodyPaths(cfg)),
 		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit, pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "rl:")),
@@ -73,4 +75,25 @@ func omitBodyPaths(cfg *config.Config) []string {
 		return nil
 	}
 	return cfg.Log.OmitBodyPaths
+}
+
+// refreshTransport translates auth.refresh_transport into the delivery layer's options. The
+// cookie is Secure everywhere but a local environment, and the pages allowed to refresh with it
+// are the CORS allowlist.
+func refreshTransport(cfg *config.Config) *refreshtoken.Transport {
+	var origins []string
+	if cfg.Server.EnableCORS {
+		for _, origin := range strings.Split(cfg.Server.CORS.AllowOrigin, ",") {
+			if origin = strings.TrimSpace(origin); origin != "" {
+				origins = append(origins, origin)
+			}
+		}
+	}
+
+	return refreshtoken.New(refreshtoken.Options{
+		Cookie:         cfg.Auth.UsesRefreshCookie(),
+		Secure:         !cfg.IsLocal(),
+		SameSite:       cfg.Auth.RefreshCookie.SameSite,
+		AllowedOrigins: origins,
+	})
 }

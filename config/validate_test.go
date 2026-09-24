@@ -58,6 +58,31 @@ func TestConfig_Validate_Rules(t *testing.T) {
 		{"s3 without region", func(c *Config) { c.FileSystem.Driver = "s3"; c.FileSystem.S3.Bucket = "b" }, "filesystem.s3.region is required"},
 		{"unknown filesystem driver", func(c *Config) { c.FileSystem.Driver = "ftp" }, `filesystem.driver must be local, s3, or drive, got "ftp"`},
 		{"drive without credentials", func(c *Config) { c.FileSystem.Driver = "drive" }, "filesystem.drive requires credentials_file"},
+		{"unknown refresh transport", func(c *Config) { c.Auth.RefreshTransport = "header" }, `auth.refresh_transport must be body or cookie, got "header"`},
+		{"cookie transport with defaults", func(c *Config) { c.Auth.RefreshTransport = "cookie" }, ""},
+		{"unknown same_site", func(c *Config) {
+			c.Auth.RefreshTransport = "cookie"
+			c.Auth.RefreshCookie.SameSite = "loose"
+		}, `auth.refresh_cookie.same_site must be strict, lax, or none, got "loose"`},
+		{"same_site none on a local env", func(c *Config) {
+			c.Auth.RefreshTransport = "cookie"
+			c.Auth.RefreshCookie.SameSite = "none"
+			c.Server.EnableCORS = true
+			c.Server.CORS = CORS{AllowOrigin: "https://app.example.com", AllowCredentials: true}
+		}, "requires a Secure cookie"},
+		{"same_site none without credentialed CORS", func(c *Config) {
+			c.App.Env = "staging"
+			c.Auth.RefreshTransport = "cookie"
+			c.Auth.RefreshCookie.SameSite = "none"
+		}, "requires server.enable_cors with allow_credentials"},
+		{"same_site none, cross-site setup done right", func(c *Config) {
+			c.App.Env = "staging"
+			c.Auth.RefreshTransport = "cookie"
+			c.Auth.RefreshCookie.SameSite = "none"
+			c.Server.EnableCORS = true
+			c.Server.CORS = CORS{AllowOrigin: "https://app.example.com", AllowCredentials: true}
+		}, ""},
+		{"same_site none is irrelevant in body mode", func(c *Config) { c.Auth.RefreshCookie.SameSite = "none" }, ""},
 		{"grpc enabled without port", func(c *Config) { c.GRPC.Enabled = true }, "grpc.port must be between 1 and 65535, got 0"},
 		{"grpc port equals server port", func(c *Config) { c.GRPC = GRPC{Enabled: true, Port: 3000} }, "grpc.port must differ from server.port"},
 		{"grpc disabled ignores port", func(c *Config) { c.GRPC.Port = 0 }, ""},
@@ -434,4 +459,11 @@ func TestCORS_AllowMethodsOrDefault(t *testing.T) {
 	assert.Contains(t, CORS{}.AllowMethodsOrDefault(), "PATCH")
 	assert.Equal(t, "GET,POST", CORS{AllowMethods: "GET,POST"}.AllowMethodsOrDefault())
 	assert.Contains(t, CORS{AllowMethods: "   "}.AllowMethodsOrDefault(), "PATCH")
+}
+
+func TestConfig_IsLocal(t *testing.T) {
+	for env, want := range map[string]bool{"local": true, "dev": true, "Development": true, "test": true,
+		"staging": false, "production": false, "": false} {
+		assert.Equal(t, want, (&Config{App: App{Env: env}}).IsLocal(), env)
+	}
 }

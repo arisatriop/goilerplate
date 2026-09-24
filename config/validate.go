@@ -113,6 +113,17 @@ func (c *Config) validateInternalAuth(v *validation) {
 	}
 }
 
+// IsLocal reports whether app.env names a developer's machine or a test run: local, dev,
+// development or test. Only there may cookies go without Secure, so the refresh flow can be
+// exercised over http://localhost.
+func (c *Config) IsLocal() bool {
+	switch strings.ToLower(strings.TrimSpace(c.App.Env)) {
+	case "local", "dev", "development", "test":
+		return true
+	}
+	return false
+}
+
 // IsProduction reports whether the app runs with app.env=production.
 func (c *Config) IsProduction() bool {
 	return strings.EqualFold(strings.TrimSpace(c.App.Env), envProduction)
@@ -355,6 +366,42 @@ func (c *Config) validateAuth(v *validation) {
 		v.addf("auth.remember_me_expiry must not be negative")
 	} else if c.Auth.RememberMeExpiryOrDefault() < sessionExpiry {
 		v.addf("auth.remember_me_expiry must not be shorter than auth.session_expiry")
+	}
+
+	c.validateRefreshTransport(v)
+}
+
+// validateRefreshTransport refuses cookie settings a browser would silently reject, and a
+// cross-site setup that could not work.
+func (c *Config) validateRefreshTransport(v *validation) {
+	switch strings.ToLower(strings.TrimSpace(c.Auth.RefreshTransport)) {
+	case "", RefreshTransportBody, RefreshTransportCookie:
+	default:
+		v.addf("auth.refresh_transport must be body or cookie, got %q", c.Auth.RefreshTransport)
+		return
+	}
+
+	sameSite := strings.ToLower(strings.TrimSpace(c.Auth.RefreshCookie.SameSite))
+	switch sameSite {
+	case "", "strict", "lax", "none":
+	default:
+		v.addf("auth.refresh_cookie.same_site must be strict, lax, or none, got %q", c.Auth.RefreshCookie.SameSite)
+		return
+	}
+
+	if !c.Auth.UsesRefreshCookie() || sameSite != "none" {
+		return
+	}
+
+	// Browsers drop a SameSite=None cookie that is not Secure, so the login would appear to work
+	// and every refresh would then fail.
+	if c.IsLocal() {
+		v.addf("auth.refresh_cookie.same_site=none requires a Secure cookie, which a local app.env does not set; use strict or lax locally")
+	}
+	// A cross-site frontend can only send the cookie on a credentialed CORS request, and the
+	// origin check needs to know which pages that may be.
+	if !c.Server.EnableCORS || !c.Server.CORS.AllowCredentials || strings.TrimSpace(c.Server.CORS.AllowOrigin) == "*" {
+		v.addf("auth.refresh_cookie.same_site=none requires server.enable_cors with allow_credentials and explicit allow_origin entries")
 	}
 }
 

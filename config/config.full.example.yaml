@@ -104,6 +104,12 @@ auth:
     duration: 10m # how long the lockout lasts
   refresh_reuse_grace: 10s # the just-replaced refresh token stays valid this long, so concurrent tabs and a lost response do not trigger reuse detection
   remember_me_expiry: 720h # absolute session lifetime when the client logs in with remember_me
+  # Where the refresh token travels. body: in the JSON and the Authorization header (mobile and
+  # server clients). cookie: an HttpOnly cookie on /api/v1/auth that page JavaScript cannot read
+  # (browsers). The cookie is Secure everywhere except app.env local/dev/development/test.
+  refresh_transport: body
+  refresh_cookie:
+    same_site: strict # strict | lax (frontend and API on the same site) | none (another site: needs CORS with credentials)
 
 log:
   level: info # debug | info | warn | error

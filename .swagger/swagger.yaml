@@ -164,6 +164,7 @@ definitions:
       accessTokenType:
         type: string
       refreshToken:
+        description: absent in cookie mode
         type: string
       refreshTokenExpiresAt:
         type: string
