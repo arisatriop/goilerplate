@@ -3,30 +3,32 @@ package response
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
 
-// ValidationErrorDetail represents a single validation error
+// ValidationErrorDetail describes one rejected field.
+//
+// It deliberately carries no copy of the submitted value. The value is what the client just
+// sent, so echoing it tells them nothing new — and when the field is a password, echoing it put
+// the password in the response body and, through the response logger, in the logs.
 type ValidationErrorDetail struct {
 	Field   string `json:"field"`
 	Tag     string `json:"tag"`
-	Value   string `json:"value"`
 	Message string `json:"message"`
 }
 
-// FormatValidationErrors converts validator errors to a standardized format
+// FormatValidationErrors converts validator errors to a standardized format. Field names are the
+// client-facing names when the validator came from NewValidator.
 func FormatValidationErrors(err error) []ValidationErrorDetail {
-	var details []ValidationErrorDetail
+	details := []ValidationErrorDetail{}
 
 	var validationErrors validator.ValidationErrors
 	if errors.As(err, &validationErrors) {
 		for _, fieldError := range validationErrors {
 			detail := ValidationErrorDetail{
-				Field: strings.ToLower(fieldError.Field()),
+				Field: fieldError.Field(),
 				Tag:   fieldError.Tag(),
-				Value: fmt.Sprintf("%v", fieldError.Value()),
 			}
 
 			// Custom error messages based on validation tag

@@ -27,11 +27,11 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ✅ complete |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
-| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F4 done |
+| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 | [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | open · ~6–8 days |
 
-**P0, P1, P2 and P4 are complete**, and F4 with them. What remains is the rest of P3 — feature
+**P0, P1, P2 and P4 are complete**, and F2 and F4 with them. What remains is the rest of P3 — feature
 work rather than correction, and each item needs a scope decision before it starts.
 
 F3 (refresh token via httpOnly cookie) lists F4 as a dependency, so it is now unblocked.
@@ -665,11 +665,29 @@ hardcoded body limit found during this scan.
 
 **Done when:** every flow works end to end with the `log` driver and no SMTP server.
 
-### F2 Session management endpoints · M
+### F2 Session management endpoints · M — ✅ done
 
-- [ ] `GET /users/me/sessions` — device name and type, IP, `last_used_at`, current-session flag
-- [ ] `DELETE /users/me/sessions/:id` — revoke one of the caller's own sessions, ownership enforced
-- [ ] `POST /auth/logout-all` keeps the option to exclude the current session
+- [x] `GET /users/me/sessions` — device name and type, IP, user agent, `createdAt`, `lastUsedAt`,
+      `expiresAt`, and a `current` flag. Active and unexpired only, most recently used first. The
+      refresh `jti` and device fingerprint are deliberately left out. Not paginated: it is one
+      user's own devices, and a device list split across pages is worse to use
+- [x] `DELETE /users/me/sessions/:id` — ownership enforced by the repository's conditional
+      `UPDATE` on `(id, user_id, is_active)`, so there is no read-then-write window. Not found,
+      not yours and already revoked are the same 404, so the endpoint cannot confirm another
+      user's session IDs. A malformed ID is a 400 and never reaches PostgreSQL
+- [x] `POST /auth/logout-all?keep_current=true` spares the caller's own session — "sign out
+      everywhere else". The kept session can only be the caller's, because it comes from the token
+- [x] `DeactivateUserSessions` deleted: it was `RevokeOtherUserSessions(userID, "", reason)` under
+      another name, and the one caller that needed it now takes the keep argument
+- [x] Tests: use case (revoke evicts the cache, 404 mapping, keep pass-through), handler (current
+      flag, `[]` on empty, no secret fields, UUID validation, query parsing), repository (list
+      excludes revoked, expired and other users' sessions, and orders by use), and integration
+      across all three cache modes — including that another user's session survives an attempt
+- [x] **Found while doing this:** the integration harness opened a PostgreSQL pool per scenario
+      per cache mode and never closed one. The existing suite fit under the default 100
+      connections; five new scenarios pushed it over, and whichever test ran next failed with
+      `too many clients` — nothing to do with what it was testing. Each pool is now closed in
+      `t.Cleanup`
 
 **Done when:** a user can list their devices and sign out one specific other device.
 

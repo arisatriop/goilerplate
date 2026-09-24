@@ -36,6 +36,12 @@ func newTestRepository(t *testing.T) (auth.Repository, *gorm.DB) {
 		Logger:  gormlogger.Discard,
 	})
 	require.NoError(t, err)
+
+	// One pool per test; without closing them they pile up until PostgreSQL refuses clients.
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
 	require.NoError(t, migration.NewMigrator(db, nil).Up(context.Background(), migrationsDir))
 
 	return repository.NewAuth(db), db

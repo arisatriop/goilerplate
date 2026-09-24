@@ -54,6 +54,7 @@ func newLoggedApp() *fiber.App {
 	app.Post("/api/v1/auth/refresh", tokens)
 	app.Post("/api/v1/auth/logout", tokens)
 	app.Post("/api/v1/users/me/password", tokens)
+	app.Post("/api/v1/bars", tokens)
 	app.Get("/partner/v1/orders", tokens)
 
 	return app
@@ -112,14 +113,33 @@ func TestRequestLogger_LogRequest_RedactsNonAuthBody(t *testing.T) {
 	app := newLoggedApp()
 
 	// Act
-	doRequest(t, app, fiber.MethodPost, "/api/v1/users/me/password",
-		`{"current_password":"`+testPassword+`","keep":"visible"}`,
+	doRequest(t, app, fiber.MethodPost, "/api/v1/bars",
+		`{"password":"`+testPassword+`","keep":"visible"}`,
 		map[string]string{"Content-Type": "application/json"})
 
 	// Assert
 	output := logs.String()
 	assert.NotContains(t, output, testPassword)
 	assert.Contains(t, output, `"keep":"visible"`)
+}
+
+// The password route's bodies are never logged at all, not merely redacted: redaction matches
+// known key names, and this is the route where an unknown one would hurt.
+func TestRequestLogger_LogRequest_OmitsPasswordChangeBodies(t *testing.T) {
+	// Arrange
+	logs := captureLogs(t)
+	app := newLoggedApp()
+
+	// Act
+	doRequest(t, app, fiber.MethodPost, "/api/v1/users/me/password",
+		`{"currentPassword":"`+testPassword+`","keep":"hidden"}`,
+		map[string]string{"Content-Type": "application/json"})
+
+	// Assert
+	output := logs.String()
+	assert.NotContains(t, output, testPassword)
+	assert.NotContains(t, output, "hidden", "a credential route's body must be omitted whole")
+	assert.Contains(t, output, redact.Omitted)
 }
 
 func TestRequestLogger_ShouldOmitBody(t *testing.T) {
@@ -129,8 +149,19 @@ func TestRequestLogger_ShouldOmitBody(t *testing.T) {
 	assert.True(t, rl.shouldOmitBody("/api/v1/auth/login"))
 	assert.True(t, rl.shouldOmitBody("/Api/V1/Auth/Login"))
 	assert.True(t, rl.shouldOmitBody("/internal/users"))
+	assert.True(t, rl.shouldOmitBody("/api/v1/users/me/password"))
 	assert.False(t, rl.shouldOmitBody("/api/v1/authors"))
 	assert.False(t, rl.shouldOmitBody("/api/v1/users"))
+}
+
+// Configuring omit_body_paths must add to the credential routes, not replace them — otherwise
+// listing one extra path would quietly start logging login bodies.
+func TestRequestLogger_ConfiguredPathsNeverDropCredentialRoutes(t *testing.T) {
+	rl := NewRequestLogger([]string{"/internal"})
+
+	for _, path := range []string{"/api/v1/auth/login", "/api/v1/users/me/password", "/internal/bars"} {
+		assert.True(t, rl.shouldOmitBody(path), path)
+	}
 }
 
 // The caller's identity has to reach the context, because security events are raised in the

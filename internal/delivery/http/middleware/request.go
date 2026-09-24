@@ -20,8 +20,11 @@ const (
 	LogLabel = "incoming-request-log"
 )
 
-// DefaultOmitBodyPaths is used when no omit-body paths are configured.
-var DefaultOmitBodyPaths = []string{"/api/v1/auth"}
+// CredentialBodyPaths carry passwords and tokens in their bodies. Their bodies are never logged,
+// whatever log.omit_body_paths says: key-based redaction only masks field names it knows, and a
+// credential route is exactly where an unforeseen field name (or an error message quoting the
+// input) would leak one. Configured paths are added to these, never substituted for them.
+var CredentialBodyPaths = []string{"/api/v1/auth", "/api/v1/users/me/password"}
 
 // RequestLogger provides incoming request logging functionality
 type RequestLogger struct {
@@ -29,15 +32,13 @@ type RequestLogger struct {
 }
 
 // NewRequestLogger creates a new request logger middleware.
-// Request and response bodies under omitBodyPaths (path prefixes) are never logged;
-// all other logged headers, query parameters, and JSON bodies are redacted.
+// Request and response bodies under CredentialBodyPaths and omitBodyPaths (path prefixes) are
+// never logged; all other logged headers, query parameters, and JSON bodies are redacted.
 func NewRequestLogger(omitBodyPaths []string) *RequestLogger {
-	if len(omitBodyPaths) == 0 {
-		omitBodyPaths = DefaultOmitBodyPaths
-	}
+	prefixes := append(append([]string{}, CredentialBodyPaths...), omitBodyPaths...)
 
-	normalized := make([]string, 0, len(omitBodyPaths))
-	for _, prefix := range omitBodyPaths {
+	normalized := make([]string, 0, len(prefixes))
+	for _, prefix := range prefixes {
 		prefix = strings.ToLower(strings.TrimRight(strings.TrimSpace(prefix), "/"))
 		if prefix == "" {
 			continue

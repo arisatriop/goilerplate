@@ -130,23 +130,94 @@ func (h *Auth) Logout(ctx *fiber.Ctx) error {
 
 // LogoutAll handles logout from all devices for a user
 // @Summary      Logout from all devices
+// @Description  Revokes every session of the caller. With keep_current=true the session making the request is spared.
 // @Tags         auth
 // @Produce      json
+// @Param        keep_current  query     bool  false  "Keep the current session signed in"
 // @Success      200  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse
 // @Failure      401  {object}  response.BaseResponse
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/auth/logout-all [post]
 func (h *Auth) LogoutAll(ctx *fiber.Ctx) error {
-	// Get user ID from context (guaranteed by middleware)
-	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+	var req dtorequest.LogoutAllRequest
+	if err := ctx.QueryParser(&req); err != nil {
+		return response.BadRequest(ctx, "Invalid query parameters", nil)
+	}
 
-	// Call logout all usecase
-	if err := h.usecase.LogoutAll(ctx.UserContext(), userID); err != nil {
+	// Both come from the middleware, so the only session that can be kept is the caller's own.
+	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+	keepSessionID := ""
+	message := "Logout from all devices successful"
+	if req.KeepCurrent {
+		keepSessionID = ctx.Locals(string(constants.ContextKeySessionID)).(string)
+		message = "Logout from all other devices successful"
+	}
+
+	if err := h.usecase.LogoutAll(ctx.UserContext(), userID, keepSessionID); err != nil {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.Success(ctx, nil, response.WithMessage("Logout from all devices successful"))
+	return response.Success(ctx, nil, response.WithMessage(message))
+}
+
+// ListSessions lists the devices the signed-in user is signed in on
+// @Summary      List my sessions
+// @Description  Active, unexpired sessions of the caller, most recently used first. The session making the request has current=true.
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  response.BaseResponse{data=[]dtoresponse.ActiveSessionResponse}
+// @Failure      401  {object}  response.BaseResponse
+// @Failure      500  {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/users/me/sessions [get]
+func (h *Auth) ListSessions(ctx *fiber.Ctx) error {
+	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+	sessionID := ctx.Locals(string(constants.ContextKeySessionID)).(string)
+
+	sessions, err := h.usecase.ListSessions(ctx.UserContext(), userID)
+	if err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	// Not paginated: this is one user's own devices, a handful of rows bounded by how many
+	// places they sign in from, and a device list split across pages would be worse to use.
+	return response.Success(ctx, presenter.ToActiveSessionsResponse(sessions, sessionID),
+		response.WithMessage("Sessions fetched successfully"))
+}
+
+// RevokeSession signs one of the caller's own sessions out
+// @Summary      Revoke one of my sessions
+// @Description  Signs out one device. A session that does not exist, is already revoked, or belongs to someone else is 404 — the three are indistinguishable on purpose.
+// @Tags         auth
+// @Produce      json
+// @Param        id   path      string  true  "Session ID"
+// @Success      200  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse
+// @Failure      401  {object}  response.BaseResponse
+// @Failure      404  {object}  response.BaseResponse
+// @Failure      500  {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/users/me/sessions/{id} [delete]
+func (h *Auth) RevokeSession(ctx *fiber.Ctx) error {
+	var param dtorequest.SessionIDParam
+	if err := ctx.ParamsParser(&param); err != nil {
+		return response.BadRequest(ctx, "Invalid path parameters", nil)
+	}
+	if err := h.validator.Struct(&param); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
+
+	// The user ID comes from the token, never the request, so only the caller's own sessions
+	// can match.
+	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+
+	if err := h.usecase.RevokeSession(ctx.UserContext(), userID, param.ID); err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	return response.Success(ctx, nil, response.WithMessage("Session revoked successfully"))
 }
 
 // ChangePassword changes the signed-in user's password

@@ -44,6 +44,11 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 	// authenticated route rather than per IP.
 	v1.Put("/users/me/password", r.Wired.Handlers.Auth.ChangePassword)
 
+	// A user's own devices. No permission is required: the user ID comes from the token, so
+	// these can only ever read or revoke the caller's own sessions.
+	v1.Get("/users/me/sessions", r.Wired.Handlers.Auth.ListSessions)
+	v1.Delete("/users/me/sessions/:id", r.Wired.Handlers.Auth.RevokeSession)
+
 	// foo is the blank template, not a feature. Every one of its layers is
 	// panic("Implement me"), so registering it shipped an endpoint that 500s on a fresh clone —
 	// the recover middleware catches the panic, but a template presented as a working route is

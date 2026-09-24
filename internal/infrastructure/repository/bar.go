@@ -10,8 +10,24 @@ import (
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/utils"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
+
+// uniqueBarCodeIndex is the partial unique index that allows one live bar per code.
+const uniqueBarCodeIndex = "uq_bars_code_live"
+
+// translateWriteErr turns a violation of the live-code index into the domain's conflict error.
+// The index is what guarantees uniqueness — a check before the insert cannot, because two
+// concurrent requests can both pass it — so this is where a duplicate becomes a 409 rather
+// than a 500.
+func translateWriteErr(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == uniqueBarCodeIndex {
+		return bar.ErrCodeAlreadyExists
+	}
+	return utils.WrapErr(err)
+}
 
 type barRepo struct {
 	db *gorm.DB
@@ -46,7 +62,7 @@ func (r *barRepo) CreateBar(ctx context.Context, entity *bar.Bar) (*bar.Bar, err
 	}
 
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return nil, utils.WrapErr(err)
+		return nil, translateWriteErr(err)
 	}
 
 	return r.modelToEntity(model), nil
@@ -64,7 +80,7 @@ func (r *barRepo) UpdateBar(ctx context.Context, entity *bar.Bar) error {
 	model.UpdatedBy = ctx.Value(constants.ContextKeyUserID).(string)
 
 	if err = r.db.WithContext(ctx).Save(model).Error; err != nil {
-		return utils.WrapErr(err)
+		return translateWriteErr(err)
 	}
 
 	return nil
@@ -103,7 +119,10 @@ func (r *barRepo) GetBarList(ctx context.Context, filter *bar.Filter) ([]*bar.Ba
 
 	query := r.db.WithContext(ctx).
 		Select("id", "code", "bar").
-		Where("deleted_at IS NULL")
+		Where("deleted_at IS NULL").
+		// Offset pagination needs a total order, or rows repeat or vanish between pages. IDs are
+		// UUIDv7, so this is newest first, and the primary key index serves it.
+		Order("id DESC")
 
 	r.applyBarFilters(query, filter, true) // true = apply pagination
 
@@ -158,10 +177,9 @@ func (r *barRepo) BulkCreate(ctx context.Context, entities []*bar.Bar) error {
 		}
 	}
 
-	if err := r.db.WithContext(ctx).Create(&models).
-		Select("id, code, bar, is_active, created_at, created_by, updated_at, updated_by").
-		Error; err != nil {
-		return utils.WrapErr(err)
+	// One INSERT statement, so a duplicate anywhere in the batch rejects all of it.
+	if err := r.db.WithContext(ctx).Create(&models).Error; err != nil {
+		return translateWriteErr(err)
 	}
 
 	return nil
@@ -177,7 +195,7 @@ func (r *barRepo) getBarByID(ctx context.Context, id string) (*model.Bar, error)
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, utils.ClientErr(404, "Bar not found")
+			return nil, bar.ErrNotFound
 		}
 		return nil, utils.WrapErr(err)
 	}

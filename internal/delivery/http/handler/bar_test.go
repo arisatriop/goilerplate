@@ -10,8 +10,8 @@ import (
 
 	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/domain/bar"
+	"goilerplate/pkg/response"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,7 +77,7 @@ func (s *stubBarUsecase) GetByID(_ context.Context, id string) (*bar.Bar, error)
 func call(t *testing.T, usecase bar.Usecase, method, target, body string) (int, string) {
 	t.Helper()
 
-	h := handler.NewBar(validator.New(), usecase)
+	h := handler.NewBar(response.NewValidator(), usecase)
 	app := fiber.New()
 	app.Post("/bars", h.Create)
 	app.Put("/bars/:id", h.Update)
@@ -102,7 +102,7 @@ func listBars(t *testing.T, usecase bar.Usecase, query string) (int, string) {
 	t.Helper()
 
 	app := fiber.New()
-	app.Get("/bars", handler.NewBar(validator.New(), usecase).List)
+	app.Get("/bars", handler.NewBar(response.NewValidator(), usecase).List)
 
 	res, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/bars?"+query, nil))
 	require.NoError(t, err)

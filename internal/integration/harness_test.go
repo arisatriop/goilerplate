@@ -72,6 +72,14 @@ func openTestDB(t *testing.T) *gorm.DB {
 		Logger:  gormlogger.Discard,
 	})
 	require.NoError(t, err)
+
+	// Every scenario opens its own pool, once per cache mode. Left open they accumulate for the
+	// life of the test binary until PostgreSQL refuses new clients, and the test that happens to
+	// be next fails with "too many clients" rather than anything about auth.
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
 	require.NoError(t, migration.NewMigrator(db, nil).Up(context.Background(), migrationsDir))
 
 	return db
@@ -268,7 +276,35 @@ func newApp(useCase auth.Usecase, authMiddleware *middleware.Auth) *fiber.App {
 	})
 
 	app.Post("/logout-all", authMiddleware.Authenticate(), func(ctx *fiber.Ctx) error {
-		if err := useCase.LogoutAll(ctx.UserContext(), ctx.Locals(string(constants.ContextKeyUserID)).(string)); err != nil {
+		keepSessionID := ""
+		if ctx.QueryBool("keep_current") {
+			keepSessionID = ctx.Locals(string(constants.ContextKeySessionID)).(string)
+		}
+
+		err := useCase.LogoutAll(ctx.UserContext(), ctx.Locals(string(constants.ContextKeyUserID)).(string), keepSessionID)
+		if err != nil {
+			return statusFor(ctx, err)
+		}
+
+		return ctx.SendStatus(http.StatusOK)
+	})
+
+	app.Get("/sessions", authMiddleware.Authenticate(), func(ctx *fiber.Ctx) error {
+		sessions, err := useCase.ListSessions(ctx.UserContext(), ctx.Locals(string(constants.ContextKeyUserID)).(string))
+		if err != nil {
+			return statusFor(ctx, err)
+		}
+
+		ids := make([]string, 0, len(sessions))
+		for _, session := range sessions {
+			ids = append(ids, session.ID)
+		}
+		return ctx.JSON(ids)
+	})
+
+	app.Delete("/sessions/:id", authMiddleware.Authenticate(), func(ctx *fiber.Ctx) error {
+		err := useCase.RevokeSession(ctx.UserContext(), ctx.Locals(string(constants.ContextKeyUserID)).(string), ctx.Params("id"))
+		if err != nil {
 			return statusFor(ctx, err)
 		}
 

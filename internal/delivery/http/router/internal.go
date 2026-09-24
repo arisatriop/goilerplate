@@ -15,10 +15,16 @@ type InternalRouteRegistry struct {
 func (r *InternalRouteRegistry) register(route fiber.Router) {
 	internal := route.Group("/internal").Use(r.Wired.Middleware.Auth.InternalAuthenticate())
 
-	r.foo(internal)
+	// foo is the blank template, not a feature: every layer is panic("Implement me"), so routing
+	// it here ships an endpoint that answers 500. See the matching note in public.go; copy the
+	// pattern from .claude/skills/crud-operations/SKILL.md for your own domain.
+	// r.foo(internal)
 	r.bar(internal)
 }
 
+// foo registers the template domain's routes. Deliberately not called; see register above.
+//
+//nolint:unused // kept as the shape a new domain copies
 func (r *InternalRouteRegistry) foo(internal fiber.Router) {
 	foo := internal.Group("foos")
 	foo.Post("",

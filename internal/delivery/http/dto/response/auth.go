@@ -46,3 +46,20 @@ type SessionResponse struct {
 	ExpiresAt  time.Time `json:"expiresAt"`
 	LastUsedAt time.Time `json:"lastUsedAt"`
 }
+
+// ActiveSessionResponse is one entry of GET /users/me/sessions: a device the user is signed in on.
+// The refresh token's jti and the device fingerprint are deliberately left out — the list is for
+// a person deciding which device to sign out, and neither helps with that.
+type ActiveSessionResponse struct {
+	ID         string    `json:"id"`
+	DeviceName string    `json:"deviceName"`
+	DeviceType string    `json:"deviceType"`
+	IPAddress  string    `json:"ipAddress"`
+	UserAgent  string    `json:"userAgent"`
+	CreatedAt  time.Time `json:"createdAt"`
+	LastUsedAt time.Time `json:"lastUsedAt"`
+	ExpiresAt  time.Time `json:"expiresAt"`
+	// Current marks the session the request was made with, so a client can label it "this
+	// device" and avoid offering to revoke it.
+	Current bool `json:"current"`
+}
