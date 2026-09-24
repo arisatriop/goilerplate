@@ -36,24 +36,63 @@ type App struct {
 	MeterProvider  *sdkmetric.MeterProvider
 }
 
-// Init loads and validates the config, sets up logging, and opens the connections the app
+// Init loads and validates the config, sets up logging, and opens the connections the server
 // needs. It returns an error rather than exiting, so the caller decides how to report it and
 // nothing opened before the failure is left open: a failure after Redis connects closes Redis.
 func Init() (*App, error) {
-	cfg, err := Load()
+	cfg, log, err := loadValidated("invalid configuration")
 	if err != nil {
 		return nil, err
 	}
+	return initServer(cfg, log)
+}
+
+// InitDatabase is Init for tools that only touch the schema, such as cmd/migrate. It validates
+// the whole config, like Init, but opens only the database: no Redis, HTTP server or telemetry.
+//
+// Validation stays complete on purpose. Migrations run before the new server starts, so a config
+// error the server would refuse must stop the deploy here, before the schema changes; otherwise
+// the database moves ahead while the application that needs it crash-loops. Connections are a
+// different matter: a tool that never uses Redis must not fail because Redis is down.
+func InitDatabase() (*App, error) {
+	// The reason is in the message because "why does migrate read CORS?" is the obvious question.
+	cfg, log, err := loadValidated("invalid configuration (the whole config is checked before " +
+		"migrating, so a deploy stops before the schema changes)")
+	if err != nil {
+		return nil, err
+	}
+	return openDatabase(cfg, log)
+}
+
+// loadValidated loads the config, sets up logging, and validates the config before anything
+// connects anywhere. A validation failure is reported under invalidMsg.
+func loadValidated(invalidMsg string) (*config.Config, *slog.Logger, error) {
+	cfg, err := Load()
+	if err != nil {
+		return nil, nil, err
+	}
 	log := logger.New(loggerOptions(cfg))
 
-	// Fail fast before any connection is opened
 	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid configuration: %w", err)
+		return nil, nil, fmt.Errorf("%s: %w", invalidMsg, err)
 	}
 	for _, warning := range cfg.Warnings() {
 		log.Warn("configuration", "warning", warning)
 	}
+	return cfg, log, nil
+}
 
+// openDatabase builds the App a schema tool needs from a config that has already been validated.
+func openDatabase(cfg *config.Config, log *slog.Logger) (*App, error) {
+	db, err := initializeDatabase(cfg, log)
+	if err != nil {
+		return nil, err
+	}
+	return &App{Config: cfg, Log: log, DB: db}, nil
+}
+
+// initServer opens everything the server uses, from a config that has already been validated.
+func initServer(cfg *config.Config, log *slog.Logger) (*App, error) {
 	var tp *sdktrace.TracerProvider
 	var mp *sdkmetric.MeterProvider
 	if cfg.OTel.Enabled {

@@ -36,8 +36,10 @@ func main() {
 		return
 	}
 
-	// Every other action needs the database, so the config is loaded and validated first.
-	app, err := bootstrap.Init()
+	// Every other action needs the database. The whole config is validated, not only db: this
+	// runs before the new server starts, so a config the server would refuse stops the deploy
+	// here, before the schema changes. Only the database is opened, though.
+	app, err := bootstrap.InitDatabase()
 	if err != nil {
 		bootstrap.LogStartupFailure(err)
 		os.Exit(1)
@@ -89,7 +91,7 @@ func main() {
 	}
 }
 
-// createMigration writes the migration pair. It runs before bootstrap.Init, so there is no
+// createMigration writes the migration pair. It runs before bootstrap.InitDatabase, so there is no
 // application logger yet — and it needs no database, which is the point: a developer can
 // scaffold a migration without one running.
 func createMigration(migrationDir, migrationName string) {

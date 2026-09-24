@@ -38,6 +38,27 @@ func TestNewRedis_DisabledIsNil(t *testing.T) {
 	assert.Nil(t, client)
 }
 
+// Schema tools open the database and nothing else. Both dependencies here are unreachable, and
+// the server's path connects Redis first, so an error about Redis would mean the migrate path
+// still dials it — and a Redis outage would block every migration.
+func TestOpenDatabase_NeverDialsRedis(t *testing.T) {
+	cfg := &config.Config{
+		DB: config.DB{Host: "127.0.0.1", Port: 1, Name: "none", Username: "none"},
+		Redis: config.Redis{
+			Enabled:     true,
+			Host:        "127.0.0.1:1",
+			DialTimeout: 200 * time.Millisecond,
+		},
+	}
+
+	app, err := openDatabase(cfg, slog.New(slog.DiscardHandler))
+
+	require.Error(t, err)
+	assert.Nil(t, app)
+	assert.Contains(t, err.Error(), "connecting to postgres")
+	assert.NotContains(t, err.Error(), "redis")
+}
+
 func captureDefaultLog(t *testing.T) *bytes.Buffer {
 	t.Helper()
 	var buf bytes.Buffer
