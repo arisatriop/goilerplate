@@ -26,6 +26,13 @@ func (e *Bar) validate() error {
 	return nil
 }
 
+// normalize puts the fields in their stored form. Code comparisons, including the database's
+// uniqueness check, happen on this form, so "exp-1" and " EXP-1 " are the same code.
+func (e *Bar) normalize() {
+	e.Code = strings.ToUpper(strings.TrimSpace(e.Code))
+	e.Bar = strings.TrimSpace(e.Bar)
+}
+
 func (e *Bar) Clone() *Bar {
 	return &Bar{
 		ID:   e.ID,

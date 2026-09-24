@@ -27,68 +27,32 @@ func NewUseCase(repo Repository) Usecase {
 	}
 }
 
+// Create stores a new bar. Uniqueness of the code among live bars is enforced by the database;
+// the repository reports a clash as ErrCodeAlreadyExists.
 func (uc *usecase) Create(ctx context.Context, entity *Bar) (*Bar, error) {
 	if err := entity.validate(); err != nil {
 		return nil, err
 	}
-
-	exists, err := uc.ExistsByCode(ctx, entity.Code)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check code existence: %w", err)
-	}
-	if exists {
-		return nil, ErrCodeAlreadyExists
-	}
-
-	entity.Code = strings.ToUpper(strings.TrimSpace(entity.Code))
-	entity.Bar = strings.TrimSpace(entity.Bar)
+	entity.normalize()
 
 	created, err := uc.repo.CreateBar(ctx, entity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create bar: %w", err)
+		return nil, fmt.Errorf("creating bar: %w", err)
 	}
 
 	return created, nil
 }
 
-func (uc *usecase) ExistsByCode(ctx context.Context, code string) (bool, error) {
-	filter := &Filter{
-		Code: strings.ToUpper(strings.TrimSpace(code)),
-	}
-
-	bars, err := uc.repo.GetBarList(ctx, filter)
-	if err != nil {
-		return false, fmt.Errorf("failed to check code existence: %w", err)
-	}
-
-	return len(bars) > 0, nil
-}
-
+// Update changes a bar. Normalising before the write means changing only the case of a bar's
+// own code is not mistaken for a clash with itself.
 func (uc *usecase) Update(ctx context.Context, entity *Bar) (*Bar, error) {
 	if err := entity.validate(); err != nil {
 		return nil, err
 	}
+	entity.normalize()
 
-	existing, err := uc.repo.GetBarByID(ctx, entity.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get existing bar: %w", err)
-	}
-
-	if existing.Code != entity.Code {
-		exists, err := uc.ExistsByCode(ctx, entity.Code)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check code existence: %w", err)
-		}
-		if exists {
-			return nil, ErrCodeAlreadyExists
-		}
-	}
-
-	entity.Code = strings.ToUpper(strings.TrimSpace(entity.Code))
-	entity.Bar = strings.TrimSpace(entity.Bar)
-
-	if err = uc.repo.UpdateBar(ctx, entity); err != nil {
-		return nil, fmt.Errorf("failed to update bar: %w", err)
+	if err := uc.repo.UpdateBar(ctx, entity); err != nil {
+		return nil, fmt.Errorf("updating bar: %w", err)
 	}
 
 	return entity, nil
@@ -151,37 +115,25 @@ func (uc *usecase) Count(ctx context.Context, filter *Filter) (int64, error) {
 	return count, nil
 }
 
+// BulkCreate stores every bar or none. A code repeated inside the batch is the client's
+// mistake and is refused before the write; a clash with an existing bar comes back from the
+// repository as ErrCodeAlreadyExists.
 func (uc *usecase) BulkCreate(ctx context.Context, entities []*Bar) error {
-	codes := make(map[string]bool)
+	seen := make(map[string]bool, len(entities))
 	for i, entity := range entities {
 		if err := entity.validate(); err != nil {
 			return fmt.Errorf("validation failed for entity %d: %w", i, err)
 		}
+		entity.normalize()
 
-		code := strings.ToUpper(strings.TrimSpace(entity.Code))
-		if codes[code] {
-			return fmt.Errorf("duplicate code '%s' in batch", code)
+		if seen[entity.Code] {
+			return ErrDuplicateCodeInBatch
 		}
-		codes[code] = true
-
-		entity.Code = code
-		entity.Bar = strings.TrimSpace(entity.Bar)
+		seen[entity.Code] = true
 	}
 
-	// Check existing codes in database
-	for code := range codes {
-		exists, err := uc.ExistsByCode(ctx, code)
-		if err != nil {
-			return fmt.Errorf("failed to check code existence for '%s': %w", code, err)
-		}
-		if exists {
-			return fmt.Errorf("code '%s' already exists", code)
-		}
-	}
-
-	// Bulk create
 	if err := uc.repo.BulkCreate(ctx, entities); err != nil {
-		return fmt.Errorf("failed to bulk create bars: %w", err)
+		return fmt.Errorf("bulk creating bars: %w", err)
 	}
 
 	return nil
