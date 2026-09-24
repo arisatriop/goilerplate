@@ -29,7 +29,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
-| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | open · ~6–8 days |
+| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R5, R6, R7 done · rest ~4–5 days |
 
 **P0, P1, P2 and P4 are complete**, and F2 and F4 with them. What remains is the rest of P3 — feature
 work rather than correction, and each item needs a scope decision before it starts.
@@ -856,9 +856,10 @@ code as it stood. Each rule the code does not yet meet is listed here, so a rule
 silently describes behaviour that does not exist — the failure A2 was about. New code follows the
 rule; these tasks bring the old code up to it.
 
-**Order:** R2 → R5 → R6 first (defects, each S), then the rest by value.
+**Order:** R2 → R5 → R6 first (defects, each S), then the rest by value. R2, R5, R6 and R7 landed
+in #87, #88 and #89.
 
-### R2 Stop echoing submitted values in validation errors · S — **security**
+### R2 Stop echoing submitted values in validation errors · S — **security** — ✅ done (#87)
 **Evidence:** `pkg/response/errors.go:27-29`, `internal/delivery/http/middleware/request.go:24,160-170`,
 `pkg/redact/redact.go:18-27`
 
@@ -869,25 +870,27 @@ the logger records response bodies, and `value` is not a redacted key — so the
 also **written to the log in plaintext**. A short password that fails our policy is often one the
 user really uses elsewhere.
 
-- [ ] Drop `Value` from `ValidationErrorDetail`
-- [ ] Report the **JSON** field name via `validator.RegisterTagNameFunc`; today it is
-      `strings.ToLower(StructField)`, so clients see `newpassword`, matching neither the request
-      key nor the camelCase contract
-- [ ] Add `/api/v1/users/me/password` — or better, every route that accepts a credential — to the
-      default omit list, and test that a failed password change logs no body
-- [ ] Test: a validation 400 contains no submitted value, and field names equal the JSON keys
+- [x] `Value` dropped from `ValidationErrorDetail`
+- [x] Fields are named by their `json`/`query`/`params` tag through `response.NewValidator()`,
+      which bootstrap and the handler tests use — `newPassword`, not `newpassword`
+- [x] `/api/v1/auth` and `/api/v1/users/me/password` are always omitted from body logging.
+      `log.omit_body_paths` now **adds** to them; it used to *replace* the default, so listing one
+      extra path silently started logging login bodies
+- [x] Tests: the handler test fails on the old code with `"value":"hunter2"`; field names per tag
+      kind; the password route's bodies omitted whole; configured paths never drop credential ones
 
-### R5 Finish A5: `foo` is still routed on `/internal` and `/partner` · S — defect
+### R5 Finish A5: `foo` is still routed on `/internal` and `/partner` · S — defect — ✅ done (#88)
 **Evidence:** `internal/delivery/http/router/internal.go:13`, `internal/delivery/http/router/partner.go:19`
 
 A5 unrouted `foo` from `public.go` only. `POST /internal/foos` and `POST /partner/v1/foos` still
 reach `panic("Implement me")` and answer 500, so A5's "done when" does not hold.
 
-- [ ] Comment out `r.foo(...)` in both, with the same pointer to the template docs
-- [ ] A router test that walks every registered route of a fresh app and asserts none reaches
-      `foo`, so the next audience file cannot reintroduce it
+- [x] `r.foo(...)` commented out in both, with the same pointer to the template docs
+- [x] `TestRegister_NoAudienceExposesTheFooTemplate` registers every audience on a fresh app and
+      fails if any route reaches `/foos` — verified by re-enabling `r.foo(internal)`. A companion
+      test asserts `bar` is still registered everywhere, so the first cannot pass vacuously
 
-### R6 Make `bar` uniqueness correct under soft delete and concurrency · S — defect
+### R6 Make `bar` uniqueness correct under soft delete and concurrency · S — defect — ✅ done (#89)
 **Evidence:** `internal/migrations/*_create_bars_table.up.sql`, `internal/domain/bar/usecase.go:35-63`,
 `internal/infrastructure/repository/bar.go:106`
 
@@ -900,21 +903,26 @@ reach `panic("Implement me")` and answer 500, so A5's "done when" does not hold.
 - `idx_bars_code` duplicates the index `UNIQUE` already creates; `idx_bars_is_active` and
   `idx_bars_deleted_at` index low-cardinality columns alone
 
-- [ ] Replace `UNIQUE` with `uq_bars_code_live ... WHERE deleted_at IS NULL`; drop the redundant
-      indexes (D4 allows rewriting the baseline)
-- [ ] Map PostgreSQL `unique_violation` (SQLSTATE 23505) to the domain's conflict error in the
-      repository, so the constraint — not the pre-check — is what guarantees the 409
-- [ ] Repository tests: a deleted code can be reused; concurrent creates yield one 201 and one 409
+- [x] `uq_bars_code_live ... WHERE deleted_at IS NULL` replaces `UNIQUE`, and the four redundant
+      indexes are dropped — in a **new** migration rather than an edited baseline, since an
+      edited migration never re-runs where it has already been applied
+- [x] The repository maps SQLSTATE 23505 on that index to `bar.ErrCodeAlreadyExists`;
+      `ExistsByCode` and its pre-checks are gone
+- [x] Repository tests: a deleted code can be reused; eight concurrent creates yield exactly one
+      winner and conflict errors for the rest; a clashing bulk batch writes nothing
+- [x] **Found on the way:** re-saving a bar's own code in another case answered 409 (compared
+      before normalising); a code repeated inside one bulk request was a 500 (now 400); and the
+      list paged with no `ORDER BY`, so rows could repeat or vanish between pages (now `id DESC`)
 
-### R7 Give the worked example the tests it tells others to write · M
+### R7 Give the worked example the tests it tells others to write · M — ✅ done (#89)
 **Evidence:** `internal/domain/bar/` and `internal/infrastructure/repository/` have no `bar` tests
 
 `bar` is what `/add-domain` copies, and the testing rules rank use-case tests first — yet
 `bar` has handler and presenter tests only. The scaffold now generates use-case and repository
 tests; the example it copies from should have them too.
 
-- [ ] `domain/bar/usecase_test.go` with a hand-written fake repository
-- [ ] `infrastructure/repository/bar_test.go` against real PostgreSQL (lands with R6's cases)
+- [x] `domain/bar/usecase_test.go` with a hand-written fake repository
+- [x] `infrastructure/repository/bar_test.go` against real PostgreSQL (landed with R6's cases)
 
 ### R1 Take HTTP out of the domain layer · M
 **Evidence:** `net/http` imported by five files in `internal/domain/auth/`; `internal/domain/bar/error.go:7`
