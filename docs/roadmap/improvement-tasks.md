@@ -932,13 +932,19 @@ reach `panic("Implement me")` and answer 500, so A5's "done when" does not hold.
 - `idx_bars_code` duplicates the index `UNIQUE` already creates; `idx_bars_is_active` and
   `idx_bars_deleted_at` index low-cardinality columns alone
 
-- [x] `uq_bars_code_live ... WHERE deleted_at IS NULL` replaces `UNIQUE`, and the four redundant
-      indexes are dropped — in a **new** migration rather than an edited baseline, since an
-      edited migration never re-runs where it has already been applied
-- [x] The repository maps SQLSTATE 23505 on that index to `bar.ErrCodeAlreadyExists`;
-      `ExistsByCode` and its pre-checks are gone
-- [x] Repository tests: a deleted code can be reused; eight concurrent creates yield exactly one
-      winner and conflict errors for the rest; a clashing bulk batch writes nothing
+- [x] **Revised after #89:** `code` is the business key: it identifies the same record in every
+      environment, where the UUID differs. #89 made it unique among live rows only, so a deleted
+      bar's code could pass to a new bar and change what the code means. It is now
+      `CONSTRAINT uq_bars_code UNIQUE (code)` across every row, and immutable: the update use
+      case refuses a different code (400 `bar_code_immutable`) and the repository never writes
+      the column on update. Before the first release, the baseline migration was edited in place
+      rather than adding a second one (Appendix A, decision D4: fresh baseline). The four
+      redundant indexes are gone from it too
+- [x] The repository maps SQLSTATE 23505 on that constraint to `bar.ErrCodeAlreadyExists` (409), so
+      the real bug, a 500 for a duplicate, stays fixed; `ExistsByCode` and its pre-checks are gone
+- [x] Repository tests: a deleted bar's code is still refused; an update never changes the code;
+      eight concurrent creates yield exactly one winner and conflict errors for the rest; a
+      clashing bulk batch writes nothing
 - [x] **Found on the way:** re-saving a bar's own code in another case answered 409 (compared
       before normalising); a code repeated inside one bulk request was a 500 (now 400); and the
       list paged with no `ORDER BY`, so rows could repeat or vanish between pages (now `id DESC`)

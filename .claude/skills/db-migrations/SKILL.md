@@ -47,14 +47,15 @@ CREATE TABLE products (
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_by  TEXT NOT NULL,
     deleted_at  TIMESTAMPTZ NULL,
-    deleted_by  TEXT NULL
+    deleted_by  TEXT NULL,
+
+    -- code is the business key: stable across environments, where the UUID is not. Unique
+    -- across every row, deleted ones included, so a code never comes to mean another product.
+    CONSTRAINT uq_products_code UNIQUE (code)
 );
 
 COMMENT ON TABLE products IS 'Products offered for sale';
-COMMENT ON COLUMN products.code IS 'Business key; unique among rows that are not soft-deleted';
-
--- A soft-deleted row must not block reuse of its code, so uniqueness applies to live rows only.
-CREATE UNIQUE INDEX uq_products_code_live ON products (code) WHERE deleted_at IS NULL;
+COMMENT ON COLUMN products.code IS 'Business key; unique across all rows including soft-deleted ones, and immutable';
 
 -- PostgreSQL does not index foreign keys automatically; without this, joins and
 -- ON DELETE checks on categories scan products.
@@ -71,8 +72,14 @@ CREATE INDEX idx_products_category_id ON products (category_id);
   `REFERENCES` for relations. They are the last line of defence when application code is wrong
 - **Audit columns**: `created_at/by`, `updated_at/by` (`NOT NULL`) and `deleted_at/by` (nullable)
   on tables that model business entities. Log-like and join tables need not carry them
-- **Soft delete and uniqueness**: a plain `UNIQUE` on a soft-deleted table makes a deleted row
-  block its key forever. Use a partial unique index `WHERE deleted_at IS NULL`
+- **Soft delete and uniqueness**: decide what the key means before choosing the constraint.
+  - A **business key** (`code` on master data) identifies one record in every environment and in
+    history. Make it a plain `UNIQUE` across every row, deleted ones included, and never let an
+    update change it. A deleted row keeps its code; bring it back by restoring the row, not by
+    creating another with the same code
+  - A key that may legitimately **pass to a new record** once the old one is gone (a username or
+    email freed by account deletion) gets a partial unique index `WHERE deleted_at IS NULL`.
+    Upserts against it must repeat the predicate: `ON CONFLICT (email) WHERE deleted_at IS NULL`
 - **Comments**: `COMMENT ON TABLE`, plus `COMMENT ON COLUMN` wherever the name doesn't say
   everything (units, allowed values, why it is nullable)
 

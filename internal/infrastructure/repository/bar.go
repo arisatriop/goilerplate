@@ -15,16 +15,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// uniqueBarCodeIndex is the partial unique index that allows one live bar per code.
-const uniqueBarCodeIndex = "uq_bars_code_live"
+// uniqueBarCodeConstraint keeps a code unique across every bar, soft-deleted ones included:
+// code is the business key, so it is never reassigned.
+const uniqueBarCodeConstraint = "uq_bars_code"
 
-// translateWriteErr turns a violation of the live-code index into the domain's conflict error.
+// translateWriteErr turns a violation of the code constraint into the domain's conflict error.
 // The index is what guarantees uniqueness — a check before the insert cannot, because two
 // concurrent requests can both pass it — so this is where a duplicate becomes a 409 rather
 // than a 500.
 func translateWriteErr(op string, err error) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == uniqueBarCodeIndex {
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == uniqueBarCodeConstraint {
 		return bar.ErrCodeAlreadyExists
 	}
 	return fmt.Errorf("%s: %w", op, err)
@@ -75,13 +76,13 @@ func (r *barRepo) UpdateBar(ctx context.Context, entity *bar.Bar) error {
 		return err
 	}
 
-	model.Code = entity.Code
+	// Code is not written: it is the business key and never changes once assigned.
 	model.Bar = entity.Bar
 	model.UpdatedAt = utils.Now()
 	model.UpdatedBy = ctx.Value(constants.ContextKeyUserID).(string)
 
 	if err = r.db.WithContext(ctx).Save(model).Error; err != nil {
-		return translateWriteErr("updating bar", err)
+		return fmt.Errorf("updating bar: %w", err)
 	}
 
 	return nil

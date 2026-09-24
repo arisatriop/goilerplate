@@ -71,8 +71,9 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        id       path      string                       true  "Bar ID"
+// @Description  Replaces the bar's content. code may be omitted or repeated but not changed: it is the business key (400 bar_code_immutable).
 // @Param        request  body      dtorequest.BarUpdateRequest  true  "Bar data"
-// @Success      200      {object}  response.BaseResponse
+// @Success      200      {object}  response.BaseResponse{data=dtoresponse.BarResponse}
 // @Failure      400      {object}  response.BaseResponse
 // @Failure      401      {object}  response.BaseResponse
 // @Failure      404      {object}  response.BaseResponse
@@ -98,12 +99,12 @@ func (h *Bar) Update(ctx *fiber.Ctx) error {
 		Bar:  req.Bar,
 	}
 
-	_, err := h.Usecase.Update(ctx.UserContext(), entity)
+	updated, err := h.Usecase.Update(ctx.UserContext(), entity)
 	if err != nil {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.Success(ctx, nil, response.WithMessage(bar.MsgBarUpdatedSuccessfully))
+	return response.Success(ctx, presenter.ToBarResponse(updated), response.WithMessage(bar.MsgBarUpdatedSuccessfully))
 }
 
 // @Summary      Delete bar

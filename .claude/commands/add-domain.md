@@ -59,13 +59,13 @@ Edit these existing files to register the new domain (insert alphabetically betw
 - `internal/delivery/http/router/internal.go` — add `r.<name>(internal)` to the `register` method, then add a `<name>(internal fiber.Router)` method that registers `POST /`, `PUT /:id`, `DELETE /:id`, `GET /`, `GET /:id` on the `<names>` group
 
 ## 5. Create migration
-Run `make migrate-create name=create_<names>_table` to generate up/down SQL files. Write the up migration by the `db-migrations` skill: `UUID PRIMARY KEY` without a DB default (the repository sets it with `utils.GenerateUUID()`), `TEXT` columns, `TIMESTAMPTZ` audit columns, soft delete via `deleted_at`, and `code` unique **among live rows only** (`CREATE UNIQUE INDEX uq_<names>_code_live ON <names> (code) WHERE deleted_at IS NULL`) — a plain `UNIQUE` would stop a deleted row's code from ever being reused. Populate the down migration with `DROP TABLE IF EXISTS`.
+Run `make migrate-create name=create_<names>_table` to generate up/down SQL files. Write the up migration by the `db-migrations` skill: `UUID PRIMARY KEY` without a DB default (the repository sets it with `utils.GenerateUUID()`), `TEXT` columns, `TIMESTAMPTZ` audit columns, soft delete via `deleted_at`, and `code` as the business key: `CONSTRAINT uq_<names>_code UNIQUE (code)` across every row, deleted ones included, so a code never comes to mean a different record. Populate the down migration with `DROP TABLE IF EXISTS`.
 
 ## 6. Create tests
 Scaffolded code ships with tests, like any other code (`.claude/rules/testing.md`):
-- `internal/domain/<name>/usecase_test.go` — a hand-written fake `Repository` (embed the interface, implement what is called); cover create, the duplicate-code 409, not-found 404 on get/update/delete, and a repository error surfacing as a non-client error
+- `internal/domain/<name>/usecase_test.go` — a hand-written fake `Repository` (embed the interface, implement what is called); cover create, the duplicate-code 409, an update that tries to change the code (400 `<name>_code_immutable`), not-found 404 on get/update/delete, and a repository error surfacing as a non-client error
 - `internal/delivery/http/handler/<name>_test.go` — mirror `bar_test.go`: status codes and body shape for success, malformed JSON, validation failure, and each domain error
-- `internal/infrastructure/repository/<name>_test.go` — against real PostgreSQL (skips without `POSTGRES_TEST_DSN`): create/get, soft delete hides the row, and a deleted row's code can be reused
+- `internal/infrastructure/repository/<name>_test.go` — against real PostgreSQL (skips without `POSTGRES_TEST_DSN`): create/get, soft delete hides the row, a deleted row's code is still refused with the conflict error, and an update never changes the code
 
 ## 7. Verify
 - Run `go build ./...`, `make lint`, and `make test` — all must pass. Run `make test-integration` if PostgreSQL is available.

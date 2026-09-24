@@ -49,9 +49,9 @@ func TestBar_CreateDuplicateLiveCodeIsAConflict(t *testing.T) {
 	assert.ErrorIs(t, err, bar.ErrCodeAlreadyExists, "a duplicate must be a 409, not a 500")
 }
 
-// A soft-deleted bar used to keep its code forever: the old table-wide UNIQUE rejected the new
-// row, and the request failed with a 500.
-func TestBar_DeletedBarsCodeCanBeReused(t *testing.T) {
+// code is the business key that identifies a bar across environments, so it is never
+// reassigned: deleting a bar does not free its code for another one.
+func TestBar_DeletedBarsCodeIsNeverReassigned(t *testing.T) {
 	// Arrange
 	repo, db, ctx := newBarRepository(t)
 	code := uniqueCode(t, db)
@@ -60,28 +60,30 @@ func TestBar_DeletedBarsCodeCanBeReused(t *testing.T) {
 	require.NoError(t, repo.DeleteBar(ctx, first))
 
 	// Act
-	second, err := repo.CreateBar(ctx, &bar.Bar{Code: code, Bar: "second"})
-
-	// Assert
-	require.NoError(t, err)
-	assert.NotEqual(t, first.ID, second.ID)
-}
-
-func TestBar_UpdateToAnotherLiveCodeIsAConflict(t *testing.T) {
-	// Arrange
-	repo, db, ctx := newBarRepository(t)
-	taken := uniqueCode(t, db)
-	_, err := repo.CreateBar(ctx, &bar.Bar{Code: taken, Bar: "holder"})
-	require.NoError(t, err)
-	mover, err := repo.CreateBar(ctx, &bar.Bar{Code: uniqueCode(t, db), Bar: "mover"})
-	require.NoError(t, err)
-
-	// Act
-	mover.Code = taken
-	err = repo.UpdateBar(ctx, mover)
+	_, err = repo.CreateBar(ctx, &bar.Bar{Code: code, Bar: "second"})
 
 	// Assert
 	assert.ErrorIs(t, err, bar.ErrCodeAlreadyExists)
+}
+
+// The use case refuses a code change, and the repository does not write the column either, so
+// no other caller can change a business key by accident.
+func TestBar_UpdateNeverChangesTheCode(t *testing.T) {
+	// Arrange
+	repo, db, ctx := newBarRepository(t)
+	code := uniqueCode(t, db)
+	created, err := repo.CreateBar(ctx, &bar.Bar{Code: code, Bar: "before"})
+	require.NoError(t, err)
+
+	// Act
+	err = repo.UpdateBar(ctx, &bar.Bar{ID: created.ID, Code: uniqueCode(t, db), Bar: "after"})
+
+	// Assert
+	require.NoError(t, err)
+	reloaded, err := repo.GetBarByID(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, code, reloaded.Code)
+	assert.Equal(t, "after", reloaded.Bar)
 }
 
 // The race a check-then-insert cannot close: every request passes the check, and only the index

@@ -308,7 +308,8 @@ func TestBarUpdate_Returns200AndCarriesTheRouteID(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, fiber.StatusOK, status)
-	assert.JSONEq(t, `{"success":true,"message":"Bar updated successfully"}`, body)
+	assert.JSONEq(t, `{"success":true,"message":"Bar updated successfully",
+		"data":{"id":"abc-123","code":"EXP002","bar":"second"}}`, body)
 	require.NotNil(t, usecase.updated)
 	assert.Equal(t, "abc-123", usecase.updated.ID, "the id comes from the path, not the body")
 	assert.Equal(t, "EXP002", usecase.updated.Code)
@@ -317,10 +318,30 @@ func TestBarUpdate_Returns200AndCarriesTheRouteID(t *testing.T) {
 func TestBarUpdate_RejectsBadInput(t *testing.T) {
 	usecase := &stubBarUsecase{}
 
-	status, _ := call(t, usecase, fiber.MethodPut, "/bars/abc-123", `{"bar":"second"}`)
+	status, _ := call(t, usecase, fiber.MethodPut, "/bars/abc-123", `{"code":"EXP002"}`)
 
 	assert.Equal(t, fiber.StatusBadRequest, status)
 	assert.Nil(t, usecase.updated)
+}
+
+// code is optional on update: it is the business key, so there is nothing to change it to.
+func TestBarUpdate_CodeMayBeOmitted(t *testing.T) {
+	usecase := &stubBarUsecase{}
+
+	status, _ := call(t, usecase, fiber.MethodPut, "/bars/abc-123", `{"bar":"second"}`)
+
+	assert.Equal(t, fiber.StatusOK, status)
+	require.NotNil(t, usecase.updated)
+	assert.Empty(t, usecase.updated.Code)
+}
+
+func TestBarUpdate_ChangingTheCodeIsA400WithItsCode(t *testing.T) {
+	usecase := &stubBarUsecase{err: bar.ErrCodeImmutable}
+
+	status, body := call(t, usecase, fiber.MethodPut, "/bars/abc-123", `{"code":"EXP999","bar":"second"}`)
+
+	assert.Equal(t, fiber.StatusBadRequest, status)
+	assert.Contains(t, body, `"code":"bar_code_immutable"`)
 }
 
 func TestBarUpdate_MissingRowIsA404(t *testing.T) {

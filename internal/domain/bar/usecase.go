@@ -27,8 +27,8 @@ func NewUseCase(repo Repository) Usecase {
 	}
 }
 
-// Create stores a new bar. Uniqueness of the code among live bars is enforced by the database;
-// the repository reports a clash as ErrCodeAlreadyExists.
+// Create stores a new bar. Uniqueness of the code is enforced by the database, across deleted
+// bars too; the repository reports a clash as ErrCodeAlreadyExists.
 func (uc *usecase) Create(ctx context.Context, entity *Bar) (*Bar, error) {
 	if err := entity.validate(); err != nil {
 		return nil, err
@@ -43,9 +43,18 @@ func (uc *usecase) Create(ctx context.Context, entity *Bar) (*Bar, error) {
 	return created, nil
 }
 
-// Update changes a bar. Normalising before the write means changing only the case of a bar's
-// own code is not mistaken for a clash with itself.
+// Update changes a bar's content. The code is the business key and never changes: a request may
+// leave it out or repeat it — in any case or spacing — and anything else is ErrCodeImmutable.
 func (uc *usecase) Update(ctx context.Context, entity *Bar) (*Bar, error) {
+	existing, err := uc.repo.GetBarByID(ctx, entity.ID)
+	if err != nil {
+		return nil, fmt.Errorf("loading bar: %w", err)
+	}
+	if entity.Code != "" && normalizeCode(entity.Code) != existing.Code {
+		return nil, ErrCodeImmutable
+	}
+	entity.Code = existing.Code
+
 	if err := entity.validate(); err != nil {
 		return nil, err
 	}
