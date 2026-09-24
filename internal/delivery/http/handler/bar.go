@@ -7,6 +7,7 @@ import (
 	"goilerplate/internal/domain/bar"
 	"goilerplate/pkg/constants"
 	"goilerplate/pkg/response"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -29,9 +30,11 @@ func NewBar(validator *validator.Validate, usecase bar.Usecase) *Bar {
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.BarCreateRequest  true  "Bar data"
-// @Success      201      {object}  response.BaseResponse
+// @Success      201      {object}  response.BaseResponse{data=dtoresponse.BarResponse}
+// @Header       201      {string}  Location  "Path of the created bar"
 // @Failure      400      {object}  response.BaseResponse
 // @Failure      401      {object}  response.BaseResponse
+// @Failure      409      {object}  response.BaseResponse
 // @Failure      500      {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/bars [post]
@@ -51,12 +54,16 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 		Bar:  req.Bar,
 	}
 
-	_, err := h.Usecase.Create(ctx.UserContext(), entity)
+	created, err := h.Usecase.Create(ctx.UserContext(), entity)
 	if err != nil {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.Created(ctx, nil, response.WithMessage(bar.MsgBarCreatedSuccessfully))
+	// Built from the request path rather than a fixed prefix, because the same handler is
+	// mounted under /api/v1, /internal and /partner/v1.
+	location := strings.TrimSuffix(ctx.Path(), "/") + "/" + created.ID
+	return response.CreatedAt(ctx, location, presenter.ToBarResponse(created),
+		response.WithMessage(bar.MsgBarCreatedSuccessfully))
 }
 
 // @Summary      Update bar

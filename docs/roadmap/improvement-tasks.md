@@ -29,7 +29,7 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
 | [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2, F4 done |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
-| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R5–R7, R9, R10 done · rest ~3–4 days |
+| [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | R2, R4–R7, R9, R10 done · R1, R3, R8 left |
 
 **P0, P1, P2 and P4 are complete**, and F2 and F4 with them. What remains is the rest of P3 — feature
 work rather than correction, and each item needs a scope decision before it starts.
@@ -946,13 +946,21 @@ Clients can branch only on the status code; `message` is prose and may change. T
 
 Either pairs naturally with R1's error kinds. Needs a decision before code.
 
-### R4 `Location` on 201 and `Retry-After` on 429 · S
-**Evidence:** `internal/delivery/http/handler/bar.go:59`, `internal/delivery/http/middleware/ratelimit.go:48,68`
+### R4 `Location` on 201 and `Retry-After` on 429 · S — ✅ done
+**Evidence:** `internal/delivery/http/handler/bar.go:59`, `internal/delivery/http/middleware/ratelimit.go`
 
-- [ ] `response.Created` takes the new resource's path and sets `Location`; `bar` returns the
-      created resource (or at least its ID) rather than `nil`
-- [ ] The limiters set `Retry-After` from the window's remaining time, so clients back off
-      instead of hammering
+- [x] `response.CreatedAt(ctx, location, data)` sets `Location`. `bar` returns the created resource
+      and points `Location` at it, built from the request path so the handler mounted under
+      `/internal` and `/partner/v1` names its own mount
+- [x] **`Retry-After` was never missing — this finding was wrong.** Fiber's limiter sets it before
+      calling `LimitReached` (`limiter_fixed.go:82`, v2.52.12), and our envelope writer keeps it.
+      What was missing was a test: `TestLimiters_TooManyRequestsCarriesRetryAfter` now pins it on
+      all four limiters, so a future `LimitReached` that resets headers fails the build
+- [x] **Found on the way:** the idempotency record kept status, content type and body only, so a
+      replayed 201 dropped `Location` — a retrying client got a "created" response naming nothing.
+      The record now keeps it
+- Registration still answers 201 without `Location`: there is no user resource to name yet, and
+  F1's anti-enumeration work will reshape that response anyway
 
 ### R8 Stop storing contexts in structs · S — fold into F5
 **Evidence:** `pkg/filesystem/s3.go:24`, `pkg/filesystem/drive.go:20`

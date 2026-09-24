@@ -103,7 +103,15 @@ func Success(ctx *fiber.Ctx, data any, options ...ResponseOption) error {
 	return ctx.Status(http.StatusOK).JSON(response)
 }
 
-// Created sends a successful creation response
+// CreatedAt sends 201 with a Location header naming the new resource, as RFC 9110 §15.3.2
+// expects of a 201. location may be relative; clients resolve it against the request URL.
+func CreatedAt(ctx *fiber.Ctx, location string, data any, options ...ResponseOption) error {
+	ctx.Location(location)
+	return Created(ctx, data, options...)
+}
+
+// Created sends a successful creation response. Prefer CreatedAt whenever the new resource has
+// a URL of its own.
 func Created(ctx *fiber.Ctx, data any, options ...ResponseOption) error {
 	response := &BaseResponse{
 		Success: true,

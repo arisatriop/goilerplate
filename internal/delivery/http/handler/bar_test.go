@@ -48,8 +48,12 @@ func (s *stubBarUsecase) Create(_ context.Context, entity *bar.Bar) (*bar.Bar, e
 	if s.err != nil {
 		return nil, s.err
 	}
-	return entity, nil
+	stored := *entity
+	stored.ID = createdBarID
+	return &stored, nil
 }
+
+const createdBarID = "0190a6f0-0000-7000-8000-0000000000b1"
 
 func (s *stubBarUsecase) Update(_ context.Context, entity *bar.Bar) (*bar.Bar, error) {
 	s.updated = entity
@@ -214,7 +218,8 @@ func TestBarCreate_Returns201AndPassesTheEntityThrough(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, fiber.StatusCreated, status)
-	assert.JSONEq(t, `{"success":true,"message":"Bar created successfully"}`, body)
+	assert.JSONEq(t, `{"success":true,"message":"Bar created successfully",
+		"data":{"id":"`+createdBarID+`","code":"EXP001","bar":"first"}}`, body)
 	require.NotNil(t, usecase.created)
 	assert.Equal(t, "EXP001", usecase.created.Code)
 	assert.Equal(t, "first", usecase.created.Bar)
@@ -374,4 +379,25 @@ func TestBarGet_MissingRowIsA404(t *testing.T) {
 	status, _ := call(t, usecase, fiber.MethodGet, "/bars/missing", "")
 
 	assert.Equal(t, fiber.StatusNotFound, status)
+}
+
+// A 201 names what it created. The path is taken from the request, so the same handler mounted
+// under /internal or /partner/v1 points back at its own mount rather than at /api/v1.
+func TestBarCreate_LocationNamesTheNewBarUnderItsOwnMount(t *testing.T) {
+	for _, mount := range []string{"/api/v1/bars", "/internal/bars", "/partner/v1/bars"} {
+		t.Run(mount, func(t *testing.T) {
+			h := handler.NewBar(response.NewValidator(), &stubBarUsecase{})
+			app := fiber.New()
+			app.Post(mount, h.Create)
+
+			req := httptest.NewRequest(fiber.MethodPost, mount, strings.NewReader(`{"code":"EXP001","bar":"first"}`))
+			req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			resp, err := app.Test(req)
+			require.NoError(t, err)
+			_ = resp.Body.Close()
+
+			assert.Equal(t, fiber.StatusCreated, resp.StatusCode)
+			assert.Equal(t, mount+"/"+createdBarID, resp.Header.Get(fiber.HeaderLocation))
+		})
+	}
 }
