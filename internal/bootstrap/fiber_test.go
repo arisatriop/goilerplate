@@ -4,11 +4,8 @@ import (
 	"errors"
 	"io"
 	"net"
-	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -144,92 +141,4 @@ func TestNewFiber_StalledRequestIsCutOffAtReadTimeout(t *testing.T) {
 	if len(answer) > 0 {
 		assert.Contains(t, string(answer), "408")
 	}
-}
-
-func TestNewFiber_BodyLimitFallsBackToTenMegabytes(t *testing.T) {
-	assert.Equal(t, config.DefaultServerBodyLimit, NewFiber(baseConfig()).Config().BodyLimit)
-}
-
-// The limit has to be enforced, not just configured: an oversized body is refused with 413 by the
-// server itself, before the handler — which would otherwise have to buffer it — ever runs.
-// Over a real socket, because app.Test surfaces fasthttp's refusal as a Go error rather than
-// the response a client actually receives.
-func TestNewFiber_OversizedBodyGets413(t *testing.T) {
-	cfg := baseConfig()
-	cfg.Server.BodyLimit = 1024
-
-	app := NewFiber(cfg)
-	var reached atomic.Bool
-	app.Post("/upload", func(c *fiber.Ctx) error {
-		reached.Store(true)
-		return c.SendStatus(fiber.StatusNoContent)
-	})
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	go func() { _ = app.Listener(listener) }()
-	t.Cleanup(func() { _ = app.Shutdown() })
-
-	send := func(size int) int {
-		url := "http://" + listener.Addr().String() + "/upload"
-		req, err := http.NewRequestWithContext(t.Context(), fiber.MethodPost, url, strings.NewReader(strings.Repeat("a", size)))
-		require.NoError(t, err)
-		resp, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-		return resp.StatusCode
-	}
-
-	assert.Equal(t, fiber.StatusNoContent, send(1024), "a body at the limit is accepted")
-	reached.Store(false)
-	assert.Equal(t, fiber.StatusRequestEntityTooLarge, send(1025))
-	assert.False(t, reached.Load(), "the handler must not run for a refused body")
-}
-
-func corsConfig() *config.Config {
-	cfg := baseConfig()
-	cfg.Server.EnableCORS = true
-	cfg.Server.CORS = config.CORS{
-		AllowOrigin:      "https://app.example.com",
-		AllowMethods:     "GET,POST",
-		AllowHeaders:     "Authorization,Content-Type",
-		AllowCredentials: true,
-	}
-	return cfg
-}
-
-func TestNewFiber_CORSHeadersOnlyWhenEnabled(t *testing.T) {
-	origin := map[string]string{"Origin": "https://app.example.com"}
-
-	disabled := corsConfig()
-	disabled.Server.EnableCORS = false
-	assert.Empty(t, headersFor(t, disabled, origin)["Access-Control-Allow-Origin"],
-		"a cors block alone must not switch CORS on")
-
-	headers := headersFor(t, corsConfig(), origin)
-	assert.Equal(t, "https://app.example.com", headers["Access-Control-Allow-Origin"])
-	assert.Equal(t, "true", headers["Access-Control-Allow-Credentials"])
-}
-
-func TestNewFiber_CORSRefusesUnlistedOrigin(t *testing.T) {
-	headers := headersFor(t, corsConfig(), map[string]string{"Origin": "https://evil.example.net"})
-
-	assert.Empty(t, headers["Access-Control-Allow-Origin"])
-	assert.Empty(t, headers["Access-Control-Allow-Credentials"])
-}
-
-func TestNewFiber_CORSAnswersPreflight(t *testing.T) {
-	app := NewFiber(corsConfig())
-	app.Post("/probe", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
-
-	req := httptest.NewRequest(fiber.MethodOptions, "/probe", nil)
-	req.Header.Set("Origin", "https://app.example.com")
-	req.Header.Set("Access-Control-Request-Method", fiber.MethodPost)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-
-	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
-	assert.Equal(t, "https://app.example.com", resp.Header.Get("Access-Control-Allow-Origin"))
-	assert.Equal(t, "GET,POST", resp.Header.Get("Access-Control-Allow-Methods"))
-	assert.Equal(t, "Authorization,Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }

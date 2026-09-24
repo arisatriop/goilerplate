@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"regexp"
 	"strings"
 
@@ -145,63 +144,6 @@ func (c *Config) validateServer(v *validation) {
 			v.addf("server.trusted_proxies[%d] %q is not a valid IP or CIDR", i, proxy)
 		}
 	}
-
-	c.validateBodyLimit(v)
-	if c.Server.EnableCORS {
-		c.validateCORS(v)
-	}
-}
-
-// validateBodyLimit refuses a limit that would reject every upload the filesystem config allows:
-// the multipart body is always larger than the file inside it, so such a server answers 413 to
-// requests its own validation would have accepted.
-func (c *Config) validateBodyLimit(v *validation) {
-	if c.Server.BodyLimit < 0 {
-		v.addf("server.body_limit must not be negative")
-		return
-	}
-	if limit := int64(c.Server.BodyLimitOrDefault()); limit < c.FileSystem.MaxFileSize {
-		v.addf("server.body_limit (%d bytes) must be at least filesystem.max_file_size (%d bytes)",
-			limit, c.FileSystem.MaxFileSize)
-	}
-}
-
-// validateCORS catches at startup what Fiber's CORS middleware would otherwise panic on, and the
-// empty origin list it would silently turn into "*".
-func (c *Config) validateCORS(v *validation) {
-	cors := c.Server.CORS
-	if strings.TrimSpace(cors.AllowOrigin) == "" {
-		v.addf("server.cors.allow_origin is required when server.enable_cors is true")
-		return
-	}
-
-	for _, origin := range strings.Split(cors.AllowOrigin, ",") {
-		origin = strings.TrimSpace(origin)
-		if origin == "*" {
-			// Browsers refuse credentialed responses to a wildcard origin, so this combination
-			// never works — and it is the first thing a copied snippet reaches for.
-			if cors.AllowCredentials {
-				v.addf("server.cors.allow_origin must list explicit origins when allow_credentials is true, not \"*\"")
-			}
-			continue
-		}
-		if !validOrigin(origin) {
-			v.addf("server.cors.allow_origin entry %q must be scheme://host[:port], with no path", origin)
-		}
-	}
-}
-
-// validOrigin reports whether origin is an http(s) origin with no path, query or fragment. A
-// leading "*." subdomain wildcard is accepted, as Fiber's CORS middleware supports it.
-func validOrigin(origin string) bool {
-	parsed, err := url.Parse(strings.Replace(origin, "://*.", "://", 1))
-	if err != nil || parsed.Host == "" {
-		return false
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return false
-	}
-	return (parsed.Path == "" || parsed.Path == "/") && parsed.RawQuery == "" && parsed.Fragment == "" && parsed.User == nil
 }
 
 func (c *Config) validateDB(v *validation) {

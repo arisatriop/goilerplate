@@ -101,10 +101,7 @@ every one of them and exits:
 ```
 
 It catches missing settings for an enabled feature, `<...>` placeholders left in, and secrets
-shorter than 32 bytes. It also refuses a `server.body_limit` smaller than
-`filesystem.max_file_size` (uploads would get 413), and — with `server.enable_cors: true` — an
-empty `server.cors.allow_origin`, an origin that is not `scheme://host[:port]`, and `"*"` together
-with `allow_credentials: true`. With `app.env: production` it additionally rejects the example and
+shorter than 32 bytes. With `app.env: production` it additionally rejects the example and
 low-entropy secrets that ship in `config.example.yaml` — so the development config **cannot** be
 promoted to production by accident.
 

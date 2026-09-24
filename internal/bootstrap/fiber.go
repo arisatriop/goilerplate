@@ -9,7 +9,6 @@ import (
 
 	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
 )
 
@@ -18,9 +17,7 @@ func NewFiber(cfg *config.Config) *fiber.App {
 		AppName:      cfg.App.Name,
 		ErrorHandler: NewErrorHandler(),
 		Prefork:      cfg.Server.Prefork,
-		// A larger body is refused with 413 before any handler runs. Fiber buffers the whole
-		// body in memory, so this is also the per-request memory ceiling.
-		BodyLimit: cfg.Server.BodyLimitOrDefault(),
+		BodyLimit:    100 * 1024 * 1024, // 100MB limit for file uploads
 
 		// Without these a stalled client holds a connection indefinitely. They are read from
 		// config rather than hardcoded because the right ceiling depends on what the service
@@ -50,16 +47,10 @@ func NewFiber(cfg *config.Config) *fiber.App {
 	if cfg.OTel.Enabled {
 		app.Use(otelfiber.Middleware())
 	}
-	if cfg.Server.EnableCORS {
-		// config.Validate has already refused an empty origin list and "*" with credentials,
-		// both of which this middleware would otherwise accept silently or panic on.
-		app.Use(cors.New(cors.Config{
-			AllowOrigins:     cfg.Server.CORS.AllowOrigin,
-			AllowMethods:     cfg.Server.CORS.AllowMethods,
-			AllowHeaders:     cfg.Server.CORS.AllowHeaders,
-			AllowCredentials: cfg.Server.CORS.AllowCredentials,
-		}))
-	}
+	// CORS is not enabled here. cfg.Cors exists but nothing reads it yet; wiring it up is F4
+	// in docs/roadmap/improvement-tasks.md, which also has to reject AllowOrigins: "*" together
+	// with AllowCredentials: true — the combination browsers refuse and the one a copied
+	// snippet reaches for first.
 
 	return app
 }

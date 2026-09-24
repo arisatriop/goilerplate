@@ -58,32 +58,6 @@ func TestConfig_Validate_Rules(t *testing.T) {
 		{"s3 without region", func(c *Config) { c.FileSystem.Driver = "s3"; c.FileSystem.S3.Bucket = "b" }, "filesystem.s3.region is required"},
 		{"unknown filesystem driver", func(c *Config) { c.FileSystem.Driver = "ftp" }, `filesystem.driver must be local, s3, or drive, got "ftp"`},
 		{"drive without credentials", func(c *Config) { c.FileSystem.Driver = "drive" }, "filesystem.drive requires credentials_file"},
-		{"negative body limit", func(c *Config) { c.Server.BodyLimit = -1 }, "server.body_limit must not be negative"},
-		{"body limit below max file size", func(c *Config) { c.Server.BodyLimit = 512 }, "server.body_limit (512 bytes) must be at least filesystem.max_file_size (1024 bytes)"},
-		{"default body limit below max file size", func(c *Config) { c.FileSystem.MaxFileSize = DefaultServerBodyLimit + 1 }, "server.body_limit (10485760 bytes)"},
-		{"cors enabled without origin", func(c *Config) { c.Server.EnableCORS = true }, "server.cors.allow_origin is required when server.enable_cors is true"},
-		{"cors disabled ignores origin", func(c *Config) { c.Server.CORS.AllowOrigin = "not an origin" }, ""},
-		{"cors wildcard without credentials", func(c *Config) { c.Server.EnableCORS = true; c.Server.CORS.AllowOrigin = "*" }, ""},
-		{"cors wildcard with credentials", func(c *Config) {
-			c.Server.EnableCORS = true
-			c.Server.CORS = CORS{AllowOrigin: "*", AllowCredentials: true}
-		}, `must list explicit origins when allow_credentials is true, not "*"`},
-		{"cors wildcard in a list with credentials", func(c *Config) {
-			c.Server.EnableCORS = true
-			c.Server.CORS = CORS{AllowOrigin: "https://app.example.com, *", AllowCredentials: true}
-		}, `not "*"`},
-		{"cors explicit origins with credentials", func(c *Config) {
-			c.Server.EnableCORS = true
-			c.Server.CORS = CORS{AllowOrigin: "https://app.example.com, http://localhost:5173, https://*.example.com", AllowCredentials: true}
-		}, ""},
-		{"cors origin with path", func(c *Config) {
-			c.Server.EnableCORS = true
-			c.Server.CORS.AllowOrigin = "https://app.example.com/login"
-		}, `entry "https://app.example.com/login" must be scheme://host[:port], with no path`},
-		{"cors origin without scheme", func(c *Config) {
-			c.Server.EnableCORS = true
-			c.Server.CORS.AllowOrigin = "app.example.com"
-		}, `entry "app.example.com" must be scheme://host[:port]`},
 		{"grpc enabled without port", func(c *Config) { c.GRPC.Enabled = true }, "grpc.port must be between 1 and 65535, got 0"},
 		{"grpc port equals server port", func(c *Config) { c.GRPC = GRPC{Enabled: true, Port: 3000} }, "grpc.port must differ from server.port"},
 		{"grpc disabled ignores port", func(c *Config) { c.GRPC.Port = 0 }, ""},
@@ -272,11 +246,6 @@ func TestAuth_RevocationMode(t *testing.T) {
 	assert.Equal(t, RevocationStrict, Auth{Revocation: "  STRICT  "}.RevocationMode())
 	assert.Equal(t, RevocationRefreshOnly, Auth{Revocation: "refresh_only"}.RevocationMode())
 	assert.Equal(t, RevocationRefreshOnly, Auth{Revocation: " Refresh_Only "}.RevocationMode())
-}
-
-func TestServer_BodyLimitOrDefault(t *testing.T) {
-	assert.Equal(t, DefaultServerBodyLimit, Server{}.BodyLimitOrDefault())
-	assert.Equal(t, 2048, Server{BodyLimit: 2048}.BodyLimitOrDefault())
 }
 
 func TestServer_ProxyHeaderOrDefault(t *testing.T) {
