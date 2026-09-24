@@ -80,10 +80,29 @@ login, with a new token pair and the **same session ID** — refreshing does not
 ### Logout
 
 ```http
-POST /api/v1/auth/logout       # this device
-POST /api/v1/auth/logout-all   # every device
+POST /api/v1/auth/logout                     # this device
+POST /api/v1/auth/logout-all                 # every device
+POST /api/v1/auth/logout-all?keep_current=true   # every device except this one
 Authorization: Bearer <accessToken>
 ```
+
+### Managing devices
+
+```http
+GET    /api/v1/users/me/sessions        # devices this user is signed in on
+DELETE /api/v1/users/me/sessions/{id}   # sign one of them out
+Authorization: Bearer <accessToken>
+```
+
+The list holds active, unexpired sessions, most recently used first. Each entry carries the device
+name and type, IP, `createdAt`, `lastUsedAt`, `expiresAt`, and `current: true` on the session making
+the request. The refresh `jti` and the device fingerprint are never included.
+
+`DELETE` answers **404** for a session that does not exist, is already revoked, or belongs to
+someone else — the three are indistinguishable on purpose, so the endpoint cannot be used to
+confirm another user's session IDs. Ownership is enforced in the same conditional `UPDATE` that
+revokes the session, so there is no check-then-act window. A malformed ID is a 400 and never
+reaches the database.
 
 ---
 

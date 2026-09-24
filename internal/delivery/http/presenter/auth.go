@@ -81,3 +81,23 @@ func ToSessionResponse(session *auth.UserSession) dtoresponse.SessionResponse {
 		LastUsedAt: session.LastUsedAt,
 	}
 }
+
+// ToActiveSessionsResponse maps the user's sessions, flagging currentSessionID. It always returns
+// a non-nil slice so an empty list serialises as [] rather than null.
+func ToActiveSessionsResponse(sessions []auth.UserSession, currentSessionID string) []dtoresponse.ActiveSessionResponse {
+	result := make([]dtoresponse.ActiveSessionResponse, 0, len(sessions))
+	for _, session := range sessions {
+		result = append(result, dtoresponse.ActiveSessionResponse{
+			ID:         session.ID,
+			DeviceName: session.DeviceName,
+			DeviceType: session.DeviceType,
+			IPAddress:  session.IPAddress,
+			UserAgent:  session.UserAgent,
+			CreatedAt:  session.CreatedAt,
+			LastUsedAt: session.LastUsedAt,
+			ExpiresAt:  session.ExpiresAt,
+			Current:    session.ID == currentSessionID,
+		})
+	}
+	return result
+}
