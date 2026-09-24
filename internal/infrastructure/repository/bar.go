@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"goilerplate/internal/domain/bar"
 	"goilerplate/internal/infrastructure/model"
@@ -21,12 +22,12 @@ const uniqueBarCodeIndex = "uq_bars_code_live"
 // The index is what guarantees uniqueness — a check before the insert cannot, because two
 // concurrent requests can both pass it — so this is where a duplicate becomes a 409 rather
 // than a 500.
-func translateWriteErr(err error) error {
+func translateWriteErr(op string, err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == uniqueBarCodeIndex {
 		return bar.ErrCodeAlreadyExists
 	}
-	return utils.WrapErr(err)
+	return fmt.Errorf("%s: %w", op, err)
 }
 
 type barRepo struct {
@@ -62,7 +63,7 @@ func (r *barRepo) CreateBar(ctx context.Context, entity *bar.Bar) (*bar.Bar, err
 	}
 
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return nil, translateWriteErr(err)
+		return nil, translateWriteErr("inserting bar", err)
 	}
 
 	return r.modelToEntity(model), nil
@@ -80,7 +81,7 @@ func (r *barRepo) UpdateBar(ctx context.Context, entity *bar.Bar) error {
 	model.UpdatedBy = ctx.Value(constants.ContextKeyUserID).(string)
 
 	if err = r.db.WithContext(ctx).Save(model).Error; err != nil {
-		return translateWriteErr(err)
+		return translateWriteErr("updating bar", err)
 	}
 
 	return nil
@@ -98,7 +99,7 @@ func (r *barRepo) DeleteBar(ctx context.Context, entity *bar.Bar) error {
 	model.DeletedBy = &user
 
 	if err := r.db.WithContext(ctx).Save(model).Error; err != nil {
-		return utils.WrapErr(err)
+		return fmt.Errorf("deleting bar: %w", err)
 	}
 
 	return nil
@@ -108,7 +109,7 @@ func (r *barRepo) GetBarByID(ctx context.Context, id string) (*bar.Bar, error) {
 
 	model, err := r.getBarByID(ctx, id)
 	if err != nil {
-		return nil, utils.WrapErr(err)
+		return nil, err
 	}
 
 	return r.modelToEntity(model), nil
@@ -128,7 +129,7 @@ func (r *barRepo) GetBarList(ctx context.Context, filter *bar.Filter) ([]*bar.Ba
 
 	err := query.Find(&models).Error
 	if err != nil {
-		return nil, utils.WrapErr(err)
+		return nil, fmt.Errorf("listing bars: %w", err)
 	}
 
 	entities := make([]*bar.Bar, len(models))
@@ -149,7 +150,7 @@ func (r *barRepo) CountBar(ctx context.Context, filter *bar.Filter) (int64, erro
 	r.applyBarFilters(query, filter, false) // false = don't apply pagination
 
 	if err := query.Count(&count).Error; err != nil {
-		return 0, utils.WrapErr(err)
+		return 0, fmt.Errorf("counting bars: %w", err)
 	}
 
 	return count, nil
@@ -179,7 +180,7 @@ func (r *barRepo) BulkCreate(ctx context.Context, entities []*bar.Bar) error {
 
 	// One INSERT statement, so a duplicate anywhere in the batch rejects all of it.
 	if err := r.db.WithContext(ctx).Create(&models).Error; err != nil {
-		return translateWriteErr(err)
+		return translateWriteErr("inserting bars", err)
 	}
 
 	return nil
@@ -197,7 +198,7 @@ func (r *barRepo) getBarByID(ctx context.Context, id string) (*model.Bar, error)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, bar.ErrNotFound
 		}
-		return nil, utils.WrapErr(err)
+		return nil, fmt.Errorf("loading bar: %w", err)
 	}
 
 	return &data, nil
