@@ -7,6 +7,7 @@
 //	usecase_signin.go       sign-in and sign-out
 //	usecase_token.go        the refresh-token lifecycle
 //	usecase_credentials.go  registration, password change, deactivation
+//	usecase_sessions.go     listing and revoking the caller's own sessions
 //
 // The collaborators each flow leans on live in their own files already: session_service.go,
 // permission_service.go, menu_service.go, device_service.go, user_validator.go.
@@ -53,7 +54,9 @@ type Usecase interface {
 	Register(ctx context.Context, entity *User, plaintextPassword string) error
 	Login(ctx context.Context, credentials *LoginCredentials, deviceInfo *DeviceInfo) (*LoginResult, error)
 	Logout(ctx context.Context, userID string, sessionID string) error
-	LogoutAll(ctx context.Context, userID string) error
+	LogoutAll(ctx context.Context, userID, keepSessionID string) error
+	ListSessions(ctx context.Context, userID string) ([]UserSession, error)
+	RevokeSession(ctx context.Context, userID, sessionID string) error
 	ChangePassword(ctx context.Context, userID, sessionID, currentPassword, newPassword string) error
 	DeactivateUser(ctx context.Context, userID string) error
 	RefreshToken(ctx context.Context, userID, sessionID, refreshJTI string, deviceInfo *DeviceInfo) (*LoginResult, error)

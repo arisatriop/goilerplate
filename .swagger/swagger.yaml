@@ -59,6 +59,30 @@ definitions:
     - name
     - password
     type: object
+  dtoresponse.ActiveSessionResponse:
+    properties:
+      createdAt:
+        type: string
+      current:
+        description: |-
+          Current marks the session the request was made with, so a client can label it "this
+          device" and avoid offering to revoke it.
+        type: boolean
+      deviceName:
+        type: string
+      deviceType:
+        type: string
+      expiresAt:
+        type: string
+      id:
+        type: string
+      ipAddress:
+        type: string
+      lastUsedAt:
+        type: string
+      userAgent:
+        type: string
+    type: object
   dtoresponse.BarResponse:
     properties:
       bar:
@@ -267,11 +291,22 @@ paths:
       - auth
   /api/v1/auth/logout-all:
     post:
+      description: Revokes every session of the caller. With keep_current=true the
+        session making the request is spared.
+      parameters:
+      - description: Keep the current session signed in
+        in: query
+        name: keep_current
+        type: boolean
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/response.BaseResponse'
         "401":
@@ -569,6 +604,76 @@ paths:
       security:
       - BearerAuth: []
       summary: Change password
+      tags:
+      - auth
+  /api/v1/users/me/sessions:
+    get:
+      description: Active, unexpired sessions of the caller, most recently used first.
+        The session making the request has current=true.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dtoresponse.ActiveSessionResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      security:
+      - BearerAuth: []
+      summary: List my sessions
+      tags:
+      - auth
+  /api/v1/users/me/sessions/{id}:
+    delete:
+      description: Signs out one device. A session that does not exist, is already
+        revoked, or belongs to someone else is 404 — the three are indistinguishable
+        on purpose.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke one of my sessions
       tags:
       - auth
 securityDefinitions:

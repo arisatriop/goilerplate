@@ -194,14 +194,17 @@ func (uc *authUseCase) Logout(ctx context.Context, userID string, sessionID stri
 	return nil
 }
 
-// LogoutAll invalidates all tokens for a user (logout from all devices)
+// LogoutAll revokes every session of the user. A non-empty keepSessionID is spared, which is
+// "sign out everywhere else": the caller passes its own session and stays signed in.
 // Note: Authentication is handled by middleware, userID comes from context
-func (uc *authUseCase) LogoutAll(ctx context.Context, userID string) error {
+func (uc *authUseCase) LogoutAll(ctx context.Context, userID, keepSessionID string) error {
 	// Sessions are deactivated, not deleted, to keep an audit trail
-	if err := uc.authRepo.DeactivateUserSessions(ctx, userID, RevokedReasonLogoutAll); err != nil {
+	if err := uc.authRepo.RevokeOtherUserSessions(ctx, userID, keepSessionID, RevokedReasonLogoutAll); err != nil {
 		return fmt.Errorf("failed to deactivate user sessions: %w", err)
 	}
 
+	// Evicting the whole user drops a kept session too; it is re-read from the database on its
+	// next request, which is cheaper than tracking which cached entries to spare.
 	uc.sessionService.EvictUser(ctx, userID)
 
 	logger.Security(ctx, logger.SecurityEvent{

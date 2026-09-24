@@ -150,31 +150,53 @@ func TestUserSession_RevokeSessionOfAnotherUser(t *testing.T) {
 	assert.True(t, got.IsActive)
 }
 
-func TestUserSession_DeactivateUserSessions(t *testing.T) {
+// The list is what a user acts on when signing a device out, so it must show exactly the
+// sessions that can still be used: not revoked ones, not expired ones, and never someone else's.
+func TestUserSession_ListActiveSessions(t *testing.T) {
 	// Arrange
 	repo, db := newTestRepository(t)
 	ctx := context.Background()
 	userID := createTestUser(t, db)
-	first := newSession(userID)
-	second := newSession(userID)
-	_, err := repo.CreateSession(ctx, first)
-	require.NoError(t, err)
-	_, err = repo.CreateSession(ctx, second)
-	require.NoError(t, err)
+	otherUserID := createTestUser(t, db)
+	now := utils.Now()
+
+	older := newSession(userID)
+	older.LastUsedAt = now.Add(-time.Hour)
+	recent := newSession(userID)
+	revoked := newSession(userID)
+	expired := newSession(userID)
+	expired.ExpiresAt = now.Add(-time.Minute)
+	someoneElses := newSession(otherUserID)
+
+	for _, session := range []*auth.UserSession{older, recent, revoked, expired, someoneElses} {
+		_, err := repo.CreateSession(ctx, session)
+		require.NoError(t, err)
+	}
+	require.NoError(t, repo.RevokeSession(ctx, userID, revoked.ID, auth.RevokedReasonLogout))
 
 	// Act
-	err = repo.DeactivateUserSessions(ctx, userID, auth.RevokedReasonLogoutAll)
+	got, err := repo.ListActiveSessions(ctx, userID)
 
 	// Assert
 	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, recent.ID, got[0].ID, "most recently used first")
+	assert.Equal(t, older.ID, got[1].ID)
+	assert.Equal(t, "iPhone", got[0].DeviceName)
+	assert.Equal(t, "203.0.113.7", got[0].IPAddress)
+}
 
-	for _, id := range []string{first.ID, second.ID} {
-		got, err := repo.GetSessionByID(ctx, id)
-		require.NoError(t, err)
-		assert.False(t, got.IsActive)
-		assert.Equal(t, auth.RevokedReasonLogoutAll, got.RevokedReason)
-		assert.NotNil(t, got.RevokedAt)
-	}
+func TestUserSession_ListActiveSessionsEmpty(t *testing.T) {
+	// Arrange
+	repo, db := newTestRepository(t)
+
+	// Act
+	got, err := repo.ListActiveSessions(context.Background(), createTestUser(t, db))
+
+	// Assert
+	require.NoError(t, err)
+	assert.NotNil(t, got, "an empty list, not nil, so the handler can return [] without a check")
+	assert.Empty(t, got)
 }
 
 func TestUserSession_GetSessionByIDUnknown(t *testing.T) {

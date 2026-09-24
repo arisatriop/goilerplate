@@ -14,9 +14,12 @@ type Repository interface {
 	// Session operations
 	CreateSession(ctx context.Context, session *UserSession) (*UserSession, error)
 	GetSessionByID(ctx context.Context, sessionID string) (*UserSession, error)
-	DeactivateUserSessions(ctx context.Context, userID, reason string) error
+	// ListActiveSessions returns the user's active, unexpired sessions, most recently used first.
+	ListActiveSessions(ctx context.Context, userID string) ([]UserSession, error)
 	RevokeSession(ctx context.Context, userID, sessionID, reason string) error
 	RotateRefreshJTI(ctx context.Context, sessionID, currentJTI, newJTI string) error
+	// RevokeOtherUserSessions revokes every active session except keepSessionID; an empty
+	// keepSessionID revokes them all.
 	RevokeOtherUserSessions(ctx context.Context, userID, keepSessionID, reason string) error
 
 	// User operations

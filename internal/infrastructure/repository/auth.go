@@ -196,21 +196,23 @@ func (r *authRepository) GetSessionByID(ctx context.Context, sessionID string) (
 	return userSessionModelToEntity(&sessionModel), nil
 }
 
-func (r *authRepository) DeactivateUserSessions(ctx context.Context, userID, reason string) error {
-	result := r.db.WithContext(ctx).
-		Model(&model.UserSession{}).
-		Where("user_id = ? AND is_active", userID).
-		Updates(map[string]any{
-			"is_active":      false,
-			"revoked_at":     utils.Now(),
-			"revoked_reason": reason,
-		})
-
-	if result.Error != nil {
-		return result.Error
+// ListActiveSessions returns the sessions a user could still act through. An expired session is
+// left out even while is_active is still true: the cleanup job sweeps those later, and showing a
+// device the user cannot sign in from any more would only invite a pointless revoke.
+func (r *authRepository) ListActiveSessions(ctx context.Context, userID string) ([]auth.UserSession, error) {
+	var models []model.UserSession
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ? AND is_active AND expires_at > ?", userID, utils.Now()).
+		Order("last_used_at DESC, id").
+		Find(&models).Error; err != nil {
+		return nil, err
 	}
 
-	return nil
+	sessions := make([]auth.UserSession, 0, len(models))
+	for i := range models {
+		sessions = append(sessions, *userSessionModelToEntity(&models[i]))
+	}
+	return sessions, nil
 }
 
 // RotateRefreshJTI claims the refresh token named by currentJTI and replaces it with newJTI,
