@@ -2,9 +2,7 @@ package logger
 
 import (
 	"context"
-	"errors"
 	"goilerplate/pkg/constants"
-	"goilerplate/pkg/utils"
 	"log/slog"
 )
 
@@ -60,24 +58,9 @@ func Log(ctx context.Context, level slog.Level, msg string) {
 	slog.LogAttrs(ctx, level, "Application Log", attrs...)
 }
 
-// logWithSource logs with an explicit source location
-func logWithSource(ctx context.Context, level slog.Level, msg, source string) {
-	info := extractContext(ctx)
-	attrs := append(info.baseAttrs(),
-		slog.String("source", source),
-		slog.Any("message", msg),
-	)
-	slog.LogAttrs(ctx, level, "Application Log", attrs...)
-}
-
-// Error logs an error message with context information such as request ID and user details.
-// If the error is an InternalError, it extracts and logs the original file:line location.
+// Error logs err at error level with the request's context. The message is the whole wrap chain,
+// so the context each layer added ("inserting bar: ...") says where the failure came from.
 func Error(ctx context.Context, err error) {
-	var internalErr *utils.InternalError
-	if errors.As(err, &internalErr) {
-		logWithSource(ctx, slog.LevelError, err.Error(), internalErr.Location())
-		return
-	}
 	Log(ctx, slog.LevelError, err.Error())
 }
 

@@ -24,10 +24,7 @@ type Infrastructure struct {
 	PermissionCache   auth.PermissionCache
 	Locker            lock.Provider
 	IdempotencyStore  fiber.Storage
-	CacheService      *cache.RedisService
-	// Future infrastructure dependencies:
-	// EmailService    email.Service
-	// SMSService      sms.Service
+	RateLimitStore    fiber.Storage
 }
 
 // WireInfrastructure creates all infrastructure dependencies
@@ -50,23 +47,20 @@ func WireInfrastructure(app *bootstrap.App) (*Infrastructure, error) {
 		return nil, fmt.Errorf("initializing JWT service: %w", err)
 	}
 
-	cacheService := cache.NewRedisService(app.Redis)
 	sessionStore, permissionCache, locker, err := wireAuthCaches(app)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Infrastructure{
-		JWTService:        jwtService,
-		CacheService:      cacheService,
+		JWTService: jwtService,
+		// nil without Redis, which the limiter reads as "count in memory".
+		RateLimitStore:    pkgcache.NewFiberStorage(app.Redis, "rl:"),
 		SessionStore:      sessionStore,
 		PermissionCache:   permissionCache,
 		Locker:            locker,
 		IdempotencyStore:  wireIdempotencyStore(app),
 		FilesystemManager: filesystemMgr,
-		// Future infrastructure wiring:
-		// EmailService: email.NewService(...),
-		// SMSService:   sms.NewService(...),
 	}, nil
 }
 

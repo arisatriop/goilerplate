@@ -10,7 +10,6 @@ import (
 	"goilerplate/internal/delivery/http/middleware"
 	"goilerplate/internal/delivery/http/refreshtoken"
 	"goilerplate/internal/domain/auth"
-	pkgcache "goilerplate/pkg/cache"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,10 +20,6 @@ type Handlers struct {
 	Foo    *handler.Foo
 	Bar    *handler.Bar
 	Upload *handler.Upload
-	// Future handlers will be added here:
-	// UserHandler    *handler.UserHandler
-	// OrderHandler   *handler.OrderHandler
-	// ProductHandler *handler.ProductHandler
 }
 
 // Middleware contains all middleware components
@@ -34,9 +29,6 @@ type Middleware struct {
 	RequestLogger *middleware.RequestLogger
 	RateLimit     *middleware.RateLimiter
 	Idempotency   fiber.Handler
-	// Future middleware will be added here:
-	// CORS   *middleware.CORS
-	// Logger *middleware.Logger
 }
 
 // WireHandlers creates all HTTP handlers
@@ -62,11 +54,8 @@ func WireMiddleware(cfg *config.Config, repos *Repositories, infrastructure *Inf
 		Auth:          middleware.NewAuth(infrastructure.JWTService, repos.AuthRepo, sessionService, permissionService, cfg.Apikeys, cfg.InternalAuth, refreshTransport(cfg)),
 		Recover:       middleware.Recover(),
 		RequestLogger: middleware.NewRequestLogger(omitBodyPaths(cfg)),
-		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit, pkgcache.NewFiberStorage(infrastructure.CacheService.GetClient(), "rl:")),
+		RateLimit:     middleware.NewRateLimiter(cfg.RateLimit, infrastructure.RateLimitStore),
 		Idempotency:   middleware.NewIdempotency(infrastructure.IdempotencyStore, infrastructure.Locker, 24*time.Hour),
-		// Future middleware wiring:
-		// CORS:   middleware.NewCORS(),
-		// Logger: middleware.NewLogger(),
 	}
 }
 

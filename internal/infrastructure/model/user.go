@@ -27,18 +27,3 @@ type User struct {
 func (User) TableName() string {
 	return "users"
 }
-
-// UserPermission represents user-specific permission overrides
-type UserPermission struct {
-	UserID       string `gorm:"column:user_id;primaryKey"`
-	PermissionID string `gorm:"column:permission_id;primaryKey"`
-	IsGranted    bool   `gorm:"column:is_granted;default:1"`
-	CreatedAt    time.Time
-	CreatedBy    string
-	UpdatedAt    time.Time
-	UpdatedBy    string
-}
-
-func (UserPermission) TableName() string {
-	return "user_permissions"
-}

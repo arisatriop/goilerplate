@@ -38,10 +38,6 @@ func (uc *usecase) Create(ctx context.Context, entity *Foo) error {
 	panic("Implement me")
 }
 
-func (uc *usecase) ExistsByCode(ctx context.Context, code string) (bool, error) {
-	panic("Implement me")
-}
-
 func (uc *usecase) Update(ctx context.Context, entity *Foo) error {
 	panic("Implement me")
 }
@@ -55,10 +51,6 @@ func (uc *usecase) GetByID(ctx context.Context, id string) (*Foo, error) {
 }
 
 func (uc *usecase) GetList(ctx context.Context, filter *Filter) ([]*Foo, int64, error) {
-	panic("Implement me")
-}
-
-func (uc *usecase) Count(ctx context.Context, filter *Filter) (int64, error) {
 	panic("Implement me")
 }
 
