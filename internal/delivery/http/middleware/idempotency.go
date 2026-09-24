@@ -30,7 +30,10 @@ type idempotencyRecord struct {
 	Fingerprint string `json:"fingerprint"`
 	StatusCode  int    `json:"status_code"`
 	ContentType string `json:"content_type"`
-	Body        []byte `json:"body"`
+	// Location is kept so a replayed 201 still names the resource the first request created;
+	// without it a retrying client gets the body but loses where the resource lives.
+	Location string `json:"location,omitempty"`
+	Body     []byte `json:"body"`
 }
 
 // NewIdempotency returns a middleware that deduplicates requests using the
@@ -130,6 +133,9 @@ func replayStoredResponse(c *fiber.Ctx, storage fiber.Storage, storageKey, finge
 	if record.ContentType != "" {
 		c.Set(fiber.HeaderContentType, record.ContentType)
 	}
+	if record.Location != "" {
+		c.Set(fiber.HeaderLocation, record.Location)
+	}
 	return true, c.Status(record.StatusCode).Send(record.Body)
 }
 
@@ -144,6 +150,7 @@ func storeResponse(c *fiber.Ctx, storage fiber.Storage, storageKey, fingerprint 
 		Fingerprint: fingerprint,
 		StatusCode:  statusCode,
 		ContentType: string(c.Response().Header.ContentType()),
+		Location:    string(c.Response().Header.Peek(fiber.HeaderLocation)),
 		Body:        append([]byte{}, c.Response().Body()...),
 	})
 	if err != nil {

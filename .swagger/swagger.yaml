@@ -439,14 +439,27 @@ paths:
       responses:
         "201":
           description: Created
+          headers:
+            Location:
+              description: Path of the created bar
+              type: string
           schema:
-            $ref: '#/definitions/response.BaseResponse'
+            allOf:
+            - $ref: '#/definitions/response.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dtoresponse.BarResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/response.BaseResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/response.BaseResponse'
         "500":

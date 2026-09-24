@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -140,3 +141,40 @@ func (s *recordingStorage) Reset() error { return nil }
 func (s *recordingStorage) Close() error { return nil }
 
 var _ fiber.Storage = (*recordingStorage)(nil)
+
+// A 429 without Retry-After leaves a client guessing, and guessing clients retry immediately.
+// Fiber's limiter sets the header before calling LimitReached; this pins that our LimitReached
+// (which writes the envelope) does not lose it, on every limiter.
+func TestLimiters_TooManyRequestsCarriesRetryAfter(t *testing.T) {
+	limiters := map[string]func(*RateLimiter) fiber.Handler{
+		"auth":    func(rl *RateLimiter) fiber.Handler { return rl.Auth },
+		"user":    func(rl *RateLimiter) fiber.Handler { return rl.User },
+		"session": func(rl *RateLimiter) fiber.Handler { return rl.Session },
+		"partner": func(rl *RateLimiter) fiber.Handler { return rl.Partner },
+	}
+
+	for name, limiterOf := range limiters {
+		t.Run(name, func(t *testing.T) {
+			app := newLimiterApp(t, limiterOf, func(c *fiber.Ctx) error {
+				c.Locals(string(constants.ContextKeySessionID), "session-a")
+				c.Locals(string(constants.ContextKeyUserID), "user-a")
+				return c.Next()
+			})
+			headers := map[string]string{"x-api-key": "partner-one-secret"}
+			for range limitRule {
+				require.Equal(t, fiber.StatusNoContent, status(t, app, headers))
+			}
+
+			req := httptest.NewRequest(fiber.MethodGet, "/", nil)
+			req.Header.Set("x-api-key", "partner-one-secret")
+			resp, err := app.Test(req)
+			require.NoError(t, err)
+
+			require.Equal(t, fiber.StatusTooManyRequests, resp.StatusCode)
+			seconds, err := strconv.Atoi(resp.Header.Get(fiber.HeaderRetryAfter))
+			require.NoError(t, err, "Retry-After must be a number of seconds")
+			assert.Positive(t, seconds)
+			assert.LessOrEqual(t, seconds, 60, "never longer than the window")
+		})
+	}
+}

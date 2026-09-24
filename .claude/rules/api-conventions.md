@@ -29,7 +29,7 @@ Gaps between these rules and today's code are tracked in
 | Situation | Status |
 |---|---|
 | `GET`, `PUT`, `PATCH`, action `POST` succeeded | 200 |
-| `POST` created a resource | 201, with a `Location` header naming it (gap R4) |
+| `POST` created a resource | 201 via `response.CreatedAt`, with a `Location` header naming it and the created resource in `data` |
 | `DELETE` succeeded | 200 with the envelope. Repeating it on a resource already gone is 404 |
 | Malformed body, query or path; failed validation | 400 |
 | Missing, invalid, expired or revoked credential | 401 |
@@ -38,7 +38,7 @@ Gaps between these rules and today's code are tracked in
 | Conflict with current state (duplicate unique key, stale version) | 409 |
 | Body larger than `server.body_limit` | 413 (returned by the server before any handler runs) |
 | `Idempotency-Key` reused with a different payload | 422 |
-| Rate limit exceeded | 429, with `Retry-After` (gap R4) |
+| Rate limit exceeded | 429, with `Retry-After` (set by Fiber's limiter; `TestLimiters_TooManyRequestsCarriesRetryAfter` pins it) |
 | Unexpected failure | 500. Generic message; the detail goes only to the log |
 | A dependency is down (`/readyz`) | 503 |
 

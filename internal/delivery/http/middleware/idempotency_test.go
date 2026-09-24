@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -79,6 +80,7 @@ func newIdempotencyTestApp(storage fiber.Storage, locker lock.Provider) *idempot
 			ta.started <- struct{}{}
 			<-ta.block
 		}
+		c.Location(fmt.Sprintf("/orders/%d", n))
 		return c.Status(int(ta.status.Load())).JSON(fiber.Map{"order": n})
 	})
 
@@ -90,6 +92,7 @@ type testResponse struct {
 	body     string
 	replayed string
 	ctype    string
+	location string
 }
 
 func (ta *idempotencyTestApp) post(t *testing.T, key, user, body string) testResponse {
@@ -113,6 +116,7 @@ func (ta *idempotencyTestApp) post(t *testing.T, key, user, body string) testRes
 		body:     string(data),
 		replayed: resp.Header.Get(idempotencyReplayedHeader),
 		ctype:    resp.Header.Get(fiber.HeaderContentType),
+		location: resp.Header.Get(fiber.HeaderLocation),
 	}
 }
 
@@ -269,4 +273,18 @@ func TestIdempotency_LockReleasedAfterRequest(t *testing.T) {
 	locker.mu.Lock()
 	defer locker.mu.Unlock()
 	assert.Empty(t, locker.held)
+}
+
+// A client retrying a create must learn where the first attempt's resource lives. Replaying the
+// body without the Location header would hand it a 201 that names nothing.
+func TestIdempotency_ReplayKeepsTheLocationHeader(t *testing.T) {
+	ta := newIdempotencyTestApp(pkgcache.NewMemoryStorage(), newFakeLocker())
+
+	first := ta.post(t, "key-1", "u1", `{"amount":"10.00"}`)
+	replay := ta.post(t, "key-1", "u1", `{"amount":"10.00"}`)
+
+	require.Equal(t, "true", replay.replayed)
+	assert.Equal(t, "/orders/1", first.location)
+	assert.Equal(t, first.location, replay.location, "the replay must point at the resource the first request created")
+	assert.Equal(t, int32(1), ta.executed.Load())
 }
