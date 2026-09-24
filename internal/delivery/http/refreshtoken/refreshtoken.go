@@ -78,14 +78,6 @@ func New(opts Options) *Transport {
 // UsesCookie reports whether the refresh token travels in a cookie.
 func (t *Transport) UsesCookie() bool { return t != nil && t.opts.Cookie }
 
-// CookieName is the name of the refresh cookie.
-func (t *Transport) CookieName() string {
-	if t == nil {
-		return ""
-	}
-	return t.name
-}
-
 // Read returns the presented refresh token: the cookie in cookie mode, the Bearer header in body
 // mode. Each mode accepts only its own transport, so a deployment has one answer to "where does
 // the refresh token live".
