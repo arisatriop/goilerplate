@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoad_PureEnv(t *testing.T) {
@@ -17,7 +18,8 @@ func TestLoad_PureEnv(t *testing.T) {
 	os.Setenv("SERVICE_GOPAY_NAME", "GOPAY-TEST")
 	os.Setenv("SERVICE_GOPAY_BASE_URL", "https://test.gopay.co.id")
 
-	cfg := Load()
+	cfg, err := Load()
+	require.NoError(t, err)
 
 	assert.Equal(t, "TestApp", cfg.App.Name)
 	assert.Equal(t, 9090, cfg.Server.Port)

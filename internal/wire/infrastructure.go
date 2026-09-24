@@ -31,7 +31,7 @@ type Infrastructure struct {
 }
 
 // WireInfrastructure creates all infrastructure dependencies
-func WireInfrastructure(app *bootstrap.App) *Infrastructure {
+func WireInfrastructure(app *bootstrap.App) (*Infrastructure, error) {
 	// Initialize filesystem manager from config
 	filesystemMgr, err := filesystem.NewManagerFromConfig(context.Background(), filesystem.Config{
 		Driver: filesystem.Driver(app.Config.FileSystem.Driver),
@@ -40,18 +40,21 @@ func WireInfrastructure(app *bootstrap.App) *Infrastructure {
 		Drive:  app.Config.FileSystem.Drive,
 	})
 	if err != nil {
-		panic("Failed to initialize filesystem manager: " + err.Error())
+		return nil, fmt.Errorf("initializing filesystem: %w", err)
 	}
 
 	// Initialize JWT service from config. config.Validate() has already run, so anything
 	// rejected here is a bug in the mapping rather than bad user input.
 	jwtService, err := newJWTService(app.Config)
 	if err != nil {
-		panic("Failed to initialize JWT service: " + err.Error())
+		return nil, fmt.Errorf("initializing JWT service: %w", err)
 	}
 
 	cacheService := cache.NewRedisService(app.Redis)
-	sessionStore, permissionCache, locker := wireAuthCaches(app)
+	sessionStore, permissionCache, locker, err := wireAuthCaches(app)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Infrastructure{
 		JWTService:        jwtService,
@@ -64,12 +67,12 @@ func WireInfrastructure(app *bootstrap.App) *Infrastructure {
 		// Future infrastructure wiring:
 		// EmailService: email.NewService(...),
 		// SMSService:   sms.NewService(...),
-	}
+	}, nil
 }
 
 // wireAuthCaches selects the session and permission cache implementations from
 // auth.session_cache, and a lock provider that is shared across instances when Redis is on.
-func wireAuthCaches(app *bootstrap.App) (auth.SessionStore, auth.PermissionCache, lock.Provider) {
+func wireAuthCaches(app *bootstrap.App) (auth.SessionStore, auth.PermissionCache, lock.Provider, error) {
 	cfg := app.Config
 	mode := cfg.Auth.CacheMode(cfg.Redis.Enabled)
 	sessionTTL := cfg.Auth.SessionCacheTTLOrDefault()
@@ -88,19 +91,20 @@ func wireAuthCaches(app *bootstrap.App) (auth.SessionStore, auth.PermissionCache
 
 	switch mode {
 	case config.CacheModeRedis:
+		// config.Validate refuses this combination, so reaching it means the two disagree.
 		if app.Redis == nil {
-			panic(fmt.Sprintf("auth.session_cache=%s requires redis.enabled=true", mode))
+			return nil, nil, nil, fmt.Errorf("auth.session_cache=%s requires redis.enabled=true", mode)
 		}
-		return cache.NewRedisSessionStore(app.Redis, sessionTTL), cache.NewRedisPermissionCache(app.Redis, permissionTTL), locker
+		return cache.NewRedisSessionStore(app.Redis, sessionTTL), cache.NewRedisPermissionCache(app.Redis, permissionTTL), locker, nil
 	case config.CacheModeMemory:
 		app.Log.Warn("auth.session_cache=memory is per instance: with more than one instance, "+
 			"revoked sessions and permission changes may take effect up to the cache TTL later on other instances",
 			"session_cache_ttl", sessionTTL.String(),
 			"permission_cache_ttl", permissionTTL.String(),
 		)
-		return cache.NewMemorySessionStore(sessionTTL), cache.NewMemoryPermissionCache(permissionTTL), locker
+		return cache.NewMemorySessionStore(sessionTTL), cache.NewMemoryPermissionCache(permissionTTL), locker, nil
 	default:
-		return cache.NoopSessionStore{}, cache.NoopPermissionCache{}, locker
+		return cache.NoopSessionStore{}, cache.NoopPermissionCache{}, locker, nil
 	}
 }
 

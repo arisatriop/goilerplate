@@ -1,8 +1,7 @@
 package wire
 
 import (
-	"os"
-
+	"fmt"
 	"goilerplate/config"
 	"goilerplate/internal/bootstrap"
 	grpcmiddleware "goilerplate/internal/delivery/grpc/middleware"
@@ -25,9 +24,12 @@ type ApplicationContainer struct {
 }
 
 // Init wires all dependencies following clean architecture layers
-func Init(app *bootstrap.App) *ApplicationContainer {
+func Init(app *bootstrap.App) (*ApplicationContainer, error) {
 	// Layer 1: Infrastructure Layer (External services, filesystem, etc.)
-	infrastructure := WireInfrastructure(app)
+	infrastructure, err := WireInfrastructure(app)
+	if err != nil {
+		return nil, err
+	}
 
 	// Layer 2: Repository Layer (Data access)
 	repositories := WireRepositories(app)
@@ -50,7 +52,9 @@ func Init(app *bootstrap.App) *ApplicationContainer {
 	var grpcHandlers *GrpcHandlers
 	if app.Config.GRPC.Enabled {
 		grpcHandlers = WireGrpcHandlers(useCases)
-		app.GrpcServer = wireGrpcServer(app, repositories, infrastructure)
+		if app.GrpcServer, err = wireGrpcServer(app, repositories, infrastructure); err != nil {
+			return nil, err
+		}
 	}
 
 	return &ApplicationContainer{
@@ -62,11 +66,11 @@ func Init(app *bootstrap.App) *ApplicationContainer {
 		Handlers:            handlers,
 		GrpcHandlers:        grpcHandlers,
 		Middleware:          middleware,
-	}
+	}, nil
 }
 
 // wireGrpcServer builds the gRPC server with its auth interceptor.
-func wireGrpcServer(app *bootstrap.App, repos *Repositories, infra *Infrastructure) *grpc.Server {
+func wireGrpcServer(app *bootstrap.App, repos *Repositories, infra *Infrastructure) (*grpc.Server, error) {
 	cfg := app.Config
 	strictRevocation := cfg.Auth.RevocationMode() == config.RevocationStrict
 	sessionService := auth.NewSessionService(repos.AuthRepo, infra.SessionStore, strictRevocation)
@@ -75,11 +79,10 @@ func wireGrpcServer(app *bootstrap.App, repos *Repositories, infra *Infrastructu
 	if err != nil {
 		// Config validation has already checked that the files are named; failing to read them
 		// is a deployment fault that must stop startup rather than serve without TLS.
-		app.Log.Error("failed to create gRPC server", "error", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("creating gRPC server: %w", err)
 	}
 
-	return server
+	return server, nil
 }
 
 // wireCleanupJob builds the background cleanup job, or nil when jobs.cleanup.enabled is false.

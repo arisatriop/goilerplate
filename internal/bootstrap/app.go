@@ -1,12 +1,13 @@
 package bootstrap
 
 import (
+	"errors"
+	"fmt"
 	"goilerplate/config"
 	bootstrap "goilerplate/internal/bootstrap/database"
 	"goilerplate/pkg/logger"
 	"goilerplate/pkg/response"
 	"log/slog"
-	"os"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -35,14 +36,19 @@ type App struct {
 	MeterProvider  *sdkmetric.MeterProvider
 }
 
-func Init() *App {
-	cfg := Load()
+// Init loads and validates the config, sets up logging, and opens the connections the app
+// needs. It returns an error rather than exiting, so the caller decides how to report it and
+// nothing opened before the failure is left open: a failure after Redis connects closes Redis.
+func Init() (*App, error) {
+	cfg, err := Load()
+	if err != nil {
+		return nil, err
+	}
 	log := logger.New(loggerOptions(cfg))
 
 	// Fail fast before any connection is opened
 	if err := cfg.Validate(); err != nil {
-		log.Error("invalid configuration", "errors", strings.Split(err.Error(), "\n"))
-		os.Exit(1)
+		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 	for _, warning := range cfg.Warnings() {
 		log.Warn("configuration", "warning", warning)
@@ -61,10 +67,20 @@ func Init() *App {
 	}
 
 	fiber := NewFiber(cfg)
-	redis := NewRedis(cfg, log)
 	validator := response.NewValidator()
 
-	db := initializeDatabase(cfg, log)
+	redis, err := NewRedis(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := initializeDatabase(cfg, log)
+	if err != nil {
+		if redis != nil {
+			_ = redis.Close() // startup is already failing with the more useful error
+		}
+		return nil, err
+	}
 
 	logComponents(cfg, log)
 
@@ -77,7 +93,7 @@ func Init() *App {
 		Validator:      validator,
 		TracerProvider: tp,
 		MeterProvider:  mp,
-	}
+	}, nil
 }
 
 // logComponents prints which optional components are enabled for this run.
@@ -100,11 +116,33 @@ func PartnerRoutesEnabled(cfg *config.Config) bool {
 }
 
 // initializeDatabase opens the PostgreSQL connection pool.
-func initializeDatabase(cfg *config.Config, log *slog.Logger) *bootstrap.DB {
-	db := bootstrap.NewDB()
-	db.GDB = bootstrap.NewGorm(cfg, log)
+func initializeDatabase(cfg *config.Config, log *slog.Logger) (*bootstrap.DB, error) {
+	gdb, err := bootstrap.NewGorm(cfg, log)
+	if err != nil {
+		return nil, err
+	}
 
-	return db
+	db := bootstrap.NewDB()
+	db.GDB = gdb
+	return db, nil
+}
+
+// LogStartupFailure reports why the process could not start, through the configured logger when
+// it got that far and the default one otherwise. A configuration error lists every problem found,
+// one per entry, rather than as a single newline-joined string.
+func LogStartupFailure(err error) {
+	var joined interface{ Unwrap() []error }
+	if errors.As(err, &joined) {
+		problems := make([]string, 0, len(joined.Unwrap()))
+		for _, problem := range joined.Unwrap() {
+			problems = append(problems, problem.Error())
+		}
+		// The joined error's text is the problems again, newline-separated; keep only what wraps it.
+		summary := strings.TrimSuffix(err.Error(), ": "+joined.(error).Error())
+		slog.Error("startup failed", "error", summary, "problems", problems)
+		return
+	}
+	slog.Error("startup failed", "error", err)
 }
 
 // loggerOptions translates this application's config into pkg/logger's own options, so the
