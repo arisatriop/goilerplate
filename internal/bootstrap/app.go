@@ -4,6 +4,7 @@ import (
 	"goilerplate/config"
 	bootstrap "goilerplate/internal/bootstrap/database"
 	"goilerplate/pkg/logger"
+	"goilerplate/pkg/response"
 	"log/slog"
 	"os"
 	"strings"
@@ -61,7 +62,7 @@ func Init() *App {
 
 	fiber := NewFiber(cfg)
 	redis := NewRedis(cfg, log)
-	validator := validator.New()
+	validator := response.NewValidator()
 
 	db := initializeDatabase(cfg, log)
 
