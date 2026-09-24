@@ -25,6 +25,9 @@ server:
   read_timeout: 5s
   write_timeout: 5s
   idle_timeout: 120s
+  # Largest request body accepted, in bytes; anything larger gets 413 before a handler runs.
+  # Unset falls back to 10MB. Must be at least filesystem.max_file_size.
+  body_limit: 10485760
   # Addresses or CIDRs allowed to set the forwarding header. Empty (the default) trusts nobody,
   # so the client IP is always the peer that connected and a spoofed X-Forwarded-For is ignored.
   # List your load balancer or ingress here when one sits in front of the app.
@@ -32,11 +35,14 @@ server:
     - 10.0.0.0/8
   proxy_header: X-Forwarded-For # header consulted, but only from a trusted proxy
   hsts: true # send Strict-Transport-Security; only where TLS terminates in front of the app
+  # CORS is applied only when enable_cors is true. allow_origin is then required and lists
+  # explicit origins (scheme://host[:port]); "*" is refused together with allow_credentials.
   enable_cors: false
   cors:
     allow_origin: https://app.example.com
     allow_methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
     allow_headers: Origin,Content-Type,Accept,Authorization
+    allow_credentials: false # true lets the browser send cookies cross-origin
 
 db:
   host: <DB_HOST>

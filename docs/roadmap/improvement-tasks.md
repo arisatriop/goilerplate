@@ -27,11 +27,11 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ✅ complete |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
-| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | ~10–13 days |
+| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F4 ✅ · rest ~10–12 days |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 
-**P0, P1, P2 and P4 are complete.** What remains is P3 — the six feature tasks, which are
-additions rather than corrections and each need a scope decision before they start.
+**P0, P1, P2 and P4 are complete, and so is F4.** What remains is the rest of P3 — five feature
+tasks, which are additions rather than corrections and each need a scope decision before they start.
 
 Original order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**. H2 was
 deferred and A3–A5 pulled forward; everything else was done in this order.
@@ -694,14 +694,22 @@ must be able to read it, so any XSS anywhere in the page yields long-lived accou
 **Done when:** in cookie mode, browser JavaScript cannot read the refresh token, refresh still
 works, and a non-browser client is unaffected.
 
-### F4 CORS and request size limits · S
+### F4 CORS and request size limits · S — ✅ done
 
-- [ ] Enable the CORS middleware — the config struct exists (`config/config.go:214-216`) and the
-      middleware sits commented out at `internal/bootstrap/fiber.go:42-46`
-- [ ] Config validation rejects `allow_origin: *` together with `allow_credentials: true`
-- [ ] Replace the hardcoded `BodyLimit: 100 * 1024 * 1024` (`fiber.go:19`) with
-      `server.body_limit`, default 10MB. 100MB is an unbounded-memory invitation on a service
-      whose own `filesystem.max_file_size` is 200KB
+- [x] CORS middleware wired in `internal/bootstrap/fiber.go`, applied only when
+      `server.enable_cors` is true. `server.cors.allow_credentials` added, since F3 needs it
+- [x] Config validation refuses, at startup and with a readable message, every setup Fiber's CORS
+      middleware would otherwise panic on or silently widen: an empty `allow_origin` (Fiber turns
+      it into `*`), `*` — alone or inside a list — together with `allow_credentials: true`, and
+      an origin that is not `scheme://host[:port]`. `https://*.example.com` stays accepted
+- [x] `server.body_limit` replaces the hardcoded 100MB, default 10MB via `BodyLimitOrDefault`.
+      Validation also refuses a limit smaller than `filesystem.max_file_size`: the multipart body
+      is always larger than the file in it, so such a server would answer 413 to every upload
+      its own validation allows
+- [x] Tests: the validation table, CORS headers only when enabled, an unlisted origin getting
+      none, a preflight answered, and a body one byte over the limit getting 413 **over a real
+      socket** without the handler running. `app.Test` was not enough here — it reports
+      fasthttp's refusal as a Go error rather than the response a client sees
 
 **Done when:** CORS headers appear only when enabled, and an oversized request gets 413.
 

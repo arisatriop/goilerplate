@@ -190,8 +190,12 @@ type Server struct {
 	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 	IdleTimeout  time.Duration `mapstructure:"idle_timeout"`
-	EnableCORS   bool          `mapstructure:"enable_cors"`
-	CORS         CORS
+	// BodyLimit caps a request body in bytes; a larger one is refused with 413 before any handler
+	// runs. Unset falls back to DefaultServerBodyLimit. It must leave room for the largest upload,
+	// so it may not be smaller than filesystem.max_file_size.
+	BodyLimit  int  `mapstructure:"body_limit"`
+	EnableCORS bool `mapstructure:"enable_cors"`
+	CORS       CORS
 	// TrustedProxies lists the CIDRs or addresses allowed to set forwarding headers. Empty
 	// means trust nobody, so the client IP is always the peer that actually connected.
 	TrustedProxies []string `mapstructure:"trusted_proxies"`
@@ -211,6 +215,19 @@ const (
 	DefaultServerWriteTimeout = 15 * time.Second
 	DefaultServerIdleTimeout  = 60 * time.Second
 )
+
+// DefaultServerBodyLimit bounds how much of a request the server will buffer when
+// server.body_limit is unset. Fiber reads the whole body into memory before routing, so the
+// limit is also a per-request memory ceiling.
+const DefaultServerBodyLimit = 10 * 1024 * 1024
+
+// BodyLimitOrDefault returns server.body_limit, or DefaultServerBodyLimit when unset.
+func (s Server) BodyLimitOrDefault() int {
+	if s.BodyLimit > 0 {
+		return s.BodyLimit
+	}
+	return DefaultServerBodyLimit
+}
 
 // ProxyHeaderOrDefault returns the configured proxy header, or X-Forwarded-For.
 func (s Server) ProxyHeaderOrDefault() string {
@@ -244,10 +261,16 @@ func (s Server) IdleTimeoutOrDefault() time.Duration {
 	return DefaultServerIdleTimeout
 }
 
+// CORS configures the cross-origin policy, applied only when server.enable_cors is true.
 type CORS struct {
+	// AllowOrigin is a comma-separated list of origins (scheme://host[:port]). It is required
+	// when CORS is enabled: an empty value would otherwise become Fiber's default of "*".
 	AllowOrigin  string `mapstructure:"allow_origin"`
 	AllowMethods string `mapstructure:"allow_methods"`
 	AllowHeaders string `mapstructure:"allow_headers"`
+	// AllowCredentials lets browsers send cookies and read the response cross-origin. It cannot
+	// be combined with a "*" origin; validation refuses that pair.
+	AllowCredentials bool `mapstructure:"allow_credentials"`
 }
 
 type DB struct {
