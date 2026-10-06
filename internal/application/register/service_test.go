@@ -143,17 +143,23 @@ func TestRegister_DuplicateEmailIsRefusedBeforeHashing(t *testing.T) {
 	assert.Empty(t, input.User.PasswordHash, "no point paying for bcrypt on a request already lost")
 }
 
-// recordingVerification records the addresses a verification code was requested for.
-type recordingVerification struct {
-	emails []string
-	origin auth.RequestOrigin
-	err    error
+// recordingMailer records what registration asked to send.
+type recordingMailer struct {
+	verified []string
+	existing []string
+	origin   auth.RequestOrigin
+	err      error
 }
 
-func (v *recordingVerification) SendEmailVerification(_ context.Context, email string, origin auth.RequestOrigin) error {
-	v.emails = append(v.emails, email)
-	v.origin = origin
-	return v.err
+func (m *recordingMailer) SendEmailVerification(_ context.Context, email string, origin auth.RequestOrigin) error {
+	m.verified = append(m.verified, email)
+	m.origin = origin
+	return m.err
+}
+
+func (m *recordingMailer) SendAccountExistsNotice(_ context.Context, email string) error {
+	m.existing = append(m.existing, email)
+	return m.err
 }
 
 // failingUserRoleRepo makes the transaction fail after the user insert.
@@ -165,51 +171,98 @@ func (r *failingUserRoleRepo) CreateUserRole(context.Context, *userrole.UserRole
 	return errors.New("insert failed")
 }
 
-func newServiceWithVerification(t *testing.T, userRoles userrole.Repository, verification register.VerificationSender) register.ApplicationService {
+// racingUserRepo finds no user, then loses the insert to a concurrent registration.
+type racingUserRepo struct{ stubUserRepo }
+
+func (r *racingUserRepo) WithTx(context.Context) user.Repository { return r }
+
+func (r *racingUserRepo) CreateUser(context.Context, *user.User) (*user.User, error) {
+	return nil, user.ErrEmailAlreadyRegistered
+}
+
+func newServiceWithMailer(t *testing.T, users user.Repository, userRoles userrole.Repository, mailer register.AccountMailer) register.ApplicationService {
 	t.Helper()
 	roleRepo := &stubRoleRepo{role: &role.Role{ID: uuid.New(), Slug: role.OwnerRoleSlug}}
-	return register.NewApplicationService(&inlineTx{}, &stubUserRepo{}, roleRepo, userRoles, password.NewPolicy(nil), verification)
+	if mailer == nil {
+		return register.NewApplicationService(&inlineTx{}, users, roleRepo, userRoles, password.NewPolicy(nil), nil)
+	}
+	return register.NewApplicationService(&inlineTx{}, users, roleRepo, userRoles, password.NewPolicy(nil), mailer)
+}
+
+func newInput() *register.Register {
+	return &register.Register{
+		User:     &user.User{Name: "Ada", Email: "ada@example.com"},
+		Password: "a-perfectly-fine-password",
+	}
 }
 
 func TestRegister_SendsTheFirstVerificationCode(t *testing.T) {
-	verification := &recordingVerification{}
-	svc := newServiceWithVerification(t, &stubUserRoleRepo{}, verification)
-	origin := auth.RequestOrigin{IPAddress: "203.0.113.7", UserAgent: "curl/8"}
+	mailer := &recordingMailer{}
+	svc := newServiceWithMailer(t, &stubUserRepo{}, &stubUserRoleRepo{}, mailer)
+	input := newInput()
+	input.Origin = auth.RequestOrigin{IPAddress: "203.0.113.7", UserAgent: "curl/8"}
 
-	err := svc.Register(context.Background(), &register.Register{
-		User:     &user.User{Name: "Ada", Email: "ada@example.com"},
-		Password: "a-perfectly-fine-password",
-		Origin:   origin,
-	})
+	err := svc.Register(context.Background(), input)
 
 	require.NoError(t, err)
-	assert.Equal(t, []string{"ada@example.com"}, verification.emails)
-	assert.Equal(t, origin, verification.origin)
+	assert.Equal(t, []string{"ada@example.com"}, mailer.verified)
+	assert.Equal(t, input.Origin, mailer.origin)
+	assert.Empty(t, mailer.existing)
 }
 
 // The account exists once the transaction commits. A code that cannot be sent is the user's to
 // ask for again, not a reason to fail a registration that already happened.
 func TestRegister_SucceedsWhenTheCodeCannotBeSent(t *testing.T) {
-	verification := &recordingVerification{err: errors.New("database unavailable")}
-	svc := newServiceWithVerification(t, &stubUserRoleRepo{}, verification)
+	svc := newServiceWithMailer(t, &stubUserRepo{}, &stubUserRoleRepo{}, &recordingMailer{err: errors.New("database unavailable")})
 
-	err := svc.Register(context.Background(), &register.Register{
-		User:     &user.User{Name: "Ada", Email: "ada@example.com"},
-		Password: "a-perfectly-fine-password",
-	})
-
-	assert.NoError(t, err)
+	assert.NoError(t, svc.Register(context.Background(), newInput()))
 }
 
 func TestRegister_NoCodeForARolledBackAccount(t *testing.T) {
-	verification := &recordingVerification{}
-	svc := newServiceWithVerification(t, &failingUserRoleRepo{}, verification)
+	mailer := &recordingMailer{}
+	svc := newServiceWithMailer(t, &stubUserRepo{}, &failingUserRoleRepo{}, mailer)
 
-	err := svc.Register(context.Background(), &register.Register{
-		User:     &user.User{Name: "Ada", Email: "ada@example.com"},
-		Password: "a-perfectly-fine-password",
-	})
+	err := svc.Register(context.Background(), newInput())
 
 	require.Error(t, err)
-	assert.Empty(t, verification.emails, "a code for an account that does not exist points at nothing")
+	assert.Empty(t, mailer.verified, "a code for an account that does not exist points at nothing")
+}
+
+// With email on, registration must not say which addresses are taken. A taken address gets the
+// same nil as a new one, its owner is emailed instead, and the password is hashed on both paths
+// so the response time does not tell them apart either.
+func TestRegister_TakenAddressLooksLikeANewOne(t *testing.T) {
+	users := &stubUserRepo{byEmail: &user.User{ID: uuid.New(), Email: "ada@example.com"}}
+	mailer := &recordingMailer{}
+	svc := newServiceWithMailer(t, users, &stubUserRoleRepo{}, mailer)
+	input := newInput()
+
+	err := svc.Register(context.Background(), input)
+
+	require.NoError(t, err)
+	assert.Nil(t, users.created, "nothing is created")
+	assert.Equal(t, []string{"ada@example.com"}, mailer.existing, "the owner is told instead")
+	assert.Empty(t, mailer.verified)
+	assert.NotEmpty(t, input.User.PasswordHash, "bcrypt runs here too, or timing would give it away")
+}
+
+// The same answer when a concurrent registration wins the insert after the lookup.
+func TestRegister_LosingTheInsertRaceLooksLikeANewOne(t *testing.T) {
+	mailer := &recordingMailer{}
+	svc := newServiceWithMailer(t, &racingUserRepo{}, &stubUserRoleRepo{}, mailer)
+
+	err := svc.Register(context.Background(), newInput())
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ada@example.com"}, mailer.existing)
+}
+
+// Without email there is nobody to tell but the caller, so the 409 stays.
+func TestRegister_WithoutEmailATakenAddressIsAConflict(t *testing.T) {
+	users := &stubUserRepo{byEmail: &user.User{ID: uuid.New(), Email: "ada@example.com"}}
+	svc := newServiceWithMailer(t, users, &stubUserRoleRepo{}, nil)
+
+	err := svc.Register(context.Background(), newInput())
+
+	assert.ErrorIs(t, err, user.ErrEmailAlreadyRegistered)
 }

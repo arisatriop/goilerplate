@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"goilerplate/internal/domain/auth"
+	"goilerplate/internal/domain/user"
 	"goilerplate/internal/infrastructure/repository"
 	"goilerplate/pkg/migration"
 	"goilerplate/pkg/utils"
@@ -86,6 +87,7 @@ func TestOneTimeToken_CreateAndGetLatestActive(t *testing.T) {
 	require.NoError(t, repo.CreateOneTimeToken(ctx, newest))
 	expired := newToken(userID, utils.GenerateUUID(), -time.Minute)
 	expired.TokenType = auth.OneTimeTokenEmailChange
+	expired.NewEmail = "moved@example.test"
 	require.NoError(t, repo.CreateOneTimeToken(ctx, expired))
 
 	// Act
@@ -302,4 +304,67 @@ func TestMarkEmailVerified_KeepsTheFirstTimestamp(t *testing.T) {
 	assert.True(t, first.EmailVerifiedAt.Equal(*second.EmailVerifiedAt), "the original verification time is kept")
 
 	assert.ErrorIs(t, repo.MarkEmailVerified(ctx, utils.GenerateUUID()), auth.ErrNotFound)
+}
+
+func TestOneTimeToken_NewEmailRoundTripsOnEmailChangeOnly(t *testing.T) {
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	userID := createTestUser(t, db)
+
+	change := newToken(userID, utils.GenerateUUID(), time.Hour)
+	change.TokenType = auth.OneTimeTokenEmailChange
+	change.NewEmail = "moved@example.test"
+	require.NoError(t, repo.CreateOneTimeToken(ctx, change))
+
+	stored, err := repo.GetLatestActiveOneTimeToken(ctx, userID, auth.OneTimeTokenEmailChange)
+	require.NoError(t, err)
+	require.NotNil(t, stored)
+	assert.Equal(t, "moved@example.test", stored.NewEmail)
+
+	// The migration's CHECK: a change token needs a target, and no other token may carry one.
+	missing := newToken(userID, utils.GenerateUUID(), time.Hour)
+	missing.TokenType = auth.OneTimeTokenEmailChange
+	assert.Error(t, repo.CreateOneTimeToken(ctx, missing), "an email change with nowhere to go")
+
+	stray := newToken(userID, utils.GenerateUUID(), time.Hour)
+	stray.NewEmail = "moved@example.test"
+	assert.Error(t, repo.CreateOneTimeToken(ctx, stray), "a password reset carrying an address")
+}
+
+func TestUpdateUserEmail(t *testing.T) {
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	userID := createTestUser(t, db)
+	otherID := createTestUser(t, db)
+	newEmail := utils.GenerateUUID() + "@example.test"
+
+	require.NoError(t, repo.UpdateUserEmail(ctx, userID, newEmail))
+
+	moved, err := repo.GetUserByID(ctx, userID)
+	require.NoError(t, err)
+	assert.Equal(t, newEmail, moved.Email)
+	assert.True(t, moved.EmailVerified, "the new address was proved by the code sent to it")
+	assert.NotNil(t, moved.EmailVerifiedAt)
+
+	err = repo.UpdateUserEmail(ctx, otherID, newEmail)
+	assert.ErrorIs(t, err, auth.ErrEmailAlreadyRegistered, "the unique constraint, not a 500")
+
+	assert.ErrorIs(t, repo.UpdateUserEmail(ctx, utils.GenerateUUID(), "nobody@example.test"), auth.ErrNotFound)
+}
+
+// Two registrations for one address can both pass the lookup; the constraint decides, and the
+// loser must get the domain's error so registration can answer it like any taken address.
+func TestUserCreateUser_DuplicateEmailIsTheDomainError(t *testing.T) {
+	_, db := newTestRepository(t)
+	users := repository.NewUser(db)
+	ctx := context.Background()
+	email := utils.GenerateUUID() + "@example.test"
+
+	created, err := users.CreateUser(ctx, &user.User{Name: "First", Email: email, PasswordHash: "x", IsActive: true})
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Exec("DELETE FROM users WHERE id = ?", created.ID.String()) })
+
+	_, err = users.CreateUser(ctx, &user.User{Name: "Second", Email: email, PasswordHash: "x", IsActive: true})
+
+	assert.ErrorIs(t, err, user.ErrEmailAlreadyRegistered)
 }

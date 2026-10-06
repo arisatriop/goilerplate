@@ -72,6 +72,11 @@ func (r *userRepo) CreateUser(ctx context.Context, usr *user.User) (*user.User, 
 	}
 
 	if err := r.db.WithContext(ctx).Create(u).Error; err != nil {
+		// Two registrations for one address can both pass the lookup before either inserts;
+		// the constraint decides, and the loser gets the domain's answer rather than a 500.
+		if isEmailTaken(err) {
+			return nil, user.ErrEmailAlreadyRegistered
+		}
 		return nil, err
 	}
 

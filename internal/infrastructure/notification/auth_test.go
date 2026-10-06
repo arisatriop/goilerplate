@@ -122,3 +122,38 @@ func TestAuthMailer_EmailVerificationCarriesTheCodeInTheBodyOnly(t *testing.T) {
 	assert.Contains(t, msg.Text, "expires in 15 minutes")
 	assert.Contains(t, msg.HTML, "042917")
 }
+
+func TestAuthMailer_AccountMessagesGoToTheRightInbox(t *testing.T) {
+	sender := &capturingSender{}
+	mailer, err := NewAuthMailer(sender, AuthMailerOptions{
+		AppName: "Acme", FrontendBaseURL: "https://app.example.com", ResetPasswordPath: "/reset-password",
+	})
+	require.NoError(t, err)
+	ctx := t.Context()
+
+	require.NoError(t, mailer.SendAccountExists(ctx, auth.AccountExistsNotice{Email: "ana@example.org", Name: "Ana"}))
+	require.NoError(t, mailer.SendEmailChangeCode(ctx, auth.EmailChangeNotice{
+		NewEmail: "ana.new@example.org", Name: "Ana", Code: "042917", ExpiresAt: utils.Now().Add(15 * time.Minute),
+	}))
+	require.NoError(t, mailer.SendEmailChanged(ctx, auth.EmailChangedNotice{
+		OldEmail: "ana@example.org", NewEmail: "ana.new@example.org", Name: "Ana",
+	}))
+
+	require.Len(t, sender.sent, 3)
+
+	exists := sender.sent[0]
+	assert.Equal(t, "ana@example.org", exists.To)
+	assert.Equal(t, "Acme: you already have an account", exists.Subject)
+	assert.Contains(t, exists.Text, "https://app.example.com")
+
+	change := sender.sent[1]
+	assert.Equal(t, "ana.new@example.org", change.To, "the code proves the user reads the new inbox")
+	assert.Contains(t, change.Text, "042917")
+	assert.NotContains(t, change.Subject, "042917")
+
+	changed := sender.sent[2]
+	assert.Equal(t, "ana@example.org", changed.To, "the old inbox is warned")
+	assert.Contains(t, changed.Text, "ana.new@example.org")
+	assert.Contains(t, changed.Text, "https://app.example.com/reset-password")
+	assert.Contains(t, changed.HTML, "<strong>ana.new@example.org</strong>")
+}

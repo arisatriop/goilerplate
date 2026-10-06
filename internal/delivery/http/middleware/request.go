@@ -24,7 +24,7 @@ const (
 // whatever log.omit_body_paths says: key-based redaction only masks field names it knows, and a
 // credential route is exactly where an unforeseen field name (or an error message quoting the
 // input) would leak one. Configured paths are added to these, never substituted for them.
-var CredentialBodyPaths = []string{"/api/v1/auth", "/api/v1/users/me/password"}
+var CredentialBodyPaths = []string{"/api/v1/auth", "/api/v1/users/me/password", "/api/v1/users/me/email-change"}
 
 // RequestLogger provides incoming request logging functionality
 type RequestLogger struct {

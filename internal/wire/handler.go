@@ -36,8 +36,13 @@ func WireHandlers(app *bootstrap.App, useCases *UseCases, appServices *Applicati
 	// Create device service
 	deviceService := auth.NewDeviceService()
 
+	authHandler := handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC, refreshTransport(app.Config))
+	if app.Config.Auth.Email.Enabled {
+		authHandler.WithEmailFlows()
+	}
+
 	return &Handlers{
-		Auth:   handler.NewAuth(deviceService, app.Validator, appServices.RegisterSvc, useCases.AuthUC, refreshTransport(app.Config)),
+		Auth:   authHandler,
 		Upload: handler.NewUpload(app.Validator, infrastructure.FilesystemManager, app.Config.FileSystem.MaxFileSize),
 		Foo:    handler.NewFoo(app.Validator, useCases.FooUC),
 		Bar:    handler.NewBar(app.Validator, useCases.BarUC),

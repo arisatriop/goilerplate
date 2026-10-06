@@ -28,10 +28,8 @@ const (
 
 	ActionEmailVerificationRequested = "email_verification_requested"
 	ActionEmailVerified              = "email_verified"
-
-	// Emitted once the email change flow exists. Named here so it adopts the vocabulary
-	// rather than inventing a second one.
-	ActionEmailChanged = "email_changed"
+	ActionEmailChangeRequested       = "email_change_requested"
+	ActionEmailChanged               = "email_changed"
 )
 
 // Outcomes. A failure is logged at WARN so that the default INFO level still shows every
@@ -60,6 +58,8 @@ const (
 	ReasonAlreadyVerified = "already_verified"
 	// ReasonEmailNotVerified: correct password, but the address must be verified first.
 	ReasonEmailNotVerified = "email_not_verified"
+	// ReasonAddressTaken: an email change to an address another account holds.
+	ReasonAddressTaken = "address_taken"
 )
 
 // SecurityEvent is one entry in the audit trail.

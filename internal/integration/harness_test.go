@@ -173,6 +173,51 @@ type inbox struct {
 	mu      sync.Mutex
 	notices []auth.PasswordResetNotice
 	codes   []auth.EmailVerificationNotice
+	changes []auth.EmailChangeNotice
+	changed []auth.EmailChangedNotice
+}
+
+func (i *inbox) SendAccountExists(context.Context, auth.AccountExistsNotice) error { return nil }
+
+func (i *inbox) SendEmailChangeCode(_ context.Context, notice auth.EmailChangeNotice) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.changes = append(i.changes, notice)
+	return nil
+}
+
+func (i *inbox) SendEmailChanged(_ context.Context, notice auth.EmailChangedNotice) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.changed = append(i.changed, notice)
+	return nil
+}
+
+// latestChangeCode returns the newest email change code sent to newEmail, or "".
+func (i *inbox) latestChangeCode(newEmail string) string {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	for j := len(i.changes) - 1; j >= 0; j-- {
+		if i.changes[j].NewEmail == newEmail {
+			return i.changes[j].Code
+		}
+	}
+	return ""
+}
+
+// changedNotices returns the "your address was changed" notices sent to oldEmail.
+func (i *inbox) changedNotices(oldEmail string) []auth.EmailChangedNotice {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	var matching []auth.EmailChangedNotice
+	for _, notice := range i.changed {
+		if notice.OldEmail == oldEmail {
+			matching = append(matching, notice)
+		}
+	}
+	return matching
 }
 
 func (i *inbox) SendEmailVerification(_ context.Context, notice auth.EmailVerificationNotice) error {
@@ -454,6 +499,37 @@ func newApp(useCase auth.Usecase, authMiddleware *middleware.Auth) *fiber.App {
 		}
 
 		if err := useCase.VerifyEmail(ctx.UserContext(), body.Email, body.Code); err != nil {
+			return statusFor(ctx, err)
+		}
+		return ctx.SendStatus(http.StatusOK)
+	})
+
+	app.Post("/email-change", authMiddleware.Authenticate(), func(ctx *fiber.Ctx) error {
+		var body struct {
+			NewEmail        string `json:"newEmail"`
+			CurrentPassword string `json:"currentPassword"`
+		}
+		if err := ctx.BodyParser(&body); err != nil {
+			return ctx.SendStatus(http.StatusBadRequest)
+		}
+
+		userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+		if err := useCase.RequestEmailChange(ctx.UserContext(), userID, body.CurrentPassword, body.NewEmail, auth.RequestOrigin{}); err != nil {
+			return statusFor(ctx, err)
+		}
+		return ctx.SendStatus(http.StatusOK)
+	})
+
+	app.Post("/email-change/confirm", authMiddleware.Authenticate(), func(ctx *fiber.Ctx) error {
+		var body struct {
+			Code string `json:"code"`
+		}
+		if err := ctx.BodyParser(&body); err != nil {
+			return ctx.SendStatus(http.StatusBadRequest)
+		}
+
+		userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+		if err := useCase.ConfirmEmailChange(ctx.UserContext(), userID, body.Code); err != nil {
 			return statusFor(ctx, err)
 		}
 		return ctx.SendStatus(http.StatusOK)

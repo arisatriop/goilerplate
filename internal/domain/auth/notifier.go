@@ -23,6 +23,31 @@ type EmailVerificationNotice struct {
 	ExpiresAt time.Time
 }
 
+// AccountExistsNotice tells the owner of an address that someone tried to register it again. It
+// is what registration sends instead of answering "already registered", which would tell anyone
+// which addresses have accounts.
+type AccountExistsNotice struct {
+	Email string
+	Name  string
+}
+
+// EmailChangeNotice carries the code that confirms a change of address. It goes to the new
+// address, so the change proves the user reads it.
+type EmailChangeNotice struct {
+	NewEmail  string
+	Name      string
+	Code      string
+	ExpiresAt time.Time
+}
+
+// EmailChangedNotice tells the old address that the account has moved. If the user did not do
+// it, this is the only warning they get that someone else is in their account.
+type EmailChangedNotice struct {
+	OldEmail string
+	NewEmail string
+	Name     string
+}
+
 // Notifier delivers the messages the auth flows send to a user. The domain decides when a
 // message is due and what it must carry; how it is worded, which link it contains and which
 // provider sends it are the implementation's business.
@@ -32,6 +57,9 @@ type EmailVerificationNotice struct {
 type Notifier interface {
 	SendPasswordReset(ctx context.Context, notice PasswordResetNotice) error
 	SendEmailVerification(ctx context.Context, notice EmailVerificationNotice) error
+	SendAccountExists(ctx context.Context, notice AccountExistsNotice) error
+	SendEmailChangeCode(ctx context.Context, notice EmailChangeNotice) error
+	SendEmailChanged(ctx context.Context, notice EmailChangedNotice) error
 }
 
 // EmailFlows configures the auth flows that send email. With a nil Notifier they are all

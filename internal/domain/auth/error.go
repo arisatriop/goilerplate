@@ -41,4 +41,6 @@ var (
 	// the address is not verified yet. Like ErrAccountDisabled, it is only ever said to someone
 	// who just proved they know the password.
 	ErrEmailNotVerified = apperr.New(apperr.Forbidden, "email_not_verified", "Verify your email address before signing in")
+	// ErrEmailUnchanged: an email change to the address the account already has.
+	ErrEmailUnchanged = apperr.New(apperr.Invalid, "email_unchanged", "The new email address is the current one")
 )

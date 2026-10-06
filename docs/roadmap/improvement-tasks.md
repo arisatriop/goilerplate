@@ -27,16 +27,14 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ✅ complete |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
-| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2–F5 done · F1 parts 1–2 done · F6 deferred |
+| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F1–F5 done · F6 deferred |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 | [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | ✅ complete |
 
-**P0, P1, P2, P4 and R are complete, and so are F2–F5.** What remains is F1 (email module) and F6
-(Google login). F1 is in progress: the email drivers, forgot/reset password and email verification have landed;
-email change and registration without enumeration follow. The product decisions it waited on are made — the provider
-is a config choice (`log`, `smtp`, `ses`, `resend`), verification is optional by default, and the
-frontend link is a configurable placeholder until the frontend exists. F6 stays deferred until
-account linking is decided.
+**P0, P1, P2, P4 and R are complete, and so are F1–F5.** What remains is F6 (Google login),
+deferred until account linking is decided. F1's product decisions: the mail provider is a config
+choice (`log`, `smtp`, `ses`, `resend`), verification is optional by default, and the frontend
+link is a configurable placeholder until the frontend exists.
 
 Original order: **D1 → D2 → H1 → D3–D7 → A1 → A2 → C1–C4 → H2–H6 → A3–A5 → P3**. H2 was
 deferred and A3–A5 pulled forward; everything else was done in this order.
@@ -642,7 +640,7 @@ within the same files, this reads as churn rather than intent.
 Carried over from the previous roadmap. Unchanged in substance; F4 now also covers the
 hardcoded body limit found during this scan.
 
-### F1 Email module: verification, forgot/reset password, email change · L — in progress
+### F1 Email module: verification, forgot/reset password, email change · L — ✅ done
 **Depends on:** the `one_time_tokens` table and session revocation (both delivered)
 
 Delivered in three parts. **Part 1 — email drivers and forgot/reset password — ✅ done.**
@@ -686,12 +684,21 @@ Delivered in three parts. **Part 1 — email drivers and forgot/reset password �
       unit tests, end to end, and under 20 concurrent guesses against PostgreSQL
 - [x] A successful password reset marks the address verified
 
-**Part 3 — email change and registration without enumeration:**
+**Part 3 — email change and registration without enumeration — ✅ done.**
 
-- [ ] Email change re-authenticated with the current password, OTP sent to the **new** address,
-      address swapped only after confirmation
-- [ ] Registration without enumeration: when the address is already registered, return the same
-      success response and send a "you already have an account" email
+- [x] Email change re-authenticated with the current password, OTP sent to the **new** address,
+      address swapped only after confirmation (`POST /users/me/email-change` and `/confirm`). The
+      pending address lives on the token (`one_time_tokens.new_email`, with a CHECK that only
+      `email_change` tokens carry one). The old address is told once the change is made
+- [x] A taken target address is answered like a free one and sent nothing; one taken between
+      request and confirmation is refused by the unique constraint (409)
+- [x] Registration without enumeration (with `auth.email.enabled`): a taken address gets the same
+      201 and its owner a "you already have an account" email; bcrypt runs on both paths so the
+      timing matches, and a lost insert race is answered the same way. Without email the 409
+      stays, since there is nobody else to tell
+- [x] **Found on the way:** #99 edited the applied `user_sessions` migration to add
+      `password_reset` to a column comment. That file is restored, and the comment is restated
+      in the new migration so every database ends up with the same text
 
 **Done when:** every flow works end to end with the `log` driver and no SMTP server.
 
