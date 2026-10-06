@@ -9,16 +9,6 @@ import (
 	"goilerplate/pkg/utils"
 )
 
-// dummyPasswordHash is a real bcrypt hash of a value nobody knows. It is compared against when
-// there is no password to check — an unregistered email, or a locked account — so that those
-// paths take about as long as a genuine comparison. Without it, response time alone would tell
-// an attacker which emails are registered.
-//
-// It is a valid hash at the same cost as utils.HashPassword produces, so the timing matches.
-// #nosec G101 -- deliberate: a bcrypt hash of a value nobody knows, existing only to be
-// compared against so the no-password path takes as long as a real one. See the comment above.
-const dummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
-
 // Lockout describes how many consecutive failures an account tolerates and for how long it is
 // then closed to every password.
 type Lockout struct {
@@ -178,7 +168,7 @@ func (uv *UserValidator) registerFailedLogin(ctx context.Context, userID string)
 // spendPasswordCheckTime runs a bcrypt comparison that is certain to fail, so a request with no
 // real password to verify costs the same as one that has.
 func (uv *UserValidator) spendPasswordCheckTime(password string) {
-	_ = utils.CheckPassword(password, dummyPasswordHash)
+	utils.SimulatePasswordCheck(password)
 }
 
 // invalidCredentials is the one answer given for an unknown email and for a wrong password, so
