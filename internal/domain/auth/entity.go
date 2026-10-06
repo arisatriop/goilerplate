@@ -64,6 +64,7 @@ const (
 	RevokedReasonLogout         = "logout"
 	RevokedReasonLogoutAll      = "logout_all"
 	RevokedReasonPasswordChange = "password_change"
+	RevokedReasonPasswordReset  = "password_reset"
 	RevokedReasonReuseDetected  = "reuse_detected"
 	RevokedReasonAdmin          = "admin"
 )

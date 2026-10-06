@@ -132,6 +132,47 @@ confirm another user's session IDs. Ownership is enforced in the same conditiona
 revokes the session, so there is no check-then-act window. A malformed ID is a 400 and never
 reaches the database.
 
+### Forgot and reset password
+
+Exists only with `auth.email.enabled: true`; otherwise the routes are not registered at all.
+Both are unauthenticated and rate limited per IP, like login.
+
+```http
+POST /api/v1/auth/forgot-password
+{"email": "ana@example.org"}
+
+POST /api/v1/auth/reset-password
+{"token": "<from the emailed link>", "newPassword": "..."}
+```
+
+1. `forgot-password` **always answers 200** with the same message — for a registered address, an
+   unknown one, a disabled account, a repeat inside the cooldown, and even when the email could not
+   be queued. The response cannot be used to discover which addresses are registered; the
+   difference shows only in the security log (`password_reset_requested`, with `reason`).
+2. For a registered, active account it issues a 256-bit random token, stores only its SHA-256, and
+   emails a link to `frontend.base_url` + `frontend.reset_password_path` with `?token=…`. The
+   frontend page reads the token and posts it to `reset-password`; the API serves no pages itself.
+3. Issuing a link **expires every earlier one** for that account, in the same transaction. A
+   second request inside `auth.password_reset.resend_cooldown` (default `1m`) sends nothing, so the
+   endpoint cannot be used to flood someone's inbox.
+4. `reset-password` checks the new password against the policy **first**, so a refused password
+   does not use up the link. It then consumes the token, replaces the password and revokes **every**
+   session — the device asking included — in one transaction, and evicts the user's cached
+   sessions. Consumption is one conditional `UPDATE`, so two requests racing with the same link
+   give one success. A successful reset also clears a lockout.
+5. An unknown, used, superseded or expired token is one answer:
+   `400 {"code": "invalid_reset_token"}`. An account disabled after the link was sent stays
+   disabled: its token is refused the same way.
+
+Email is sent from an in-memory background queue (`pkg/email.Queue`), so the response time does
+not depend on the provider either — a synchronous send would make a registered address measurably
+slower than an unknown one. The queue is drained on shutdown; a message still queued when the
+process is killed is lost, and the user asks again.
+
+The mail provider is `email.driver`: `log` (prints the message — reset link included — to the
+log; refused in production), `smtp`, `ses` or `resend`. See
+[`config/config.full.example.yaml`](../../config/config.full.example.yaml).
+
 ---
 
 ## 🔄 Rotation, reuse and the grace window
@@ -296,6 +337,12 @@ session, not `jwt.access_token_expiry`.
 | `auth.refresh_reuse_grace` | `10s` | how long the just-replaced refresh token stays usable |
 | `auth.lockout.max_attempts` | `5` | consecutive failures before the account locks |
 | `auth.lockout.duration` | `10m` | how long the lock lasts |
+| `auth.email.enabled` | `false` | registers forgot/reset password; requires `email.*` and `frontend.base_url` |
+| `auth.password_reset.ttl` | `30m` | how long a reset link stays usable |
+| `auth.password_reset.resend_cooldown` | `1m` | minimum gap between two reset emails to one account |
+| `email.driver` | `log` | `log` \| `smtp` \| `ses` \| `resend`; `log` is refused in production |
+| `frontend.base_url` | — | the web app reset links open; `https` in production |
+| `frontend.reset_password_path` | `/reset-password` | the page that reads `?token=` |
 
 Every option is documented in [`config/config.full.example.yaml`](../../config/config.full.example.yaml).
 
@@ -313,8 +360,8 @@ validation refuses to set shorter than `auth.session_expiry`.
 ## 🧪 Where this is tested
 
 - `internal/integration/` — the lifecycle end to end (login → refresh → logout, multi-device,
-  reuse, lockout, anti-enumeration), run against a real PostgreSQL under **every** cache mode,
-  because `none` cannot detect a broken cache eviction.
+  reuse, lockout, anti-enumeration, password reset), run against a real PostgreSQL under
+  **every** cache mode, because `none` cannot detect a broken cache eviction.
 - `internal/domain/auth/` — the rotation, session, permission and validator logic in isolation.
 - `pkg/jwt/` — signing, `kid` selection, and rejecting an access token where a refresh token
   belongs (and the reverse).

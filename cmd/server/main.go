@@ -105,7 +105,7 @@ func start(app *bootstrap.App, wired *wire.ApplicationContainer) {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	shutdown(timeoutCtx, app)
+	shutdown(timeoutCtx, app, wired)
 }
 
 func serveHTTP(app *bootstrap.App, stop context.CancelFunc) {
@@ -136,12 +136,14 @@ func serveGRPC(ctx context.Context, app *bootstrap.App, stop context.CancelFunc)
 }
 
 // shutdown releases things in dependency order: the servers that accept work stop first, then
-// telemetry is flushed, and only then are the database and cache they were using closed.
+// the email queue they were feeding is drained, telemetry is flushed, and only then are the
+// database and cache they were using closed.
 //
 // The previous order closed the pools before stopping gRPC, so any call still in flight during
 // a rolling deploy failed against a closed pool instead of finishing.
-func shutdown(ctx context.Context, app *bootstrap.App) {
+func shutdown(ctx context.Context, app *bootstrap.App, wired *wire.ApplicationContainer) {
 	drainServers(ctx, app)
+	drainMail(ctx, app, wired)
 	shutdownTelemetry(ctx, app)
 	closeDependencies(app)
 	app.Log.Info("Shutdown complete")
@@ -200,6 +202,20 @@ func drainGRPC(ctx context.Context, app *bootstrap.App) {
 		// closes them no more gently and skips the rest of the shutdown.
 		go app.GrpcServer.Stop()
 	}
+}
+
+// drainMail delivers the emails still queued. It runs after the servers so that a request
+// finishing during the drain can still queue its email, and before the pools close because
+// nothing it sends needs them.
+func drainMail(ctx context.Context, app *bootstrap.App, wired *wire.ApplicationContainer) {
+	if wired.Infrastructure.MailQueue == nil {
+		return
+	}
+	if err := wired.Infrastructure.MailQueue.Shutdown(ctx); err != nil {
+		app.Log.Error("Email queue did not drain", "error", err)
+		return
+	}
+	app.Log.Info("Email queue drained")
 }
 
 // shutdownTelemetry runs after the servers so that spans and metrics produced while draining

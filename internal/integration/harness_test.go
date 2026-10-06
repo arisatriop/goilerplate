@@ -19,6 +19,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -55,6 +56,7 @@ const (
 	testReuseGrace    = 10 * time.Second
 	testCacheTTL      = time.Minute
 	testMaxAttempts   = 3
+	testResetTTL      = 30 * time.Minute
 )
 
 // openTestDB connects to POSTGRES_TEST_DSN and applies the migrations.
@@ -159,6 +161,37 @@ type stack struct {
 	jwt         *jwt.JWTService
 	sessions    *auth.SessionService
 	permissions *auth.PermissionService
+
+	// inbox receives the password reset emails, standing in for the user's mailbox.
+	inbox *inbox
+}
+
+// inbox is an auth.Notifier that keeps what it was given. The plaintext reset token exists only
+// in the notice, so reading it back here is the only way a test can follow the link.
+type inbox struct {
+	mu      sync.Mutex
+	notices []auth.PasswordResetNotice
+}
+
+func (i *inbox) SendPasswordReset(_ context.Context, notice auth.PasswordResetNotice) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.notices = append(i.notices, notice)
+	return nil
+}
+
+// received returns the reset notices sent to email, oldest first.
+func (i *inbox) received(email string) []auth.PasswordResetNotice {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	var matching []auth.PasswordResetNotice
+	for _, notice := range i.notices {
+		if notice.Email == email {
+			matching = append(matching, notice)
+		}
+	}
+	return matching
 }
 
 // newStack wires one application instance using the given cache mode.
@@ -190,6 +223,7 @@ func newStack(t *testing.T, mode cacheMode) *stack {
 	// that for one fewer lookup per request and is covered by the session service's own tests.
 	sessionService := auth.NewSessionService(repo, sessionStore, true)
 	permissionService := auth.NewPermissionService(repo, permissionCache)
+	mailbox := &inbox{}
 
 	useCase := auth.NewUseCase(
 		repo,
@@ -201,6 +235,9 @@ func newStack(t *testing.T, mode cacheMode) *stack {
 		infratx.NewGormTransaction(db),
 		auth.Lockout{MaxAttempts: testMaxAttempts, Duration: time.Minute},
 		password.NewPolicy(nil),
+		// No resend cooldown, so a test can ask for a second link straight away. The cooldown
+		// itself is a comparison of two timestamps, covered by the use case's own tests.
+		auth.Recovery{Notifier: mailbox, ResetTTL: testResetTTL},
 	)
 
 	authMiddleware := middleware.NewAuth(jwtService, repo, sessionService, permissionService, nil, config.InternalAuth{}, nil)
@@ -213,6 +250,7 @@ func newStack(t *testing.T, mode cacheMode) *stack {
 		jwt:         jwtService,
 		sessions:    sessionService,
 		permissions: permissionService,
+		inbox:       mailbox,
 	}
 }
 
@@ -317,6 +355,38 @@ func newApp(useCase auth.Usecase, authMiddleware *middleware.Auth) *fiber.App {
 			return statusFor(ctx, err)
 		}
 
+		return ctx.SendStatus(http.StatusOK)
+	})
+
+	// Recovery is unauthenticated, exactly as in router/public.go: the user asking has, by
+	// definition, no working credential.
+	app.Post("/forgot-password", func(ctx *fiber.Ctx) error {
+		var body struct {
+			Email string `json:"email"`
+		}
+		if err := ctx.BodyParser(&body); err != nil {
+			return ctx.SendStatus(http.StatusBadRequest)
+		}
+
+		origin := auth.RequestOrigin{IPAddress: "203.0.113.7", UserAgent: "integration-test-agent"}
+		if err := useCase.ForgotPassword(ctx.UserContext(), body.Email, origin); err != nil {
+			return statusFor(ctx, err)
+		}
+		return ctx.SendStatus(http.StatusOK)
+	})
+
+	app.Post("/reset-password", func(ctx *fiber.Ctx) error {
+		var body struct {
+			Token       string `json:"token"`
+			NewPassword string `json:"newPassword"`
+		}
+		if err := ctx.BodyParser(&body); err != nil {
+			return ctx.SendStatus(http.StatusBadRequest)
+		}
+
+		if err := useCase.ResetPassword(ctx.UserContext(), body.Token, body.NewPassword); err != nil {
+			return statusFor(ctx, err)
+		}
 		return ctx.SendStatus(http.StatusOK)
 	})
 

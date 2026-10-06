@@ -9,7 +9,9 @@ import (
 	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/lock"
 	"goilerplate/internal/infrastructure/cache"
+	"goilerplate/internal/infrastructure/notification"
 	pkgcache "goilerplate/pkg/cache"
+	"goilerplate/pkg/email"
 	"goilerplate/pkg/filesystem"
 	"goilerplate/pkg/jwt"
 
@@ -25,6 +27,10 @@ type Infrastructure struct {
 	Locker            lock.Provider
 	IdempotencyStore  fiber.Storage
 	RateLimitStore    fiber.Storage
+	// MailQueue and AuthNotifier are nil when auth.email.enabled is false. The queue's worker
+	// is running once wired; main shuts it down after the servers have drained.
+	MailQueue    *email.Queue
+	AuthNotifier auth.Notifier
 }
 
 // WireInfrastructure creates all infrastructure dependencies
@@ -52,6 +58,11 @@ func WireInfrastructure(app *bootstrap.App) (*Infrastructure, error) {
 		return nil, err
 	}
 
+	mailQueue, authNotifier, err := wireEmail(app)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Infrastructure{
 		JWTService: jwtService,
 		// nil without Redis, which the limiter reads as "count in memory".
@@ -61,7 +72,38 @@ func WireInfrastructure(app *bootstrap.App) (*Infrastructure, error) {
 		Locker:            locker,
 		IdempotencyStore:  wireIdempotencyStore(app),
 		FilesystemManager: filesystemMgr,
+		MailQueue:         mailQueue,
+		AuthNotifier:      authNotifier,
 	}, nil
+}
+
+// wireEmail builds the configured email driver behind a background queue, and the auth
+// notifier that renders messages onto it. Both are nil when auth.email.enabled is false.
+func wireEmail(app *bootstrap.App) (*email.Queue, auth.Notifier, error) {
+	cfg := app.Config
+	if !cfg.Auth.Email.Enabled {
+		return nil, nil, nil
+	}
+
+	sender, err := email.New(context.Background(), cfg.Email, app.Log)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initializing email: %w", err)
+	}
+
+	queue := email.NewQueue(sender, email.QueueOptions{Logger: app.Log})
+	notifier, err := notification.NewAuthMailer(queue, notification.AuthMailerOptions{
+		AppName:           cfg.App.Name,
+		FrontendBaseURL:   cfg.Frontend.BaseURL,
+		ResetPasswordPath: cfg.Frontend.ResetPasswordPathOrDefault(),
+	})
+	if err != nil {
+		// Nothing has been queued yet, so there is nothing to wait for.
+		_ = queue.Shutdown(context.Background())
+		return nil, nil, fmt.Errorf("initializing auth notifier: %w", err)
+	}
+
+	app.Log.Info("email configured", "driver", cfg.Email.DriverOrDefault())
+	return queue, notifier, nil
 }
 
 // wireAuthCaches selects the session and permission cache implementations from

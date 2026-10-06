@@ -31,6 +31,13 @@ definitions:
     - currentPassword
     - newPassword
     type: object
+  dtorequest.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   dtorequest.LoginRequest:
     properties:
       email:
@@ -56,6 +63,18 @@ definitions:
     - email
     - name
     - password
+    type: object
+  dtorequest.ResetPasswordRequest:
+    properties:
+      newPassword:
+        minLength: 8
+        type: string
+      token:
+        maxLength: 256
+        type: string
+    required:
+    - newPassword
+    - token
     type: object
   dtoresponse.ActiveSessionResponse:
     properties:
@@ -233,6 +252,41 @@ info:
   title: Goilerplate API
   version: "1.0"
 paths:
+  /api/v1/auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Always answers 200 with the same message, whether or not the address
+        is registered. Available only when auth.email.enabled is true.
+      parameters:
+      - description: Account email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dtorequest.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      summary: Request a password reset link
+      tags:
+      - auth
   /api/v1/auth/login:
     post:
       consumes:
@@ -380,6 +434,41 @@ paths:
           schema:
             $ref: '#/definitions/response.BaseResponse'
       summary: Register a new user
+      tags:
+      - auth
+  /api/v1/auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Signs the account out on every device. Available only when auth.email.enabled
+        is true.
+      parameters:
+      - description: Reset token and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dtorequest.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: validation_failed, a password the policy refuses, or invalid_reset_token
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      summary: Reset the password with an emailed token
       tags:
       - auth
   /api/v1/bars:

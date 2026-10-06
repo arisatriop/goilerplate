@@ -23,11 +23,12 @@ const (
 	ActionPasswordChanged    = "password_changed"
 	ActionAccountDeactivated = "account_deactivated"
 
-	// Emitted once the flows in T5.1 exist. Named here so those flows adopt the vocabulary
-	// rather than inventing a second one.
 	ActionPasswordResetRequested = "password_reset_requested"
 	ActionPasswordResetCompleted = "password_reset_completed"
-	ActionEmailChanged           = "email_changed"
+
+	// Emitted once the email change flow exists. Named here so it adopts the vocabulary
+	// rather than inventing a second one.
+	ActionEmailChanged = "email_changed"
 )
 
 // Outcomes. A failure is logged at WARN so that the default INFO level still shows every
@@ -44,6 +45,12 @@ const (
 	ReasonBadPassword     = "bad_password"
 	ReasonAccountLocked   = "account_locked"
 	ReasonAccountDisabled = "account_disabled"
+	// ReasonCooldown: a password reset was asked for again too soon; nothing was sent.
+	ReasonCooldown = "cooldown"
+	// ReasonDeliveryFailed: the reset email could not be queued.
+	ReasonDeliveryFailed = "delivery_failed"
+	// ReasonInvalidToken: a one-time token was unknown, used, superseded or expired.
+	ReasonInvalidToken = "invalid_token"
 )
 
 // SecurityEvent is one entry in the audit trail.

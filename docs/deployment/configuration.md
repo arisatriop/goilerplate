@@ -89,7 +89,8 @@ available key, with a comment on each. It is kept in sync by a test
 (`config/example_test.go`), which fails if an option exists in code but is not documented there.
 
 Top-level sections: `app`, `server`, `db`, `redis`, `jwt`, `auth`, `log`, `grpc`, `otel`,
-`rate_limit`, `filesystem`, `crypto`, `api_key`, `internal_auth`, `jobs`, `service`.
+`rate_limit`, `filesystem`, `email`, `frontend`, `crypto`, `api_key`, `internal_auth`, `jobs`,
+`service`.
 
 Copy the sections you need; anything you leave out falls back to its default.
 
@@ -132,6 +133,9 @@ underscores.**
 | `internal_auth.secret` | `INTERNAL_AUTH_SECRET` |
 | `grpc.auth.secret` | `GRPC_AUTH_SECRET` |
 | `crypto.encryption_key` | `CRYPTO_ENCRYPTION_KEY` |
+| `email.smtp.password` | `EMAIL_SMTP_PASSWORD` |
+| `email.resend.api_key` | `EMAIL_RESEND_API_KEY` |
+| `email.ses.secret_access_key` | `EMAIL_SES_SECRET_ACCESS_KEY` (or leave empty and use the IAM role) |
 
 `crypto.encryption_key` is the one entry in this table nothing reads yet. `pkg/crypto` is a
 working AES-256-GCM primitive with no callers, and the key is the seam for when you encrypt a

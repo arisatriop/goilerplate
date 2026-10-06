@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type authRepository struct {
@@ -588,24 +589,38 @@ func (r *authRepository) GetLatestActiveOneTimeToken(ctx context.Context, userID
 }
 
 // ConsumeOneTimeToken marks a token as used in one statement, so two concurrent requests
-// with the same token yield exactly one success. It returns auth.ErrNotFound when the token
-// does not exist, was already used, or has expired.
-func (r *authRepository) ConsumeOneTimeToken(ctx context.Context, tokenHash, tokenType string) error {
+// with the same token yield exactly one success, and returns the consumed row. It returns
+// auth.ErrNotFound when the token does not exist, was already used, or has expired.
+func (r *authRepository) ConsumeOneTimeToken(ctx context.Context, tokenHash, tokenType string) (*auth.OneTimeToken, error) {
 	now := utils.Now()
+	var consumed []model.OneTimeToken
 
 	result := r.db.WithContext(ctx).
-		Model(&model.OneTimeToken{}).
+		Model(&consumed).
+		Clauses(clause.Returning{}).
 		Where("token_hash = ? AND token_type = ? AND used_at IS NULL AND expires_at > ?", tokenHash, tokenType, now).
 		Update("used_at", now)
 
 	if result.Error != nil {
-		return result.Error
+		return nil, result.Error
 	}
-	if result.RowsAffected != 1 {
-		return auth.ErrNotFound
+	if len(consumed) != 1 {
+		return nil, auth.ErrNotFound
 	}
 
-	return nil
+	return oneTimeTokenModelToEntity(&consumed[0]), nil
+}
+
+// ExpireOneTimeTokens ends the user's usable tokens of that type by moving expires_at to now.
+// used_at is left alone: it records that a token was actually redeemed, and a superseded token
+// never was.
+func (r *authRepository) ExpireOneTimeTokens(ctx context.Context, userID, tokenType string) error {
+	now := utils.Now()
+
+	return r.db.WithContext(ctx).
+		Model(&model.OneTimeToken{}).
+		Where("user_id = ? AND token_type = ? AND used_at IS NULL AND expires_at > ?", userID, tokenType, now).
+		Update("expires_at", now).Error
 }
 
 // IncrementOneTimeTokenAttempts counts a failed verification attempt and returns the new total.

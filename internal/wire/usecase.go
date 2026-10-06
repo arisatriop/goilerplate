@@ -42,6 +42,11 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 			// Same policy as registration; supply a CommonChecker to enable the
 			// common-password check (roadmap T3.7).
 			password.NewPolicy(nil),
+			auth.Recovery{
+				Notifier:       infra.AuthNotifier,
+				ResetTTL:       app.Config.Auth.PasswordReset.TTLOrDefault(),
+				ResendCooldown: app.Config.Auth.PasswordReset.ResendCooldownOrDefault(),
+			},
 		),
 		FooUC: foo.NewUseCase(repos.FooRepo),
 		BarUC: bar.NewUseCase(repos.BarRepo),

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"goilerplate/config"
+	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/delivery/http/middleware"
 	"goilerplate/internal/wire"
@@ -17,6 +19,11 @@ import (
 // handlers and middleware are zero values: registration only takes method values and builds
 // closures, so nothing here needs a database — and nothing is ever called.
 func registeredRoutes(t *testing.T) []fiber.Route {
+	t.Helper()
+	return registeredRoutesWith(t, &config.Config{})
+}
+
+func registeredRoutesWith(t *testing.T, cfg *config.Config) []fiber.Route {
 	t.Helper()
 
 	wired := &wire.ApplicationContainer{
@@ -32,7 +39,7 @@ func registeredRoutes(t *testing.T) []fiber.Route {
 	app := fiber.New()
 	(&InternalRouteRegistry{Wired: wired}).register(app)
 	(&PartnerRouteRegistry{Wired: wired}).register(app)
-	(&PublicRouteRegistry{Wired: wired}).register(app)
+	(&PublicRouteRegistry{App: &bootstrap.App{Config: cfg}, Wired: wired}).register(app)
 
 	routes := app.GetRoutes(true)
 	require.NotEmpty(t, routes)
@@ -63,5 +70,28 @@ func TestRegister_EveryAudienceStillExposesBar(t *testing.T) {
 
 	for prefix, found := range prefixes {
 		assert.True(t, found, "%s is not registered", prefix)
+	}
+}
+
+// Recovery sends email, so its routes must not exist where email is not configured: the
+// roadmap's "done when" for F1 is that a deployment without mail exposes nothing half-working.
+func TestRegister_RecoveryRoutesFollowAuthEmailEnabled(t *testing.T) {
+	recoveryPaths := []string{"/api/v1/auth/forgot-password", "/api/v1/auth/reset-password"}
+
+	hasPath := func(routes []fiber.Route, path string) bool {
+		for _, route := range routes {
+			if route.Method == fiber.MethodPost && route.Path == path {
+				return true
+			}
+		}
+		return false
+	}
+
+	disabled := registeredRoutesWith(t, &config.Config{})
+	enabled := registeredRoutesWith(t, &config.Config{Auth: config.Auth{Email: config.AuthEmail{Enabled: true}}})
+
+	for _, path := range recoveryPaths {
+		assert.False(t, hasPath(disabled, path), "%s is registered with auth.email.enabled=false", path)
+		assert.True(t, hasPath(enabled, path), "%s is missing with auth.email.enabled=true", path)
 	}
 }

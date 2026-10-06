@@ -21,6 +21,14 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 	auth.Post("/register", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.Register)
 	auth.Post("/login", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.Login)
 
+	// Recovery sends email, so it exists only where email is configured. Leaving the routes out
+	// entirely, rather than answering 500 or 501, keeps a deployment without mail from
+	// advertising a flow it cannot complete.
+	if r.App.Config.Auth.Email.Enabled {
+		auth.Post("/forgot-password", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.ForgotPassword)
+		auth.Post("/reset-password", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.ResetPassword)
+	}
+
 	// These already carry a verified token, so they are limited per session. Keyed by IP they
 	// would make everyone behind one NAT share a budget, and a single user refreshing in a few
 	// tabs could lock the rest out.

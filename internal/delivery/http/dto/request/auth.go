@@ -34,3 +34,16 @@ type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword" validate:"required"`
 	NewPassword     string `json:"newPassword" validate:"required,min=8"`
 }
+
+// ForgotPasswordRequest asks for a password reset link.
+type ForgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// ResetPasswordRequest completes a reset with the token from the emailed link. The token's
+// ceiling is far above what the server issues (44 characters) and only stops an oversized
+// value from being hashed and queried.
+type ResetPasswordRequest struct {
+	Token       string `json:"token" validate:"required,max=256"`
+	NewPassword string `json:"newPassword" validate:"required,min=8"`
+}
