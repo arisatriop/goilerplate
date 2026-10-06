@@ -86,7 +86,9 @@ client fix the request:
   `google.rpc.ErrorInfo.reason`
 - Return use-case errors through `response.HandleError(ctx, err)`. An `apperr` error keeps its
   status, code and message; anything else is logged and answered with a generic 500. Fiber's own
-  errors (unknown route, 405, 413) go through the same envelope via the app's error handler
+  errors (unknown route, 405, 413, a request fasthttp cannot parse) go through the same envelope
+  via the app's error handler, with the standard status text as the message: Fiber's own message
+  can quote the raw request (headers, token, body) or a file path, so it never reaches the client
 - All keys are camelCase (`TestEnvelope_EveryKeyIsCamelCase` enforces it). Timestamps are RFC 3339
   in UTC. IDs are strings. Decimal amounts are JSON strings
 - A collection is never `null`. An empty one is `[]`

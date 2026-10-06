@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
+	"github.com/gofiber/fiber/v2/utils"
 )
 
 func NewFiber(cfg *config.Config) *fiber.App {
@@ -77,11 +78,14 @@ func NewFiber(cfg *config.Config) *fiber.App {
 func NewErrorHandler() fiber.ErrorHandler {
 	return func(ctx *fiber.Ctx, err error) error {
 		// A fiber.Error is Fiber's own answer — no route (404), wrong method (405), a body over the
-		// limit (413) — and its message is safe to show. errors.As rather than a type assertion,
-		// so one that was wrapped keeps its status.
+		// limit (413), a request fasthttp could not parse (400). Its status is kept; its message
+		// is not. Fiber fills it from wherever it came: for an unparseable request, fasthttp's
+		// error, which quotes the raw request back — headers, bearer token and body included —
+		// and for SendFile, the file's path on disk. The standard status text says what the
+		// client needs. errors.As rather than a type assertion, so a wrapped one keeps its status.
 		var fiberErr *fiber.Error
 		if errors.As(err, &fiberErr) {
-			return response.FailStatus(ctx, fiberErr.Code, fiberErr.Message)
+			return response.FailStatus(ctx, fiberErr.Code, utils.StatusMessage(fiberErr.Code))
 		}
 
 		// Anything else is an error a handler returned instead of answering. It used to be sent
