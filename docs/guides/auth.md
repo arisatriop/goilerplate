@@ -169,6 +169,37 @@ not depend on the provider either — a synchronous send would make a registered
 slower than an unknown one. The queue is drained on shutdown; a message still queued when the
 process is killed is lost, and the user asks again.
 
+### Email verification
+
+Also only with `auth.email.enabled: true`, and also unauthenticated: with
+`auth.require_email_verification` on, an unverified user cannot sign in to get a token first.
+
+```http
+POST /api/v1/auth/send-verification-email
+{"email": "ana@example.org"}
+
+POST /api/v1/auth/verify-email
+{"email": "ana@example.org", "code": "042917"}
+```
+
+1. A code is sent **automatically after registration**, once the account has committed. A
+   failure to send it does not fail the registration; the user asks again.
+2. `send-verification-email` answers 200 with one message for every case — unknown, disabled,
+   already verified, inside `auth.otp.resend_cooldown`. A new code expires the previous one.
+3. Codes are 6 random digits stored as **HMAC-SHA256** keyed by `auth.otp.secret` and the token's
+   own ID. An unkeyed digest of six digits is reversed by hashing all million candidates; the
+   key makes a leaked table useless on its own.
+4. Each code tolerates `auth.otp.max_attempts` guesses (default 5). The attempt is counted in
+   one atomic `UPDATE` **before** the code is compared, so concurrent guesses share the ceiling
+   instead of all being compared at once. The last wrong guess expires the code.
+5. Every failure is `400 {"code": "invalid_verification_code"}`.
+6. A successful password reset also marks the address verified: following the emailed link
+   already proves the user reads that inbox.
+
+With `auth.require_email_verification: true` (default `false`), login with the right password
+and an unverified address answers `403 {"code": "email_not_verified"}`. It is checked after the
+password, like a disabled account, so it tells nothing to someone who does not know it.
+
 The mail provider is `email.driver`: `log` (prints the message — reset link included — to the
 log; refused in production), `smtp`, `ses` or `resend`. See
 [`config/config.full.example.yaml`](../../config/config.full.example.yaml).
@@ -340,6 +371,11 @@ session, not `jwt.access_token_expiry`.
 | `auth.email.enabled` | `false` | registers forgot/reset password; requires `email.*` and `frontend.base_url` |
 | `auth.password_reset.ttl` | `30m` | how long a reset link stays usable |
 | `auth.password_reset.resend_cooldown` | `1m` | minimum gap between two reset emails to one account |
+| `auth.require_email_verification` | `false` | refuse login (403) until the address is verified; needs `auth.email.enabled` |
+| `auth.otp.secret` | — | HMAC key for verification codes, at least 32 bytes (`AUTH_OTP_SECRET`) |
+| `auth.otp.ttl` | `15m` | how long a code stays usable |
+| `auth.otp.max_attempts` | `5` | wrong guesses one code tolerates |
+| `auth.otp.resend_cooldown` | `1m` | minimum gap between two codes to one account |
 | `email.driver` | `log` | `log` \| `smtp` \| `ses` \| `resend`; `log` is refused in production |
 | `frontend.base_url` | — | the web app reset links open; `https` in production |
 | `frontend.reset_password_path` | `/reset-password` | the page that reads `?token=` |
@@ -360,7 +396,7 @@ validation refuses to set shorter than `auth.session_expiry`.
 ## 🧪 Where this is tested
 
 - `internal/integration/` — the lifecycle end to end (login → refresh → logout, multi-device,
-  reuse, lockout, anti-enumeration, password reset), run against a real PostgreSQL under
+  reuse, lockout, anti-enumeration, password reset, email verification), run against a real PostgreSQL under
   **every** cache mode, because `none` cannot detect a broken cache eviction.
 - `internal/domain/auth/` — the rotation, session, permission and validator logic in isolation.
 - `pkg/jwt/` — signing, `kid` selection, and rejecting an access token where a refresh token

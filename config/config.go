@@ -387,6 +387,57 @@ type Auth struct {
 	// exist, so a deployment with no mail provider has nothing half-working to expose.
 	Email         AuthEmail     `mapstructure:"email"`
 	PasswordReset PasswordReset `mapstructure:"password_reset"`
+	// RequireEmailVerification refuses login, with 403 email_not_verified, until the address is
+	// verified. Checked only after the password, so it reveals nothing to someone who does not
+	// know it. Requires auth.email.enabled, or nobody could ever verify. Default false.
+	RequireEmailVerification bool `mapstructure:"require_email_verification"`
+	OTP                      OTP  `mapstructure:"otp"`
+}
+
+// Defaults applied when the corresponding OTP settings are zero.
+const (
+	DefaultOTPTTL            = 15 * time.Minute
+	DefaultOTPMaxAttempts    = 5
+	DefaultOTPResendCooldown = time.Minute
+)
+
+// OTP configures the 6-digit codes sent by email, such as for email verification.
+type OTP struct {
+	// Secret keys the HMAC the codes are stored under. A 6-digit code has a million values, so
+	// a plain digest of one is reversed in milliseconds if the table leaks; keyed, it cannot be
+	// without this secret. At least 32 bytes; set it from AUTH_OTP_SECRET. Rotating it voids
+	// the codes outstanding at that moment, nothing else.
+	Secret string `mapstructure:"secret"`
+	// TTL is how long a code stays usable. Default 15m.
+	TTL time.Duration `mapstructure:"ttl"`
+	// MaxAttempts is how many guesses one code tolerates before it stops working. Default 5.
+	MaxAttempts int `mapstructure:"max_attempts"`
+	// ResendCooldown is the minimum gap between two codes sent to one account. Default 1m.
+	ResendCooldown time.Duration `mapstructure:"resend_cooldown"`
+}
+
+// TTLOrDefault returns otp.ttl, or DefaultOTPTTL when unset.
+func (o OTP) TTLOrDefault() time.Duration {
+	if o.TTL > 0 {
+		return o.TTL
+	}
+	return DefaultOTPTTL
+}
+
+// MaxAttemptsOrDefault returns otp.max_attempts, or DefaultOTPMaxAttempts when unset.
+func (o OTP) MaxAttemptsOrDefault() int {
+	if o.MaxAttempts > 0 {
+		return o.MaxAttempts
+	}
+	return DefaultOTPMaxAttempts
+}
+
+// ResendCooldownOrDefault returns otp.resend_cooldown, or DefaultOTPResendCooldown when unset.
+func (o OTP) ResendCooldownOrDefault() time.Duration {
+	if o.ResendCooldown > 0 {
+		return o.ResendCooldown
+	}
+	return DefaultOTPResendCooldown
 }
 
 // AuthEmail switches the email-based auth flows on. Which provider sends the mail is the

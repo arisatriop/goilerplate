@@ -3,16 +3,23 @@ package register
 import (
 	"context"
 	"fmt"
+	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/role"
 	"goilerplate/internal/domain/transaction"
 	"goilerplate/internal/domain/user"
 	"goilerplate/internal/domain/userrole"
 	"goilerplate/pkg/auditctx"
+	"goilerplate/pkg/logger"
 	"goilerplate/pkg/password"
 )
 
 type ApplicationService interface {
 	Register(ctx context.Context, register *Register) error
+}
+
+// VerificationSender starts email verification for a new account. auth.Usecase satisfies it.
+type VerificationSender interface {
+	SendEmailVerification(ctx context.Context, email string, origin auth.RequestOrigin) error
 }
 
 type applicationService struct {
@@ -21,6 +28,7 @@ type applicationService struct {
 	roleRepo       role.Repository
 	userRoleRepo   userrole.Repository
 	passwordPolicy password.Policy
+	verification   VerificationSender
 }
 
 func NewApplicationService(
@@ -29,6 +37,7 @@ func NewApplicationService(
 	roleRepo role.Repository,
 	userRoleRepo userrole.Repository,
 	passwordPolicy password.Policy,
+	verification VerificationSender,
 ) ApplicationService {
 	return &applicationService{
 		txManager:      txManager,
@@ -36,6 +45,7 @@ func NewApplicationService(
 		roleRepo:       roleRepo,
 		userRoleRepo:   userRoleRepo,
 		passwordPolicy: passwordPolicy,
+		verification:   verification,
 	}
 }
 
@@ -61,7 +71,7 @@ func (s *applicationService) Register(ctx context.Context, register *Register) e
 		return fmt.Errorf("failed to get role: %w", err)
 	}
 
-	return s.txManager.Do(ctx, func(txCtx context.Context) error {
+	err = s.txManager.Do(ctx, func(txCtx context.Context) error {
 		txCtx = auditctx.WithAuditInfo(txCtx, "system", "system")
 		txUserRepo := s.userRepo.WithTx(txCtx)
 		txUserRoleRepo := s.userRoleRepo.WithTx(txCtx)
@@ -81,6 +91,27 @@ func (s *applicationService) Register(ctx context.Context, register *Register) e
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	s.sendVerification(ctx, register)
+	return nil
+}
+
+// sendVerification emails the first verification code, after the account has committed: a use
+// case must not run inside the transaction (CLAUDE.md), and a code for a user whose insert
+// rolled back would point at nothing. Nil when email is disabled.
+//
+// A failure is logged, not returned. The account exists either way, and the user can ask for a
+// code again; failing the registration would invite them to retry into "already registered".
+func (s *applicationService) sendVerification(ctx context.Context, register *Register) {
+	if s.verification == nil {
+		return
+	}
+	if err := s.verification.SendEmailVerification(ctx, register.User.Email, register.Origin); err != nil {
+		logger.Error(ctx, fmt.Errorf("sending verification email after registration: %w", err))
+	}
 }
 
 func (s *applicationService) checkExistingEmail(ctx context.Context, email string) error {

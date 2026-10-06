@@ -31,8 +31,13 @@ type Repository interface {
 	ResetExpiredLock(ctx context.Context, userID string) error
 	UpdateUserPassword(ctx context.Context, userID, passwordHash string) error
 	SetUserActive(ctx context.Context, userID string, active bool) error
+	// MarkEmailVerified records that the user proved they read their address. Idempotent: an
+	// already verified address keeps its original email_verified_at.
+	MarkEmailVerified(ctx context.Context, userID string) error
 
 	// One-time token operations (email verification, password reset, email change)
+	// CreateOneTimeToken keeps token.ID when it is set: an OTP's hash is keyed by its ID, so the
+	// ID has to exist before the row does.
 	CreateOneTimeToken(ctx context.Context, token *OneTimeToken) error
 	GetLatestActiveOneTimeToken(ctx context.Context, userID, tokenType string) (*OneTimeToken, error)
 	// ConsumeOneTimeToken marks the token used and returns it, or ErrNotFound when it does not

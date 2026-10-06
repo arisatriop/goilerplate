@@ -17,6 +17,7 @@ func withEmail(env string, cfg email.Config) *Config {
 	c.Auth.Email.Enabled = true
 	c.Email = cfg
 	c.Frontend = Frontend{BaseURL: "https://app.example.com"}
+	c.Auth.OTP.Secret = "Qm8vT2xZr5WcN1kJ7pHd3sFg6aL9eB4u"
 	return c
 }
 
@@ -132,6 +133,36 @@ func TestValidate_EmailRules(t *testing.T) {
 			c.Auth.PasswordReset.TTL = -time.Minute
 			return c
 		}, "auth.password_reset.ttl must not be negative"},
+		{"missing otp secret", func() *Config {
+			c := withEmail("dev", smtpConfig())
+			c.Auth.OTP.Secret = ""
+			return c
+		}, "auth.otp.secret is required"},
+		{"short otp secret", func() *Config {
+			c := withEmail("dev", smtpConfig())
+			c.Auth.OTP.Secret = "too-short"
+			return c
+		}, "auth.otp.secret must be at least 32 bytes"},
+		{"sample otp secret in production", func() *Config {
+			c := withEmail(envProduction, smtpConfig())
+			c.Auth.OTP.Secret = "changeme-changeme-changeme-changeme"
+			return c
+		}, "auth.otp.secret looks like an example value"},
+		{"verification required without email", func() *Config {
+			c := validConfig()
+			c.Auth.RequireEmailVerification = true
+			return c
+		}, "auth.require_email_verification requires auth.email.enabled=true"},
+		{"negative otp attempts", func() *Config {
+			c := withEmail("dev", smtpConfig())
+			c.Auth.OTP.MaxAttempts = -1
+			return c
+		}, "auth.otp.max_attempts must not be negative"},
+		{"otp cooldown as long as the code", func() *Config {
+			c := withEmail("dev", smtpConfig())
+			c.Auth.OTP = OTP{Secret: c.Auth.OTP.Secret, TTL: time.Minute, ResendCooldown: time.Minute}
+			return c
+		}, "auth.otp.resend_cooldown must be shorter than auth.otp.ttl"},
 		{"cooldown as long as the link", func() *Config {
 			c := withEmail("dev", smtpConfig())
 			c.Auth.PasswordReset = PasswordReset{TTL: 10 * time.Minute, ResendCooldown: 10 * time.Minute}
@@ -163,4 +194,8 @@ func TestPasswordReset_Defaults(t *testing.T) {
 	assert.Equal(t, time.Hour, PasswordReset{TTL: time.Hour}.TTLOrDefault())
 	assert.Equal(t, "/reset-password", Frontend{}.ResetPasswordPathOrDefault())
 	assert.Equal(t, "/auth/reset", Frontend{ResetPasswordPath: "/auth/reset"}.ResetPasswordPathOrDefault())
+	assert.Equal(t, DefaultOTPTTL, OTP{}.TTLOrDefault())
+	assert.Equal(t, DefaultOTPMaxAttempts, OTP{}.MaxAttemptsOrDefault())
+	assert.Equal(t, DefaultOTPResendCooldown, OTP{}.ResendCooldownOrDefault())
+	assert.Equal(t, 3, OTP{MaxAttempts: 3}.MaxAttemptsOrDefault())
 }

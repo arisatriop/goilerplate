@@ -14,6 +14,15 @@ type PasswordResetNotice struct {
 	ExpiresAt time.Time
 }
 
+// EmailVerificationNotice carries a verification code to the address being verified. Like a
+// reset token, the plaintext code exists only here.
+type EmailVerificationNotice struct {
+	Email     string
+	Name      string
+	Code      string
+	ExpiresAt time.Time
+}
+
 // Notifier delivers the messages the auth flows send to a user. The domain decides when a
 // message is due and what it must carry; how it is worded, which link it contains and which
 // provider sends it are the implementation's business.
@@ -22,15 +31,31 @@ type PasswordResetNotice struct {
 // that waits for the provider would reveal, by its latency, whether a message was sent at all.
 type Notifier interface {
 	SendPasswordReset(ctx context.Context, notice PasswordResetNotice) error
+	SendEmailVerification(ctx context.Context, notice EmailVerificationNotice) error
 }
 
-// Recovery configures account recovery by email. With a nil Notifier the recovery flows are
+// EmailFlows configures the auth flows that send email. With a nil Notifier they are all
 // unavailable, which is how the use case is built when auth.email.enabled is false.
-type Recovery struct {
+type EmailFlows struct {
 	Notifier Notifier
 	// ResetTTL is how long a reset token stays usable.
 	ResetTTL time.Duration
-	// ResendCooldown is the minimum gap between two reset emails to one account.
+	// ResetResendCooldown is the minimum gap between two reset emails to one account.
+	ResetResendCooldown time.Duration
+	OTP                 OTPPolicy
+	// RequireVerifiedEmail refuses login to an account whose address is not verified.
+	RequireVerifiedEmail bool
+}
+
+// OTPPolicy governs the 6-digit codes sent by email.
+type OTPPolicy struct {
+	// Secret keys the HMAC the codes are stored under.
+	Secret []byte
+	// TTL is how long a code stays usable.
+	TTL time.Duration
+	// MaxAttempts is how many guesses one code tolerates. Zero means one.
+	MaxAttempts int
+	// ResendCooldown is the minimum gap between two codes to one account.
 	ResendCooldown time.Duration
 }
 

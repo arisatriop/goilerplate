@@ -1,6 +1,7 @@
 package register
 
 import (
+	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/user"
 )
 
@@ -12,4 +13,6 @@ import (
 type Register struct {
 	User     *user.User
 	Password string
+	// Origin is recorded with the verification code sent once the account exists.
+	Origin auth.RequestOrigin
 }

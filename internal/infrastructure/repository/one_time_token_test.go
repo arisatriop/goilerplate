@@ -267,3 +267,39 @@ func TestOneTimeToken_ExpireEndsOnlyThatUsersTokensOfThatType(t *testing.T) {
 	_, err = repo.ConsumeOneTimeToken(ctx, otherUser.TokenHash, auth.OneTimeTokenPasswordReset)
 	assert.NoError(t, err, "another user's token is untouched")
 }
+
+// An OTP's hash is keyed by its token ID, so the ID the domain chose must be the one stored.
+func TestOneTimeToken_CreateKeepsAGivenID(t *testing.T) {
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	userID := createTestUser(t, db)
+
+	token := newToken(userID, utils.GenerateUUID(), time.Hour)
+	token.ID = utils.GenerateUUID()
+	chosen := token.ID
+	require.NoError(t, repo.CreateOneTimeToken(ctx, token))
+
+	stored, err := repo.GetLatestActiveOneTimeToken(ctx, userID, auth.OneTimeTokenPasswordReset)
+	require.NoError(t, err)
+	require.NotNil(t, stored)
+	assert.Equal(t, chosen, stored.ID)
+}
+
+func TestMarkEmailVerified_KeepsTheFirstTimestamp(t *testing.T) {
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	userID := createTestUser(t, db)
+
+	require.NoError(t, repo.MarkEmailVerified(ctx, userID))
+	first, err := repo.GetUserByID(ctx, userID)
+	require.NoError(t, err)
+	require.True(t, first.EmailVerified)
+	require.NotNil(t, first.EmailVerifiedAt)
+
+	require.NoError(t, repo.MarkEmailVerified(ctx, userID), "marking twice is not an error")
+	second, err := repo.GetUserByID(ctx, userID)
+	require.NoError(t, err)
+	assert.True(t, first.EmailVerifiedAt.Equal(*second.EmailVerifiedAt), "the original verification time is kept")
+
+	assert.ErrorIs(t, repo.MarkEmailVerified(ctx, utils.GenerateUUID()), auth.ErrNotFound)
+}

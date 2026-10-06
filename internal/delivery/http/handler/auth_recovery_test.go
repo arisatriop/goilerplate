@@ -29,6 +29,19 @@ type recoveryUsecase struct {
 	forgotOrigin auth.RequestOrigin
 	resetToken   string
 	resetCalled  bool
+	sendEmail    string
+	verifyCode   string
+	verifyCalled bool
+}
+
+func (u *recoveryUsecase) SendEmailVerification(_ context.Context, email string, _ auth.RequestOrigin) error {
+	u.sendEmail = email
+	return u.err
+}
+
+func (u *recoveryUsecase) VerifyEmail(_ context.Context, _, code string) error {
+	u.verifyCalled, u.verifyCode = true, code
+	return u.err
 }
 
 func (u *recoveryUsecase) ForgotPassword(_ context.Context, email string, origin auth.RequestOrigin) error {
@@ -46,6 +59,8 @@ func newRecoveryApp(usecase auth.Usecase) *fiber.App {
 	app := fiber.New()
 	app.Post("/auth/forgot-password", h.ForgotPassword)
 	app.Post("/auth/reset-password", h.ResetPassword)
+	app.Post("/auth/send-verification-email", h.SendVerificationEmail)
+	app.Post("/auth/verify-email", h.VerifyEmail)
 	return app
 }
 
@@ -182,4 +197,56 @@ func TestAuthResetPassword_RejectionDoesNotEchoThePassword(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, status)
 	assert.NotContains(t, body, "hunter2")
 	assert.Contains(t, body, `"field":"newPassword"`)
+}
+
+func TestAuthSendVerificationEmail_AnswersWithTheGenericMessage(t *testing.T) {
+	t.Parallel()
+	usecase := &recoveryUsecase{}
+	app := newRecoveryApp(usecase)
+
+	status, body := postJSON(t, app, "/auth/send-verification-email", `{"email":"ana@example.org"}`, nil)
+
+	assert.Equal(t, http.StatusOK, status)
+	assert.Equal(t, handler.MsgVerificationEmailRequested, decodeEnvelope(t, body).Message)
+	assert.Equal(t, "ana@example.org", usecase.sendEmail)
+}
+
+func TestAuthVerifyEmail(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		body       string
+		usecaseErr error
+		wantStatus int
+		wantCode   string
+		reachesUC  bool
+	}{
+		{"right code", `{"email":"ana@example.org","code":"042917"}`, nil, http.StatusOK, "", true},
+		{"wrong or expired code", `{"email":"ana@example.org","code":"123456"}`,
+			auth.ErrInvalidVerificationCode, http.StatusBadRequest, "invalid_verification_code", true},
+		{"five digits", `{"email":"ana@example.org","code":"12345"}`, nil, http.StatusBadRequest, "validation_failed", false},
+		{"letters", `{"email":"ana@example.org","code":"12345a"}`, nil, http.StatusBadRequest, "validation_failed", false},
+		{"missing email", `{"code":"123456"}`, nil, http.StatusBadRequest, "validation_failed", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			usecase := &recoveryUsecase{err: tt.usecaseErr}
+			app := newRecoveryApp(usecase)
+
+			status, body := postJSON(t, app, "/auth/verify-email", tt.body, nil)
+
+			assert.Equal(t, tt.wantStatus, status)
+			if tt.wantCode != "" {
+				assert.Equal(t, tt.wantCode, decodeEnvelope(t, body).Code)
+			}
+			assert.Equal(t, tt.reachesUC, usecase.verifyCalled)
+			if tt.reachesUC {
+				assert.Equal(t, strings.Split(strings.Split(tt.body, `"code":"`)[1], `"`)[0], usecase.verifyCode,
+					"leading zeros reach the use case")
+			}
+		})
+	}
 }

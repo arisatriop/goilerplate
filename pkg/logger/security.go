@@ -26,6 +26,9 @@ const (
 	ActionPasswordResetRequested = "password_reset_requested"
 	ActionPasswordResetCompleted = "password_reset_completed"
 
+	ActionEmailVerificationRequested = "email_verification_requested"
+	ActionEmailVerified              = "email_verified"
+
 	// Emitted once the email change flow exists. Named here so it adopts the vocabulary
 	// rather than inventing a second one.
 	ActionEmailChanged = "email_changed"
@@ -51,6 +54,12 @@ const (
 	ReasonDeliveryFailed = "delivery_failed"
 	// ReasonInvalidToken: a one-time token was unknown, used, superseded or expired.
 	ReasonInvalidToken = "invalid_token"
+	// ReasonTooManyAttempts: a code was guessed at more often than it tolerates; it is now void.
+	ReasonTooManyAttempts = "too_many_attempts"
+	// ReasonAlreadyVerified: a verification code was asked for an address already verified.
+	ReasonAlreadyVerified = "already_verified"
+	// ReasonEmailNotVerified: correct password, but the address must be verified first.
+	ReasonEmailNotVerified = "email_not_verified"
 )
 
 // SecurityEvent is one entry in the audit trail.

@@ -42,13 +42,26 @@ func WireUseCases(app *bootstrap.App, repos *Repositories, infra *Infrastructure
 			// Same policy as registration; supply a CommonChecker to enable the
 			// common-password check (roadmap T3.7).
 			password.NewPolicy(nil),
-			auth.Recovery{
-				Notifier:       infra.AuthNotifier,
-				ResetTTL:       app.Config.Auth.PasswordReset.TTLOrDefault(),
-				ResendCooldown: app.Config.Auth.PasswordReset.ResendCooldownOrDefault(),
-			},
+			emailFlows(app.Config, infra.AuthNotifier),
 		),
 		FooUC: foo.NewUseCase(repos.FooRepo),
 		BarUC: bar.NewUseCase(repos.BarRepo),
+	}
+}
+
+// emailFlows maps the email-related auth settings onto the use case's. With auth.email.enabled
+// false the notifier is nil, which leaves every email flow unavailable.
+func emailFlows(cfg *config.Config, notifier auth.Notifier) auth.EmailFlows {
+	return auth.EmailFlows{
+		Notifier:            notifier,
+		ResetTTL:            cfg.Auth.PasswordReset.TTLOrDefault(),
+		ResetResendCooldown: cfg.Auth.PasswordReset.ResendCooldownOrDefault(),
+		OTP: auth.OTPPolicy{
+			Secret:         []byte(cfg.Auth.OTP.Secret),
+			TTL:            cfg.Auth.OTP.TTLOrDefault(),
+			MaxAttempts:    cfg.Auth.OTP.MaxAttemptsOrDefault(),
+			ResendCooldown: cfg.Auth.OTP.ResendCooldownOrDefault(),
+		},
+		RequireVerifiedEmail: cfg.Auth.RequireEmailVerification,
 	}
 }

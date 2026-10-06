@@ -84,6 +84,40 @@ func (m *AuthMailer) SendPasswordReset(ctx context.Context, notice auth.Password
 	})
 }
 
+// SendEmailVerification emails the verification code.
+func (m *AuthMailer) SendEmailVerification(ctx context.Context, notice auth.EmailVerificationNotice) error {
+	data := emailVerificationData{
+		AppName:   m.appName,
+		Name:      notice.Name,
+		Code:      notice.Code,
+		ExpiresIn: humanDuration(notice.ExpiresAt.Sub(utils.Now())),
+	}
+
+	var text, html bytes.Buffer
+	if err := emailVerificationText.Execute(&text, data); err != nil {
+		return fmt.Errorf("rendering verification text: %w", err)
+	}
+	if err := emailVerificationHTML.Execute(&html, data); err != nil {
+		return fmt.Errorf("rendering verification html: %w", err)
+	}
+
+	// The code stays out of the subject: it would show in notification previews and on a
+	// locked screen, and the subject is the one part of the message the queue logs.
+	return m.sender.Send(ctx, email.Message{
+		To:      notice.Email,
+		Subject: m.appName + ": verify your email address",
+		Text:    text.String(),
+		HTML:    html.String(),
+	})
+}
+
+type emailVerificationData struct {
+	AppName   string
+	Name      string
+	Code      string
+	ExpiresIn string
+}
+
 type passwordResetData struct {
 	AppName   string
 	Name      string
@@ -116,6 +150,34 @@ If you did not ask for this, you can ignore this email: your password stays as i
 <p>Or open this link: <br><a href="{{.Link}}">{{.Link}}</a></p>
 <p>The link works once and expires in {{.ExpiresIn}}. Resetting your password signs you out on every device.</p>
 <p>If you did not ask for this, you can ignore this email: your password stays as it is.</p>
+<p>— {{.AppName}}</p>
+</body>
+</html>
+`))
+)
+
+var (
+	emailVerificationText = texttemplate.Must(texttemplate.New("verify.txt").Parse(`Hi{{if .Name}} {{.Name}}{{end}},
+
+Your {{.AppName}} verification code is:
+
+{{.Code}}
+
+It expires in {{.ExpiresIn}}. Nobody from {{.AppName}} will ask you for this code.
+
+If you did not create an account, you can ignore this email.
+
+— {{.AppName}}
+`))
+
+	emailVerificationHTML = htmltemplate.Must(htmltemplate.New("verify.html").Parse(`<!doctype html>
+<html>
+<body style="font-family: sans-serif; line-height: 1.5; color: #222;">
+<p>Hi{{if .Name}} {{.Name}}{{end}},</p>
+<p>Your {{.AppName}} verification code is:</p>
+<p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; font-family: monospace;">{{.Code}}</p>
+<p>It expires in {{.ExpiresIn}}. Nobody from {{.AppName}} will ask you for this code.</p>
+<p>If you did not create an account, you can ignore this email.</p>
 <p>— {{.AppName}}</p>
 </body>
 </html>

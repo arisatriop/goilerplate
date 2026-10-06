@@ -47,3 +47,14 @@ type ResetPasswordRequest struct {
 	Token       string `json:"token" validate:"required,max=256"`
 	NewPassword string `json:"newPassword" validate:"required,min=8"`
 }
+
+// SendVerificationEmailRequest asks for a new email verification code.
+type SendVerificationEmailRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// VerifyEmailRequest proves the user reads their inbox with the code sent to it.
+type VerifyEmailRequest struct {
+	Email string `json:"email" validate:"required,email"`
+	Code  string `json:"code" validate:"required,len=6,numeric"`
+}

@@ -57,6 +57,7 @@ const (
 	testCacheTTL      = time.Minute
 	testMaxAttempts   = 3
 	testResetTTL      = 30 * time.Minute
+	testOTPAttempts   = 3
 )
 
 // openTestDB connects to POSTGRES_TEST_DSN and applies the migrations.
@@ -171,6 +172,27 @@ type stack struct {
 type inbox struct {
 	mu      sync.Mutex
 	notices []auth.PasswordResetNotice
+	codes   []auth.EmailVerificationNotice
+}
+
+func (i *inbox) SendEmailVerification(_ context.Context, notice auth.EmailVerificationNotice) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.codes = append(i.codes, notice)
+	return nil
+}
+
+// latestCode returns the newest verification code sent to email, or "" when there is none.
+func (i *inbox) latestCode(email string) string {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	for j := len(i.codes) - 1; j >= 0; j-- {
+		if i.codes[j].Email == email {
+			return i.codes[j].Code
+		}
+	}
+	return ""
 }
 
 func (i *inbox) SendPasswordReset(_ context.Context, notice auth.PasswordResetNotice) error {
@@ -201,6 +223,12 @@ func (i *inbox) received(email string) []auth.PasswordResetNotice {
 // and response shaping; the behaviour under test is everything behind them.
 func newStack(t *testing.T, mode cacheMode) *stack {
 	t.Helper()
+	return newStackWith(t, mode, nil)
+}
+
+// newStackWith is newStack with the email flows adjusted, for instance to require verification.
+func newStackWith(t *testing.T, mode cacheMode, adjust func(*auth.EmailFlows)) *stack {
+	t.Helper()
 
 	db := openTestDB(t)
 	repo := repository.NewAuth(db)
@@ -224,6 +252,20 @@ func newStack(t *testing.T, mode cacheMode) *stack {
 	sessionService := auth.NewSessionService(repo, sessionStore, true)
 	permissionService := auth.NewPermissionService(repo, permissionCache)
 	mailbox := &inbox{}
+	// No resend cooldowns, so a test can ask again straight away. The cooldown itself is a
+	// comparison of two timestamps, covered by the use case's own tests.
+	emailFlows := auth.EmailFlows{
+		Notifier: mailbox,
+		ResetTTL: testResetTTL,
+		OTP: auth.OTPPolicy{
+			Secret:      []byte("integration-test-otp-secret-not-a-real-one"),
+			TTL:         15 * time.Minute,
+			MaxAttempts: testOTPAttempts,
+		},
+	}
+	if adjust != nil {
+		adjust(&emailFlows)
+	}
 
 	useCase := auth.NewUseCase(
 		repo,
@@ -235,9 +277,7 @@ func newStack(t *testing.T, mode cacheMode) *stack {
 		infratx.NewGormTransaction(db),
 		auth.Lockout{MaxAttempts: testMaxAttempts, Duration: time.Minute},
 		password.NewPolicy(nil),
-		// No resend cooldown, so a test can ask for a second link straight away. The cooldown
-		// itself is a comparison of two timestamps, covered by the use case's own tests.
-		auth.Recovery{Notifier: mailbox, ResetTTL: testResetTTL},
+		emailFlows,
 	)
 
 	authMiddleware := middleware.NewAuth(jwtService, repo, sessionService, permissionService, nil, config.InternalAuth{}, nil)
@@ -385,6 +425,35 @@ func newApp(useCase auth.Usecase, authMiddleware *middleware.Auth) *fiber.App {
 		}
 
 		if err := useCase.ResetPassword(ctx.UserContext(), body.Token, body.NewPassword); err != nil {
+			return statusFor(ctx, err)
+		}
+		return ctx.SendStatus(http.StatusOK)
+	})
+
+	app.Post("/send-verification-email", func(ctx *fiber.Ctx) error {
+		var body struct {
+			Email string `json:"email"`
+		}
+		if err := ctx.BodyParser(&body); err != nil {
+			return ctx.SendStatus(http.StatusBadRequest)
+		}
+
+		if err := useCase.SendEmailVerification(ctx.UserContext(), body.Email, auth.RequestOrigin{}); err != nil {
+			return statusFor(ctx, err)
+		}
+		return ctx.SendStatus(http.StatusOK)
+	})
+
+	app.Post("/verify-email", func(ctx *fiber.Ctx) error {
+		var body struct {
+			Email string `json:"email"`
+			Code  string `json:"code"`
+		}
+		if err := ctx.BodyParser(&body); err != nil {
+			return ctx.SendStatus(http.StatusBadRequest)
+		}
+
+		if err := useCase.VerifyEmail(ctx.UserContext(), body.Email, body.Code); err != nil {
 			return statusFor(ctx, err)
 		}
 		return ctx.SendStatus(http.StatusOK)

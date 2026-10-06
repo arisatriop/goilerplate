@@ -2,9 +2,11 @@ package register_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"goilerplate/internal/application/register"
+	"goilerplate/internal/domain/auth"
 	"goilerplate/internal/domain/role"
 	"goilerplate/internal/domain/user"
 	"goilerplate/internal/domain/userrole"
@@ -74,7 +76,7 @@ func newService(t *testing.T) (register.ApplicationService, *stubUserRepo, *stub
 	tx := &inlineTx{}
 	roleRepo := &stubRoleRepo{role: &role.Role{ID: uuid.New(), Slug: role.OwnerRoleSlug}}
 
-	svc := register.NewApplicationService(tx, userRepo, roleRepo, userRoleRepo, password.NewPolicy(nil))
+	svc := register.NewApplicationService(tx, userRepo, roleRepo, userRoleRepo, password.NewPolicy(nil), nil)
 	return svc, userRepo, userRoleRepo, tx
 }
 
@@ -139,4 +141,75 @@ func TestRegister_DuplicateEmailIsRefusedBeforeHashing(t *testing.T) {
 	assert.Nil(t, userRoleRepo.created)
 	assert.False(t, tx.entered)
 	assert.Empty(t, input.User.PasswordHash, "no point paying for bcrypt on a request already lost")
+}
+
+// recordingVerification records the addresses a verification code was requested for.
+type recordingVerification struct {
+	emails []string
+	origin auth.RequestOrigin
+	err    error
+}
+
+func (v *recordingVerification) SendEmailVerification(_ context.Context, email string, origin auth.RequestOrigin) error {
+	v.emails = append(v.emails, email)
+	v.origin = origin
+	return v.err
+}
+
+// failingUserRoleRepo makes the transaction fail after the user insert.
+type failingUserRoleRepo struct{}
+
+func (r *failingUserRoleRepo) WithTx(context.Context) userrole.Repository { return r }
+
+func (r *failingUserRoleRepo) CreateUserRole(context.Context, *userrole.UserRole) error {
+	return errors.New("insert failed")
+}
+
+func newServiceWithVerification(t *testing.T, userRoles userrole.Repository, verification register.VerificationSender) register.ApplicationService {
+	t.Helper()
+	roleRepo := &stubRoleRepo{role: &role.Role{ID: uuid.New(), Slug: role.OwnerRoleSlug}}
+	return register.NewApplicationService(&inlineTx{}, &stubUserRepo{}, roleRepo, userRoles, password.NewPolicy(nil), verification)
+}
+
+func TestRegister_SendsTheFirstVerificationCode(t *testing.T) {
+	verification := &recordingVerification{}
+	svc := newServiceWithVerification(t, &stubUserRoleRepo{}, verification)
+	origin := auth.RequestOrigin{IPAddress: "203.0.113.7", UserAgent: "curl/8"}
+
+	err := svc.Register(context.Background(), &register.Register{
+		User:     &user.User{Name: "Ada", Email: "ada@example.com"},
+		Password: "a-perfectly-fine-password",
+		Origin:   origin,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ada@example.com"}, verification.emails)
+	assert.Equal(t, origin, verification.origin)
+}
+
+// The account exists once the transaction commits. A code that cannot be sent is the user's to
+// ask for again, not a reason to fail a registration that already happened.
+func TestRegister_SucceedsWhenTheCodeCannotBeSent(t *testing.T) {
+	verification := &recordingVerification{err: errors.New("database unavailable")}
+	svc := newServiceWithVerification(t, &stubUserRoleRepo{}, verification)
+
+	err := svc.Register(context.Background(), &register.Register{
+		User:     &user.User{Name: "Ada", Email: "ada@example.com"},
+		Password: "a-perfectly-fine-password",
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestRegister_NoCodeForARolledBackAccount(t *testing.T) {
+	verification := &recordingVerification{}
+	svc := newServiceWithVerification(t, &failingUserRoleRepo{}, verification)
+
+	err := svc.Register(context.Background(), &register.Register{
+		User:     &user.User{Name: "Ada", Email: "ada@example.com"},
+		Password: "a-perfectly-fine-password",
+	})
+
+	require.Error(t, err)
+	assert.Empty(t, verification.emails, "a code for an account that does not exist points at nothing")
 }
