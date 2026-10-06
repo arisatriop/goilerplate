@@ -15,6 +15,7 @@ type OneTimeToken struct {
 	UsedAt    *time.Time
 	IPAddress *string `gorm:"type:inet"`
 	UserAgent string  `gorm:"type:text"`
+	NewEmail  *string `gorm:"type:text"`
 	CreatedAt time.Time
 }
 

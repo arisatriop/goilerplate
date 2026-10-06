@@ -10,8 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"goilerplate/internal/application/register"
 	"goilerplate/internal/delivery/http/handler"
 	"goilerplate/internal/domain/auth"
+	"goilerplate/pkg/constants"
 	"goilerplate/pkg/password"
 	"goilerplate/pkg/response"
 
@@ -32,6 +34,19 @@ type recoveryUsecase struct {
 	sendEmail    string
 	verifyCode   string
 	verifyCalled bool
+	changeUserID string
+	changeEmail  string
+	confirmCode  string
+}
+
+func (u *recoveryUsecase) RequestEmailChange(_ context.Context, userID, _, newEmail string, _ auth.RequestOrigin) error {
+	u.changeUserID, u.changeEmail = userID, newEmail
+	return u.err
+}
+
+func (u *recoveryUsecase) ConfirmEmailChange(_ context.Context, userID, code string) error {
+	u.changeUserID, u.confirmCode = userID, code
+	return u.err
 }
 
 func (u *recoveryUsecase) SendEmailVerification(_ context.Context, email string, _ auth.RequestOrigin) error {
@@ -61,6 +76,14 @@ func newRecoveryApp(usecase auth.Usecase) *fiber.App {
 	app.Post("/auth/reset-password", h.ResetPassword)
 	app.Post("/auth/send-verification-email", h.SendVerificationEmail)
 	app.Post("/auth/verify-email", h.VerifyEmail)
+
+	// Stands in for Auth.Authenticate: the caller is whoever the token says.
+	signedIn := func(ctx *fiber.Ctx) error {
+		ctx.Locals(string(constants.ContextKeyUserID), "u1")
+		return ctx.Next()
+	}
+	app.Post("/users/me/email-change", signedIn, h.RequestEmailChange)
+	app.Post("/users/me/email-change/confirm", signedIn, h.ConfirmEmailChange)
 	return app
 }
 
@@ -247,6 +270,115 @@ func TestAuthVerifyEmail(t *testing.T) {
 				assert.Equal(t, strings.Split(strings.Split(tt.body, `"code":"`)[1], `"`)[0], usecase.verifyCode,
 					"leading zeros reach the use case")
 			}
+		})
+	}
+}
+
+func TestAuthRequestEmailChange(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		body       string
+		usecaseErr error
+		wantStatus int
+		wantCode   string
+	}{
+		{"accepted", `{"newEmail":"ana.new@example.org","currentPassword":"pw"}`, nil, http.StatusOK, ""},
+		{"wrong password", `{"newEmail":"ana.new@example.org","currentPassword":"pw"}`, auth.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
+		{"same address", `{"newEmail":"ana@example.org","currentPassword":"pw"}`, auth.ErrEmailUnchanged, http.StatusBadRequest, "email_unchanged"},
+		{"malformed address", `{"newEmail":"nope","currentPassword":"pw"}`, nil, http.StatusBadRequest, "validation_failed"},
+		{"missing password", `{"newEmail":"ana.new@example.org"}`, nil, http.StatusBadRequest, "validation_failed"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			usecase := &recoveryUsecase{err: tt.usecaseErr}
+
+			status, body := postJSON(t, newRecoveryApp(usecase), "/users/me/email-change", tt.body, nil)
+
+			assert.Equal(t, tt.wantStatus, status)
+			if tt.wantCode != "" {
+				assert.Equal(t, tt.wantCode, decodeEnvelope(t, body).Code)
+			}
+			if tt.wantStatus == http.StatusOK {
+				assert.Equal(t, handler.MsgEmailChangeRequested, decodeEnvelope(t, body).Message)
+				assert.Equal(t, "u1", usecase.changeUserID, "the account is the caller's, from the token")
+				assert.Equal(t, "ana.new@example.org", usecase.changeEmail)
+			}
+			assert.NotContains(t, body, `"pw"`)
+		})
+	}
+}
+
+func TestAuthConfirmEmailChange(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		body       string
+		usecaseErr error
+		wantStatus int
+		wantCode   string
+	}{
+		{"right code", `{"code":"042917"}`, nil, http.StatusOK, ""},
+		{"wrong code", `{"code":"123456"}`, auth.ErrInvalidVerificationCode, http.StatusBadRequest, "invalid_verification_code"},
+		{"address taken meanwhile", `{"code":"123456"}`, auth.ErrEmailAlreadyRegistered, http.StatusConflict, "email_already_registered"},
+		{"not six digits", `{"code":"12345"}`, nil, http.StatusBadRequest, "validation_failed"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			usecase := &recoveryUsecase{err: tt.usecaseErr}
+
+			status, body := postJSON(t, newRecoveryApp(usecase), "/users/me/email-change/confirm", tt.body, nil)
+
+			assert.Equal(t, tt.wantStatus, status)
+			if tt.wantCode != "" {
+				assert.Equal(t, tt.wantCode, decodeEnvelope(t, body).Code)
+			}
+			if tt.wantStatus == http.StatusOK {
+				assert.Equal(t, "u1", usecase.changeUserID)
+				assert.Equal(t, "042917", usecase.confirmCode)
+			}
+		})
+	}
+}
+
+// stubRegistration accepts every registration.
+type stubRegistration struct{}
+
+func (stubRegistration) Register(context.Context, *register.Register) error { return nil }
+
+// With email on, the 201 is also what a taken address gets, so its message must not claim an
+// account was created.
+func TestAuthRegister_MessageFollowsEmailFlows(t *testing.T) {
+	t.Parallel()
+	const body = `{"name":"Ada","email":"ada@example.com","password":"a-perfectly-fine-password"}`
+
+	for _, tt := range []struct {
+		name       string
+		emailFlows bool
+		want       string
+	}{
+		{"email off", false, handler.MsgRegistered},
+		{"email on", true, handler.MsgRegistrationQueued},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			h := handler.NewAuth(nil, response.NewValidator(), stubRegistration{}, nil, nil)
+			if tt.emailFlows {
+				h.WithEmailFlows()
+			}
+			app := fiber.New()
+			app.Post("/auth/register", h.Register)
+
+			status, raw := postJSON(t, app, "/auth/register", body, nil)
+
+			assert.Equal(t, http.StatusCreated, status)
+			assert.Equal(t, tt.want, decodeEnvelope(t, raw).Message)
 		})
 	}
 }

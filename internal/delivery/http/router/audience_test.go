@@ -79,6 +79,7 @@ func TestRegister_RecoveryRoutesFollowAuthEmailEnabled(t *testing.T) {
 	recoveryPaths := []string{
 		"/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
 		"/api/v1/auth/send-verification-email", "/api/v1/auth/verify-email",
+		"/api/v1/users/me/email-change", "/api/v1/users/me/email-change/confirm",
 	}
 
 	hasPath := func(routes []fiber.Route, path string) bool {

@@ -41,7 +41,7 @@ COMMENT ON COLUMN user_sessions.is_active IS 'False once the session is revoked;
 COMMENT ON COLUMN user_sessions.expires_at IS 'Absolute session lifetime; rotation never extends it';
 COMMENT ON COLUMN user_sessions.last_used_at IS 'When this session last refreshed its tokens';
 COMMENT ON COLUMN user_sessions.revoked_at IS 'When the session was revoked (NULL while active)';
-COMMENT ON COLUMN user_sessions.revoked_reason IS 'logout, logout_all, password_change, password_reset, reuse_detected, or admin';
+COMMENT ON COLUMN user_sessions.revoked_reason IS 'logout, logout_all, password_change, reuse_detected, or admin';
 COMMENT ON COLUMN user_sessions.created_at IS 'When the user logged in';
 
 -- Indexes: listing a user's sessions and the cleanup job's expiry sweep are the only scans.

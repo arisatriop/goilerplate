@@ -9,6 +9,7 @@ import (
 	"goilerplate/pkg/utils"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -261,6 +262,44 @@ func (r *authRepository) RevokeOtherUserSessions(ctx context.Context, userID, ke
 		"revoked_at":     utils.Now(),
 		"revoked_reason": reason,
 	}).Error
+}
+
+// uniqueUserEmailConstraint is the unique constraint on users.email.
+const uniqueUserEmailConstraint = "users_email_key"
+
+// isEmailTaken reports whether err is a violation of the unique email constraint. The
+// constraint, not a lookup beforehand, is what makes an address unique: two requests can both
+// pass a check before either writes.
+func isEmailTaken(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == uniqueUserEmailConstraint
+}
+
+// UpdateUserEmail moves the account to email and marks it verified, since the caller proved the
+// user reads it. auth.ErrEmailAlreadyRegistered when another account holds the address.
+func (r *authRepository) UpdateUserEmail(ctx context.Context, userID, email string) error {
+	now := utils.Now()
+
+	result := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ? AND deleted_at IS NULL", userID).
+		Updates(map[string]any{
+			"email":             email,
+			"email_verified":    true,
+			"email_verified_at": now,
+			"updated_at":        now,
+		})
+
+	if isEmailTaken(result.Error) {
+		return auth.ErrEmailAlreadyRegistered
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return auth.ErrNotFound
+	}
+	return nil
 }
 
 // MarkEmailVerified sets email_verified and stamps email_verified_at, unless the address was
@@ -584,6 +623,7 @@ func (r *authRepository) CreateOneTimeToken(ctx context.Context, token *auth.One
 		UsedAt:    token.UsedAt,
 		IPAddress: nullableString(token.IPAddress),
 		UserAgent: token.UserAgent,
+		NewEmail:  nullableString(token.NewEmail),
 		CreatedAt: utils.Now(),
 	}
 
@@ -684,6 +724,9 @@ func oneTimeTokenModelToEntity(m *model.OneTimeToken) *auth.OneTimeToken {
 	}
 	if m.IPAddress != nil {
 		token.IPAddress = *m.IPAddress
+	}
+	if m.NewEmail != nil {
+		token.NewEmail = *m.NewEmail
 	}
 	return token
 }

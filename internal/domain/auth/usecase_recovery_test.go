@@ -30,6 +30,9 @@ type recoveryRepo struct {
 	revokedKeep  *string
 	revokeReason string
 	verified     bool
+	// others are further accounts, so an address can be taken by someone else.
+	others    []*User
+	updateErr error
 }
 
 func (r *recoveryRepo) WithTx(context.Context) Repository { return r }
@@ -38,11 +41,23 @@ func (r *recoveryRepo) GetUserByEmail(_ context.Context, email string) (*User, e
 	if r.lookupErr != nil {
 		return nil, r.lookupErr
 	}
-	if r.user == nil || r.user.Email != email {
-		return nil, nil
+	for _, candidate := range append([]*User{r.user}, r.others...) {
+		if candidate != nil && candidate.Email == email {
+			copied := *candidate
+			return &copied, nil
+		}
 	}
-	copied := *r.user
-	return &copied, nil
+	return nil, nil
+}
+
+func (r *recoveryRepo) UpdateUserEmail(_ context.Context, _, email string) error {
+	if r.updateErr != nil {
+		return r.updateErr
+	}
+	r.user.Email = email
+	r.user.EmailVerified = true
+	r.verified = true
+	return nil
 }
 
 func (r *recoveryRepo) GetUserByID(_ context.Context, userID string) (*User, error) {
@@ -129,9 +144,30 @@ func (r *recoveryRepo) RevokeOtherUserSessions(_ context.Context, _, keepSession
 // recordingNotifier keeps every notice, so a test can read back the plaintext token or code the
 // way the user would from their inbox.
 type recordingNotifier struct {
-	notices []PasswordResetNotice
-	codes   []EmailVerificationNotice
-	err     error
+	notices     []PasswordResetNotice
+	codes       []EmailVerificationNotice
+	exists      []AccountExistsNotice
+	changeCodes []EmailChangeNotice
+	changed     []EmailChangedNotice
+	err         error
+}
+
+func (n *recordingNotifier) SendAccountExists(_ context.Context, notice AccountExistsNotice) error {
+	n.exists = append(n.exists, notice)
+	return n.err
+}
+
+func (n *recordingNotifier) SendEmailChangeCode(_ context.Context, notice EmailChangeNotice) error {
+	if n.err != nil {
+		return n.err
+	}
+	n.changeCodes = append(n.changeCodes, notice)
+	return nil
+}
+
+func (n *recordingNotifier) SendEmailChanged(_ context.Context, notice EmailChangedNotice) error {
+	n.changed = append(n.changed, notice)
+	return n.err
 }
 
 func (n *recordingNotifier) SendEmailVerification(_ context.Context, notice EmailVerificationNotice) error {

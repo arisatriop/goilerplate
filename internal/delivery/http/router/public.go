@@ -56,6 +56,13 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 	// authenticated route rather than per IP.
 	v1.Put("/users/me/password", r.Wired.Handlers.Auth.ChangePassword)
 
+	// Moving the account to another address sends a code there, so it exists only with email.
+	// The body carries the current password; middleware.CredentialBodyPaths keeps it out of logs.
+	if r.App.Config.Auth.Email.Enabled {
+		v1.Post("/users/me/email-change", r.Wired.Handlers.Auth.RequestEmailChange)
+		v1.Post("/users/me/email-change/confirm", r.Wired.Handlers.Auth.ConfirmEmailChange)
+	}
+
 	// A user's own devices. No permission is required: the user ID comes from the token, so
 	// these can only ever read or revoke the caller's own sessions.
 	v1.Get("/users/me/sessions", r.Wired.Handlers.Auth.ListSessions)

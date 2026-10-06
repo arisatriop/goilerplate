@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"goilerplate/pkg/hash"
 	"goilerplate/pkg/logger"
@@ -48,45 +49,18 @@ func (uc *authUseCase) SendEmailVerification(ctx context.Context, email string, 
 		return nil
 	}
 
-	latest, err := uc.authRepo.GetLatestActiveOneTimeToken(ctx, user.ID, OneTimeTokenEmailVerification)
+	cooling, err := uc.inOTPCooldown(ctx, user.ID, OneTimeTokenEmailVerification)
 	if err != nil {
-		return fmt.Errorf("getting latest verification code: %w", err)
+		return err
 	}
-	if latest != nil && utils.Now().Sub(latest.CreatedAt) < uc.email.OTP.ResendCooldown {
+	if cooling {
 		uc.logVerification(ctx, logger.ActionEmailVerificationRequested, user.ID, logger.OutcomeFailure, logger.ReasonCooldown)
 		return nil
 	}
 
-	code, err := generateOTP()
+	code, expiresAt, err := uc.issueOTP(ctx, user.ID, OneTimeTokenEmailVerification, "", origin)
 	if err != nil {
 		return err
-	}
-
-	// The hash is keyed by the token's own ID as well as the server secret. With the code alone,
-	// two users drawing the same code — or one user drawing a code a second time — would store
-	// the same hash, which the unique index on token_hash refuses.
-	tokenID := utils.GenerateUUID()
-	expiresAt := utils.Now().Add(uc.email.OTP.TTL)
-
-	// Only the newest code works, so a code that arrived late cannot be used after a new one.
-	err = uc.txManager.Do(ctx, func(txCtx context.Context) error {
-		repo := uc.authRepo.WithTx(txCtx)
-
-		if err := repo.ExpireOneTimeTokens(txCtx, user.ID, OneTimeTokenEmailVerification); err != nil {
-			return fmt.Errorf("expiring previous verification codes: %w", err)
-		}
-		return repo.CreateOneTimeToken(txCtx, &OneTimeToken{
-			ID:        tokenID,
-			UserID:    user.ID,
-			TokenType: OneTimeTokenEmailVerification,
-			TokenHash: uc.otpHash(tokenID, code),
-			ExpiresAt: expiresAt,
-			IPAddress: origin.IPAddress,
-			UserAgent: origin.UserAgent,
-		})
-	})
-	if err != nil {
-		return fmt.Errorf("issuing verification code: %w", err)
 	}
 
 	notice := EmailVerificationNotice{Email: user.Email, Name: user.Name, Code: code, ExpiresAt: expiresAt}
@@ -102,11 +76,7 @@ func (uc *authUseCase) SendEmailVerification(ctx context.Context, email string, 
 }
 
 // VerifyEmail marks the address verified when code is the account's current verification code.
-//
-// Each code tolerates OTP.MaxAttempts guesses. The attempt is counted before the code is
-// compared, in one atomic UPDATE, so a burst of concurrent guesses cannot all be compared
-// against the code before any of them is counted: the ceiling holds however the guesses
-// arrive. Every failure is ErrInvalidVerificationCode.
+// Every failure is ErrInvalidVerificationCode; matchOTP describes the attempt ceiling.
 func (uc *authUseCase) VerifyEmail(ctx context.Context, email, code string) error {
 	if uc.email.Notifier == nil {
 		return errEmailFlowsUnavailable
@@ -120,37 +90,12 @@ func (uc *authUseCase) VerifyEmail(ctx context.Context, email, code string) erro
 		return uc.refuseVerification(ctx, "", logger.ReasonInvalidToken)
 	}
 
-	token, err := uc.authRepo.GetLatestActiveOneTimeToken(ctx, user.ID, OneTimeTokenEmailVerification)
+	token, reason, err := uc.matchOTP(ctx, user.ID, OneTimeTokenEmailVerification, code)
 	if err != nil {
-		return fmt.Errorf("getting verification code: %w", err)
+		return err
 	}
 	if token == nil {
-		return uc.refuseVerification(ctx, user.ID, logger.ReasonInvalidToken)
-	}
-
-	attempts, err := uc.authRepo.IncrementOneTimeTokenAttempts(ctx, token.ID)
-	if errors.Is(err, ErrNotFound) {
-		return uc.refuseVerification(ctx, user.ID, logger.ReasonInvalidToken) // consumed meanwhile
-	}
-	if err != nil {
-		return fmt.Errorf("counting verification attempt: %w", err)
-	}
-
-	maxAttempts := max(uc.email.OTP.MaxAttempts, 1)
-	if attempts > maxAttempts {
-		return uc.refuseVerification(ctx, user.ID, logger.ReasonTooManyAttempts)
-	}
-
-	if !hash.KeyedEqual(uc.email.OTP.Secret, otpMessage(token.ID, code), token.TokenHash) {
-		if attempts == maxAttempts {
-			// That was the last guess this code allows. Expiring it now, rather than leaving
-			// the count to refuse the next one, makes the next request ask for a new code.
-			if err := uc.authRepo.ExpireOneTimeTokens(ctx, user.ID, OneTimeTokenEmailVerification); err != nil {
-				return fmt.Errorf("expiring exhausted verification code: %w", err)
-			}
-			return uc.refuseVerification(ctx, user.ID, logger.ReasonTooManyAttempts)
-		}
-		return uc.refuseVerification(ctx, user.ID, logger.ReasonInvalidToken)
+		return uc.refuseVerification(ctx, user.ID, reason)
 	}
 
 	err = uc.txManager.Do(ctx, func(txCtx context.Context) error {
@@ -178,6 +123,51 @@ func (uc *authUseCase) VerifyEmail(ctx context.Context, email, code string) erro
 	return nil
 }
 
+// matchOTP checks code against the user's current token of tokenType and returns the token when
+// it matches. A refusal is a nil token and the reason to log; err is reserved for failures
+// that are not the caller's doing.
+//
+// Each code tolerates OTP.MaxAttempts guesses. The attempt is counted before the code is
+// compared, in one atomic UPDATE, so a burst of concurrent guesses cannot all be compared
+// against the code before any of them is counted: the ceiling holds however the guesses
+// arrive. The guess that uses up the last attempt expires the code.
+func (uc *authUseCase) matchOTP(ctx context.Context, userID, tokenType, code string) (*OneTimeToken, string, error) {
+	token, err := uc.authRepo.GetLatestActiveOneTimeToken(ctx, userID, tokenType)
+	if err != nil {
+		return nil, "", fmt.Errorf("getting %s code: %w", tokenType, err)
+	}
+	if token == nil {
+		return nil, logger.ReasonInvalidToken, nil
+	}
+
+	attempts, err := uc.authRepo.IncrementOneTimeTokenAttempts(ctx, token.ID)
+	if errors.Is(err, ErrNotFound) {
+		return nil, logger.ReasonInvalidToken, nil // consumed meanwhile
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("counting %s attempt: %w", tokenType, err)
+	}
+
+	maxAttempts := max(uc.email.OTP.MaxAttempts, 1)
+	if attempts > maxAttempts {
+		return nil, logger.ReasonTooManyAttempts, nil
+	}
+
+	if !hash.KeyedEqual(uc.email.OTP.Secret, otpMessage(token.ID, code), token.TokenHash) {
+		if attempts < maxAttempts {
+			return nil, logger.ReasonInvalidToken, nil
+		}
+		// That was the last guess this code allows. Expiring it now, rather than leaving the
+		// count to refuse the next one, makes the next request ask for a new code.
+		if err := uc.authRepo.ExpireOneTimeTokens(ctx, userID, tokenType); err != nil {
+			return nil, "", fmt.Errorf("expiring exhausted %s code: %w", tokenType, err)
+		}
+		return nil, logger.ReasonTooManyAttempts, nil
+	}
+
+	return token, "", nil
+}
+
 func (uc *authUseCase) refuseVerification(ctx context.Context, userID, reason string) error {
 	uc.logVerification(ctx, logger.ActionEmailVerified, userID, logger.OutcomeFailure, reason)
 	return ErrInvalidVerificationCode
@@ -185,6 +175,52 @@ func (uc *authUseCase) refuseVerification(ctx context.Context, userID, reason st
 
 func (uc *authUseCase) logVerification(ctx context.Context, action, userID, outcome, reason string) {
 	logger.Security(ctx, logger.SecurityEvent{Action: action, Outcome: outcome, UserID: userID, Reason: reason})
+}
+
+// issueOTP replaces the user's code of tokenType with a new one and returns its plaintext. Only
+// the newest code works, so a code that arrived late cannot be used after a new one.
+func (uc *authUseCase) issueOTP(ctx context.Context, userID, tokenType, newEmail string, origin RequestOrigin) (string, time.Time, error) {
+	code, err := generateOTP()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	// The hash is keyed by the token's own ID as well as the server secret. With the code alone,
+	// two users drawing the same code — or one user drawing a code a second time — would store
+	// the same hash, which the unique index on token_hash refuses.
+	tokenID := utils.GenerateUUID()
+	expiresAt := utils.Now().Add(uc.email.OTP.TTL)
+
+	err = uc.txManager.Do(ctx, func(txCtx context.Context) error {
+		repo := uc.authRepo.WithTx(txCtx)
+
+		if err := repo.ExpireOneTimeTokens(txCtx, userID, tokenType); err != nil {
+			return fmt.Errorf("expiring previous %s codes: %w", tokenType, err)
+		}
+		return repo.CreateOneTimeToken(txCtx, &OneTimeToken{
+			ID:        tokenID,
+			UserID:    userID,
+			TokenType: tokenType,
+			TokenHash: uc.otpHash(tokenID, code),
+			ExpiresAt: expiresAt,
+			IPAddress: origin.IPAddress,
+			UserAgent: origin.UserAgent,
+			NewEmail:  newEmail,
+		})
+	})
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("issuing %s code: %w", tokenType, err)
+	}
+	return code, expiresAt, nil
+}
+
+// inOTPCooldown reports whether the user was sent a code of tokenType too recently for another.
+func (uc *authUseCase) inOTPCooldown(ctx context.Context, userID, tokenType string) (bool, error) {
+	latest, err := uc.authRepo.GetLatestActiveOneTimeToken(ctx, userID, tokenType)
+	if err != nil {
+		return false, fmt.Errorf("getting latest %s code: %w", tokenType, err)
+	}
+	return latest != nil && utils.Now().Sub(latest.CreatedAt) < uc.email.OTP.ResendCooldown, nil
 }
 
 func (uc *authUseCase) otpHash(tokenID, code string) string {

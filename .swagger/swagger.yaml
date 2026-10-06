@@ -31,6 +31,23 @@ definitions:
     - currentPassword
     - newPassword
     type: object
+  dtorequest.ConfirmEmailChangeRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  dtorequest.EmailChangeRequest:
+    properties:
+      currentPassword:
+        type: string
+      newEmail:
+        type: string
+    required:
+    - currentPassword
+    - newEmail
+    type: object
   dtorequest.ForgotPasswordRequest:
     properties:
       email:
@@ -428,6 +445,10 @@ paths:
     post:
       consumes:
       - application/json
+      description: With auth.email.enabled, an address that is already registered
+        gets the same 201 as a new one and its owner is emailed instead, so the response
+        never says which addresses have accounts. Without email, a taken address is
+        409 email_already_registered.
       parameters:
       - description: Registration data
         in: body
@@ -444,6 +465,10 @@ paths:
             $ref: '#/definitions/response.BaseResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "409":
+          description: email_already_registered, only when auth.email.enabled is false
           schema:
             $ref: '#/definitions/response.BaseResponse'
         "500":
@@ -771,6 +796,86 @@ paths:
       summary: Update bar
       tags:
       - bars
+  /api/v1/users/me/email-change:
+    post:
+      consumes:
+      - application/json
+      description: Requires the current password. Answers 200 with the same message
+        whether or not the address is free; a code is sent only when it is. Available
+        only when auth.email.enabled is true.
+      parameters:
+      - description: New address and current password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dtorequest.EmailChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: validation_failed or email_unchanged
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "401":
+          description: invalid_credentials
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      security:
+      - BearerAuth: []
+      summary: Start changing the account's email address
+      tags:
+      - auth
+  /api/v1/users/me/email-change/confirm:
+    post:
+      consumes:
+      - application/json
+      description: The old address is told once the change is made. Available only
+        when auth.email.enabled is true.
+      parameters:
+      - description: 6-digit code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dtorequest.ConfirmEmailChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: validation_failed or invalid_verification_code
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "409":
+          description: 'email_already_registered: the address was taken since the
+            code was sent'
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      security:
+      - BearerAuth: []
+      summary: Confirm an email change with the code sent to the new address
+      tags:
+      - auth
   /api/v1/users/me/password:
     put:
       consumes:

@@ -133,7 +133,8 @@ log:
   source: false # include file:line in every log entry
   redact_fields: [] # extra JSON/query field names to mask (password, token, api_key, ... are always masked)
   # Extra path prefixes whose request/response bodies are never logged. Added to the credential
-  # routes (/api/v1/auth, /api/v1/users/me/password), which are always omitted and cannot be removed.
+  # routes (/api/v1/auth, /api/v1/users/me/password, /api/v1/users/me/email-change), which are
+  # always omitted and cannot be removed.
   omit_body_paths: [/internal/uploads]
 
 # Optional. Proto contract: github.com/arisatriop/goilerplate-proto

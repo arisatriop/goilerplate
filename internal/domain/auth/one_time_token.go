@@ -26,6 +26,8 @@ type OneTimeToken struct {
 	UsedAt    *time.Time
 	IPAddress string
 	UserAgent string
+	// NewEmail is set on email_change tokens only: the address the account moves to.
+	NewEmail  string
 	CreatedAt time.Time
 }
 

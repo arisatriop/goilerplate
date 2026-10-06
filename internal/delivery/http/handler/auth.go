@@ -22,6 +22,22 @@ type Auth struct {
 	usecase            auth.Usecase
 	// refresh hands out the refresh token: in the body or as an HttpOnly cookie. Nil is body.
 	refresh *refreshtoken.Transport
+	// registeredMessage answers a successful registration; see WithEmailFlows.
+	registeredMessage string
+}
+
+// Registration messages. With email on, a taken address is answered like a new one, so the
+// message must be true for both: it cannot say an account was created.
+const (
+	MsgRegistered         = "User registered successfully"
+	MsgRegistrationQueued = "Registration received. Check your email to continue"
+)
+
+// WithEmailFlows switches registration to the answer that holds whether or not the address was
+// already registered. Call it when auth.email.enabled is true.
+func (h *Auth) WithEmailFlows() *Auth {
+	h.registeredMessage = MsgRegistrationQueued
+	return h
 }
 
 func NewAuth(deviceService auth.DeviceService, validator *validator.Validate, applicationService register.ApplicationService, usecase auth.Usecase, refresh *refreshtoken.Transport) *Auth {
@@ -47,12 +63,14 @@ func (h *Auth) tokenResponse(ctx *fiber.Ctx, result *auth.LoginResult) *dtorespo
 
 // Register handles user registration
 // @Summary      Register a new user
+// @Description  With auth.email.enabled, an address that is already registered gets the same 201 as a new one and its owner is emailed instead, so the response never says which addresses have accounts. Without email, a taken address is 409 email_already_registered.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.RegisterRequest  true  "Registration data"
 // @Success      201      {object}  response.BaseResponse
 // @Failure      400      {object}  response.BaseResponse
+// @Failure      409      {object}  response.BaseResponse  "email_already_registered, only when auth.email.enabled is false"
 // @Failure      500      {object}  response.BaseResponse
 // @Router       /api/v1/auth/register [post]
 func (h *Auth) Register(ctx *fiber.Ctx) error {
@@ -79,7 +97,11 @@ func (h *Auth) Register(ctx *fiber.Ctx) error {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.Created(ctx, nil, response.WithMessage("User registered successfully"))
+	message := h.registeredMessage
+	if message == "" {
+		message = MsgRegistered
+	}
+	return response.Created(ctx, nil, response.WithMessage(message))
 }
 
 // Login handles user authentication
@@ -399,6 +421,73 @@ func (h *Auth) VerifyEmail(ctx *fiber.Ctx) error {
 	}
 
 	return response.Success(ctx, nil, response.WithMessage("Email address verified"))
+}
+
+// MsgEmailChangeRequested answers every email change request that passed the password check,
+// whether or not a code was sent.
+const MsgEmailChangeRequested = "If the address can be used, a confirmation code has been sent to it"
+
+// RequestEmailChange sends a code to the new address
+// @Summary      Start changing the account's email address
+// @Description  Requires the current password. Answers 200 with the same message whether or not the address is free; a code is sent only when it is. Available only when auth.email.enabled is true.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.EmailChangeRequest  true  "New address and current password"
+// @Success      200      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse  "validation_failed or email_unchanged"
+// @Failure      401      {object}  response.BaseResponse  "invalid_credentials"
+// @Failure      500      {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/users/me/email-change [post]
+func (h *Auth) RequestEmailChange(ctx *fiber.Ctx) error {
+	var req dtorequest.EmailChangeRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return response.BadRequest(ctx, constants.MsgInvalidRequestBody, nil)
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
+
+	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+	if err := h.usecase.RequestEmailChange(ctx.UserContext(), userID, req.CurrentPassword, req.NewEmail, requestOrigin(ctx)); err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	return response.Success(ctx, nil, response.WithMessage(MsgEmailChangeRequested))
+}
+
+// ConfirmEmailChange moves the account to the new address
+// @Summary      Confirm an email change with the code sent to the new address
+// @Description  The old address is told once the change is made. Available only when auth.email.enabled is true.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.ConfirmEmailChangeRequest  true  "6-digit code"
+// @Success      200      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse  "validation_failed or invalid_verification_code"
+// @Failure      401      {object}  response.BaseResponse
+// @Failure      409      {object}  response.BaseResponse  "email_already_registered: the address was taken since the code was sent"
+// @Failure      500      {object}  response.BaseResponse
+// @Security     BearerAuth
+// @Router       /api/v1/users/me/email-change/confirm [post]
+func (h *Auth) ConfirmEmailChange(ctx *fiber.Ctx) error {
+	var req dtorequest.ConfirmEmailChangeRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return response.BadRequest(ctx, constants.MsgInvalidRequestBody, nil)
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
+
+	userID := ctx.Locals(string(constants.ContextKeyUserID)).(string)
+	if err := h.usecase.ConfirmEmailChange(ctx.UserContext(), userID, req.Code); err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	return response.Success(ctx, nil, response.WithMessage("Email address changed"))
 }
 
 // RefreshToken handles token refresh using refresh token

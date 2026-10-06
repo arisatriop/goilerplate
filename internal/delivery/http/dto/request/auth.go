@@ -58,3 +58,14 @@ type VerifyEmailRequest struct {
 	Email string `json:"email" validate:"required,email"`
 	Code  string `json:"code" validate:"required,len=6,numeric"`
 }
+
+// EmailChangeRequest starts moving the caller's account to another address.
+type EmailChangeRequest struct {
+	NewEmail        string `json:"newEmail" validate:"required,email"`
+	CurrentPassword string `json:"currentPassword" validate:"required"`
+}
+
+// ConfirmEmailChangeRequest confirms the change with the code sent to the new address.
+type ConfirmEmailChangeRequest struct {
+	Code string `json:"code" validate:"required,len=6,numeric"`
+}

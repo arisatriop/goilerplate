@@ -200,6 +200,37 @@ With `auth.require_email_verification: true` (default `false`), login with the r
 and an unverified address answers `403 {"code": "email_not_verified"}`. It is checked after the
 password, like a disabled account, so it tells nothing to someone who does not know it.
 
+### Changing the email address
+
+Authenticated, and only with `auth.email.enabled: true`:
+
+```http
+POST /api/v1/users/me/email-change
+{"newEmail": "ana.new@example.org", "currentPassword": "..."}
+
+POST /api/v1/users/me/email-change/confirm
+{"code": "042917"}
+```
+
+1. The current password is required (`401 invalid_credentials` without it): a signed-in session
+   is enough to read the account, not to hand it to another inbox.
+2. A code is sent to the **new** address; nothing changes until it is confirmed. The pending
+   address is stored on the token (`one_time_tokens.new_email`).
+3. An address another account holds is answered with the same 200 and **no** code, so a
+   signed-in user cannot probe which addresses are registered. The same address as now is
+   `400 email_unchanged`.
+4. Confirmation uses the same code rules as verification: keyed hash, attempt ceiling counted
+   before the comparison, `400 invalid_verification_code` for every failure. If the address was
+   registered by someone else in the meantime, the unique constraint refuses the move:
+   `409 email_already_registered`.
+5. On success the account moves, the new address counts as verified, and the **old** address is
+   told — the only warning a user gets if someone else did it. Sessions are kept; the warning
+   points the user at a password reset, which signs out every device. Tokens issued from the next
+   refresh on carry the new address.
+
+The request body carries the password, so `/api/v1/users/me/email-change` is always left out of
+body logging, like `/api/v1/auth` and `/api/v1/users/me/password`.
+
 The mail provider is `email.driver`: `log` (prints the message — reset link included — to the
 log; refused in production), `smtp`, `ses` or `resend`. See
 [`config/config.full.example.yaml`](../../config/config.full.example.yaml).
@@ -299,12 +330,15 @@ The locked response does say the account is locked rather than imitating a wrong
 deliberate: hiding it would leave a locked-out user with a correct password and no explanation, and
 the only person it tells anything new is someone who just spent the attempts to cause the lock.
 
-⚠️ **Registration is different, and it is a known gap.** `POST /api/v1/auth/register` answers
-`409 {"code": "email_already_registered", ...}` for a taken address and `201` for a free one, so
-it *can* be used to discover which addresses are registered — undoing on one endpoint what login
-is careful about on another. Closing it is part of
-[F1](../roadmap/improvement-tasks.md#f1-email-module-verification-forgotreset-password-email-change--l), which replaces the immediate answer with a verification
-email either way.
+**Registration follows the same rule when email is on.** With `auth.email.enabled`,
+`POST /api/v1/auth/register` answers a taken address exactly like a new one —
+`201 {"message": "Registration received. Check your email to continue"}` — and emails the owner
+"you already have an account" instead. Both paths run bcrypt, so the timing matches too; a
+concurrent registration that wins the insert is answered the same way.
+
+⚠️ Without email there is nobody to tell but the caller, so registration still answers
+`409 email_already_registered` for a taken address and *can* be used to discover which addresses
+are registered. Turn email on to close it.
 
 ---
 
@@ -396,7 +430,7 @@ validation refuses to set shorter than `auth.session_expiry`.
 ## 🧪 Where this is tested
 
 - `internal/integration/` — the lifecycle end to end (login → refresh → logout, multi-device,
-  reuse, lockout, anti-enumeration, password reset, email verification), run against a real PostgreSQL under
+  reuse, lockout, anti-enumeration, password reset, email verification, email change), run against a real PostgreSQL under
   **every** cache mode, because `none` cannot detect a broken cache eviction.
 - `internal/domain/auth/` — the rotation, session, permission and validator logic in isolation.
 - `pkg/jwt/` — signing, `kid` selection, and rejecting an access token where a refresh token

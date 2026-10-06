@@ -22,6 +22,7 @@ import (
 type AuthMailer struct {
 	sender   email.Sender
 	appName  string
+	baseURL  *url.URL
 	resetURL *url.URL
 }
 
@@ -52,6 +53,7 @@ func NewAuthMailer(sender email.Sender, opts AuthMailerOptions) (*AuthMailer, er
 	return &AuthMailer{
 		sender:   sender,
 		appName:  appName,
+		baseURL:  base,
 		resetURL: base.JoinPath(opts.ResetPasswordPath),
 	}, nil
 }
@@ -108,6 +110,57 @@ func (m *AuthMailer) SendEmailVerification(ctx context.Context, notice auth.Emai
 		Subject: m.appName + ": verify your email address",
 		Text:    text.String(),
 		HTML:    html.String(),
+	})
+}
+
+// SendAccountExists tells the owner of an address that it was registered again.
+func (m *AuthMailer) SendAccountExists(ctx context.Context, notice auth.AccountExistsNotice) error {
+	return m.render(ctx, notice.Email, "you already have an account", accountExistsText, accountExistsHTML, messageData{
+		AppName: m.appName, Name: notice.Name, Link: m.baseURL.String(),
+	})
+}
+
+// SendEmailChangeCode emails the code confirming a change of address, to the new address.
+func (m *AuthMailer) SendEmailChangeCode(ctx context.Context, notice auth.EmailChangeNotice) error {
+	return m.render(ctx, notice.NewEmail, "confirm your new email address", emailChangeText, emailChangeHTML, messageData{
+		AppName: m.appName, Name: notice.Name, Code: notice.Code,
+		ExpiresIn: humanDuration(notice.ExpiresAt.Sub(utils.Now())),
+	})
+}
+
+// SendEmailChanged tells the old address that the account has moved.
+func (m *AuthMailer) SendEmailChanged(ctx context.Context, notice auth.EmailChangedNotice) error {
+	return m.render(ctx, notice.OldEmail, "your email address was changed", emailChangedText, emailChangedHTML, messageData{
+		AppName: m.appName, Name: notice.Name, NewEmail: notice.NewEmail,
+		Link: m.resetURL.String(),
+	})
+}
+
+// messageData is what the account templates below may use.
+type messageData struct {
+	AppName   string
+	Name      string
+	Link      string
+	Code      string
+	ExpiresIn string
+	NewEmail  string
+}
+
+// render executes both templates and queues the message.
+func (m *AuthMailer) render(ctx context.Context, to, subject string, text *texttemplate.Template, html *htmltemplate.Template, data messageData) error {
+	var textBody, htmlBody bytes.Buffer
+	if err := text.Execute(&textBody, data); err != nil {
+		return fmt.Errorf("rendering %s: %w", text.Name(), err)
+	}
+	if err := html.Execute(&htmlBody, data); err != nil {
+		return fmt.Errorf("rendering %s: %w", html.Name(), err)
+	}
+
+	return m.sender.Send(ctx, email.Message{
+		To:      to,
+		Subject: m.appName + ": " + subject,
+		Text:    textBody.String(),
+		HTML:    htmlBody.String(),
 	})
 }
 
@@ -178,6 +231,77 @@ If you did not create an account, you can ignore this email.
 <p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; font-family: monospace;">{{.Code}}</p>
 <p>It expires in {{.ExpiresIn}}. Nobody from {{.AppName}} will ask you for this code.</p>
 <p>If you did not create an account, you can ignore this email.</p>
+<p>— {{.AppName}}</p>
+</body>
+</html>
+`))
+)
+
+var (
+	accountExistsText = texttemplate.Must(texttemplate.New("exists.txt").Parse(`Hi{{if .Name}} {{.Name}}{{end}},
+
+Someone tried to create a {{.AppName}} account with this email address. You already have one, so nothing was created.
+
+Sign in at {{.Link}}. If you forgot your password, use "Forgot password" there.
+
+If this was not you, you can ignore this email.
+
+— {{.AppName}}
+`))
+
+	accountExistsHTML = htmltemplate.Must(htmltemplate.New("exists.html").Parse(`<!doctype html>
+<html>
+<body style="font-family: sans-serif; line-height: 1.5; color: #222;">
+<p>Hi{{if .Name}} {{.Name}}{{end}},</p>
+<p>Someone tried to create a {{.AppName}} account with this email address. You already have one, so nothing was created.</p>
+<p><a href="{{.Link}}">Sign in</a>. If you forgot your password, use "Forgot password" there.</p>
+<p>If this was not you, you can ignore this email.</p>
+<p>— {{.AppName}}</p>
+</body>
+</html>
+`))
+
+	emailChangeText = texttemplate.Must(texttemplate.New("change.txt").Parse(`Hi{{if .Name}} {{.Name}}{{end}},
+
+To move your {{.AppName}} account to this email address, enter this code:
+
+{{.Code}}
+
+It expires in {{.ExpiresIn}}. Nobody from {{.AppName}} will ask you for this code.
+
+If you did not ask for this, ignore this email: nothing changes without the code.
+
+— {{.AppName}}
+`))
+
+	emailChangeHTML = htmltemplate.Must(htmltemplate.New("change.html").Parse(`<!doctype html>
+<html>
+<body style="font-family: sans-serif; line-height: 1.5; color: #222;">
+<p>Hi{{if .Name}} {{.Name}}{{end}},</p>
+<p>To move your {{.AppName}} account to this email address, enter this code:</p>
+<p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; font-family: monospace;">{{.Code}}</p>
+<p>It expires in {{.ExpiresIn}}. Nobody from {{.AppName}} will ask you for this code.</p>
+<p>If you did not ask for this, ignore this email: nothing changes without the code.</p>
+<p>— {{.AppName}}</p>
+</body>
+</html>
+`))
+
+	emailChangedText = texttemplate.Must(texttemplate.New("changed.txt").Parse(`Hi{{if .Name}} {{.Name}}{{end}},
+
+The email address of your {{.AppName}} account was changed to {{.NewEmail}}. Emails about your account now go there.
+
+If you did not do this, someone else may be signed in to your account. Reset your password at {{.Link}} — that signs out every device — and contact support.
+
+— {{.AppName}}
+`))
+
+	emailChangedHTML = htmltemplate.Must(htmltemplate.New("changed.html").Parse(`<!doctype html>
+<html>
+<body style="font-family: sans-serif; line-height: 1.5; color: #222;">
+<p>Hi{{if .Name}} {{.Name}}{{end}},</p>
+<p>The email address of your {{.AppName}} account was changed to <strong>{{.NewEmail}}</strong>. Emails about your account now go there.</p>
+<p>If you did not do this, someone else may be signed in to your account. <a href="{{.Link}}">Reset your password</a> — that signs out every device — and contact support.</p>
 <p>— {{.AppName}}</p>
 </body>
 </html>

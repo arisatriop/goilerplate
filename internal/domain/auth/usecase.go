@@ -10,6 +10,7 @@
 //	usecase_sessions.go     listing and revoking the caller's own sessions
 //	usecase_recovery.go     forgot password and reset password
 //	usecase_verification.go email verification by emailed code
+//	usecase_email_change.go moving an account to another address
 //
 // The collaborators each flow leans on live in their own files already: session_service.go,
 // permission_service.go, menu_service.go, device_service.go, user_validator.go.
@@ -67,6 +68,9 @@ type Usecase interface {
 	ResetPassword(ctx context.Context, token, newPassword string) error
 	SendEmailVerification(ctx context.Context, email string, origin RequestOrigin) error
 	VerifyEmail(ctx context.Context, email, code string) error
+	SendAccountExistsNotice(ctx context.Context, email string) error
+	RequestEmailChange(ctx context.Context, userID, currentPassword, newEmail string, origin RequestOrigin) error
+	ConfirmEmailChange(ctx context.Context, userID, code string) error
 }
 
 func NewUseCase(

@@ -160,7 +160,7 @@ func TestRequestLogger_ShouldOmitBody(t *testing.T) {
 func TestRequestLogger_ConfiguredPathsNeverDropCredentialRoutes(t *testing.T) {
 	rl := NewRequestLogger([]string{"/internal"})
 
-	for _, path := range []string{"/api/v1/auth/login", "/api/v1/users/me/password", "/internal/bars"} {
+	for _, path := range []string{"/api/v1/auth/login", "/api/v1/users/me/password", "/api/v1/users/me/email-change", "/api/v1/users/me/email-change/confirm", "/internal/bars"} {
 		assert.True(t, rl.shouldOmitBody(path), path)
 	}
 }

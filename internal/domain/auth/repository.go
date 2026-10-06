@@ -34,6 +34,9 @@ type Repository interface {
 	// MarkEmailVerified records that the user proved they read their address. Idempotent: an
 	// already verified address keeps its original email_verified_at.
 	MarkEmailVerified(ctx context.Context, userID string) error
+	// UpdateUserEmail moves the account to email and marks it verified. ErrEmailAlreadyRegistered
+	// when another account holds the address.
+	UpdateUserEmail(ctx context.Context, userID, email string) error
 
 	// One-time token operations (email verification, password reset, email change)
 	// CreateOneTimeToken keeps token.ID when it is set: an OTP's hash is keyed by its ID, so the

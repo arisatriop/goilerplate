@@ -261,6 +261,7 @@
         },
         "/api/v1/auth/register": {
             "post": {
+                "description": "With auth.email.enabled, an address that is already registered gets the same 201 as a new one and its owner is emailed instead, so the response never says which addresses have accounts. Without email, a taken address is 409 email_already_registered.",
                 "consumes": [
                     "application/json"
                 ],
@@ -291,6 +292,12 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "email_already_registered, only when auth.email.enabled is false",
                         "schema": {
                             "$ref": "#/definitions/response.BaseResponse"
                         }
@@ -806,6 +813,126 @@
                 }
             }
         },
+        "/api/v1/users/me/email-change": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires the current password. Answers 200 with the same message whether or not the address is free; a code is sent only when it is. Available only when auth.email.enabled is true.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Start changing the account's email address",
+                "parameters": [
+                    {
+                        "description": "New address and current password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dtorequest.EmailChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "validation_failed or email_unchanged",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "invalid_credentials",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/me/email-change/confirm": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The old address is told once the change is made. Available only when auth.email.enabled is true.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Confirm an email change with the code sent to the new address",
+                "parameters": [
+                    {
+                        "description": "6-digit code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dtorequest.ConfirmEmailChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "validation_failed or invalid_verification_code",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "email_already_registered: the address was taken since the code was sent",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/users/me/password": {
             "put": {
                 "security": [
@@ -1018,6 +1145,32 @@
                 "newPassword": {
                     "type": "string",
                     "minLength": 8
+                }
+            }
+        },
+        "dtorequest.ConfirmEmailChangeRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "dtorequest.EmailChangeRequest": {
+            "type": "object",
+            "required": [
+                "currentPassword",
+                "newEmail"
+            ],
+            "properties": {
+                "currentPassword": {
+                    "type": "string"
+                },
+                "newEmail": {
+                    "type": "string"
                 }
             }
         },
