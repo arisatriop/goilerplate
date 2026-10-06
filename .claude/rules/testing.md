@@ -38,6 +38,9 @@ before trusting a change that touches SQL, caching, or auth. CI sets both.
   (`assert.Eventually`). Sleeps make tests slow and flaky, and H1 caught one passing for the
   wrong reason
 - Inject time (`utils.Now`) and randomness rather than asserting around them
+- A package whose tests hash passwords sets `utils.SetPasswordCostForTests(bcrypt.MinCost)` in
+  `TestMain` (see `internal/domain/auth/main_test.go`). At the production cost one hash takes
+  about two seconds under `-race`. Never call it outside `TestMain`
 - Assert observable behaviour: the status and body, the rows written, the events emitted. Assert
   that a method was called only when the call **is** the behaviour (for example, a cache eviction)
 - `require` for preconditions whose failure makes the rest meaningless. `assert` for the checks
