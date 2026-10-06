@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"goilerplate/pkg/email"
 	"goilerplate/pkg/filesystem"
 )
 
@@ -19,6 +20,8 @@ type Config struct {
 	OTel       OTel              `mapstructure:"otel"`
 	RateLimit  RateLimit         `mapstructure:"rate_limit"`
 	FileSystem FileSystem        `mapstructure:"filesystem"`
+	Email      email.Config      `mapstructure:"email"`
+	Frontend   Frontend          `mapstructure:"frontend"`
 	Crypto     Crypto            `mapstructure:"crypto"`
 	Apikeys    map[string]string `mapstructure:"api_key"`
 	// Services is an extension point for upstreams this application calls; see Service.
@@ -380,6 +383,73 @@ type Auth struct {
 	// browsers, so page JavaScript can never read it).
 	RefreshTransport string        `mapstructure:"refresh_transport"`
 	RefreshCookie    RefreshCookie `mapstructure:"refresh_cookie"`
+	// Email turns on the flows that send email. Off by default: without it the routes do not
+	// exist, so a deployment with no mail provider has nothing half-working to expose.
+	Email         AuthEmail     `mapstructure:"email"`
+	PasswordReset PasswordReset `mapstructure:"password_reset"`
+}
+
+// AuthEmail switches the email-based auth flows on. Which provider sends the mail is the
+// top-level email block.
+type AuthEmail struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
+// Defaults applied when the corresponding password reset settings are zero.
+const (
+	DefaultPasswordResetTTL            = 30 * time.Minute
+	DefaultPasswordResetResendCooldown = time.Minute
+)
+
+// PasswordReset configures "forgot password".
+type PasswordReset struct {
+	// TTL is how long an emailed reset link stays usable. Default 30m.
+	TTL time.Duration `mapstructure:"ttl"`
+	// ResendCooldown is the minimum gap between two reset emails to one account. A second
+	// request inside it is answered the same way but sends nothing, so the endpoint cannot be
+	// used to flood someone's inbox. Default 1m.
+	ResendCooldown time.Duration `mapstructure:"resend_cooldown"`
+}
+
+// TTLOrDefault returns password_reset.ttl, or DefaultPasswordResetTTL when unset.
+func (p PasswordReset) TTLOrDefault() time.Duration {
+	if p.TTL > 0 {
+		return p.TTL
+	}
+	return DefaultPasswordResetTTL
+}
+
+// ResendCooldownOrDefault returns password_reset.resend_cooldown, or
+// DefaultPasswordResetResendCooldown when unset.
+func (p PasswordReset) ResendCooldownOrDefault() time.Duration {
+	if p.ResendCooldown > 0 {
+		return p.ResendCooldown
+	}
+	return DefaultPasswordResetResendCooldown
+}
+
+// DefaultFrontendResetPasswordPath is the frontend page a reset link opens when
+// frontend.reset_password_path is unset.
+const DefaultFrontendResetPasswordPath = "/reset-password"
+
+// Frontend describes the web app that links in emails point to. The API never serves these
+// pages itself: a reset link opens the frontend, which posts the token back to the API.
+type Frontend struct {
+	// BaseURL is the frontend origin, such as https://app.example.com. Required when
+	// auth.email.enabled is true.
+	BaseURL string `mapstructure:"base_url"`
+	// ResetPasswordPath is the page that reads ?token= and calls POST /api/v1/auth/reset-password.
+	// Default /reset-password.
+	ResetPasswordPath string `mapstructure:"reset_password_path"`
+}
+
+// ResetPasswordPathOrDefault returns reset_password_path, or DefaultFrontendResetPasswordPath
+// when unset.
+func (f Frontend) ResetPasswordPathOrDefault() string {
+	if path := strings.TrimSpace(f.ResetPasswordPath); path != "" {
+		return path
+	}
+	return DefaultFrontendResetPasswordPath
 }
 
 // Refresh token transports for auth.refresh_transport.

@@ -274,6 +274,75 @@ func (h *Auth) ChangePassword(ctx *fiber.Ctx) error {
 	return response.Success(ctx, nil, response.WithMessage("Password changed successfully"))
 }
 
+// MsgPasswordResetRequested answers every forgot-password request, whether or not an email was
+// sent, so the response never says which addresses are registered.
+//
+// #nosec G101 -- a message shown to the user, not a credential.
+const MsgPasswordResetRequested = "If an account exists for that email, a password reset link has been sent"
+
+// ForgotPassword emails a password reset link
+// @Summary      Request a password reset link
+// @Description  Always answers 200 with the same message, whether or not the address is registered. Available only when auth.email.enabled is true.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.ForgotPasswordRequest  true  "Account email"
+// @Success      200      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Router       /api/v1/auth/forgot-password [post]
+func (h *Auth) ForgotPassword(ctx *fiber.Ctx) error {
+	var req dtorequest.ForgotPasswordRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return response.BadRequest(ctx, constants.MsgInvalidRequestBody, nil)
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
+
+	origin := auth.RequestOrigin{
+		// ctx.IP() already applied the trusted-proxy check configured in bootstrap.
+		IPAddress: ctx.IP(),
+		UserAgent: ctx.Get(fiber.HeaderUserAgent),
+	}
+	if err := h.usecase.ForgotPassword(ctx.UserContext(), req.Email, origin); err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	return response.Success(ctx, nil, response.WithMessage(MsgPasswordResetRequested))
+}
+
+// ResetPassword sets a new password using the token from a reset link
+// @Summary      Reset the password with an emailed token
+// @Description  Signs the account out on every device. Available only when auth.email.enabled is true.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.ResetPasswordRequest  true  "Reset token and new password"
+// @Success      200      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse  "validation_failed, a password the policy refuses, or invalid_reset_token"
+// @Failure      429      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Router       /api/v1/auth/reset-password [post]
+func (h *Auth) ResetPassword(ctx *fiber.Ctx) error {
+	var req dtorequest.ResetPasswordRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return response.BadRequest(ctx, constants.MsgInvalidRequestBody, nil)
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
+
+	if err := h.usecase.ResetPassword(ctx.UserContext(), req.Token, req.NewPassword); err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	return response.Success(ctx, nil, response.WithMessage("Password has been reset. Sign in with the new password"))
+}
+
 // RefreshToken handles token refresh using refresh token
 // @Summary      Refresh access token
 // @Tags         auth

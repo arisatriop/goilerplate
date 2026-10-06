@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/url"
 	"regexp"
 	"strings"
 
 	"goilerplate/pkg/apikey"
+	"goilerplate/pkg/email"
 	"goilerplate/pkg/filesystem"
 )
 
@@ -42,6 +44,7 @@ func (c *Config) Validate() error {
 	c.validateOTel(v)
 	c.validateJWT(v)
 	c.validateAuth(v)
+	c.validateEmail(v)
 	c.validateFileSystem(v)
 	c.validateAPIKeys(v)
 	c.validateInternalAuth(v)
@@ -404,6 +407,98 @@ func (c *Config) validateRefreshTransport(v *validation) {
 	// origin check needs to know which pages that may be.
 	if !c.Server.EnableCORS || !c.Server.CORS.AllowCredentials || strings.TrimSpace(c.Server.CORS.AllowOrigin) == "*" {
 		v.addf("auth.refresh_cookie.same_site=none requires server.enable_cors with allow_credentials and explicit allow_origin entries")
+	}
+}
+
+// validateEmail checks the mail provider and the frontend links point to, but only when the
+// email flows are on: a deployment that never sends mail should not have to configure either.
+func (c *Config) validateEmail(v *validation) {
+	reset := c.Auth.PasswordReset
+	if reset.TTL < 0 {
+		v.addf("auth.password_reset.ttl must not be negative")
+	}
+	if reset.ResendCooldown < 0 {
+		v.addf("auth.password_reset.resend_cooldown must not be negative")
+	} else if reset.ResendCooldownOrDefault() >= reset.TTLOrDefault() {
+		// A cooldown as long as the link's lifetime would leave a user whose email went
+		// astray with no way to ask for another until the first had already expired.
+		v.addf("auth.password_reset.resend_cooldown must be shorter than auth.password_reset.ttl")
+	}
+
+	if !c.Auth.Email.Enabled {
+		return
+	}
+
+	v.required("email.from", c.Email.From)
+	if from := strings.TrimSpace(c.Email.From); from != "" {
+		if _, err := mail.ParseAddress(from); err != nil {
+			v.addf("email.from must be an address or \"Name <address>\", got %q", c.Email.From)
+		}
+	}
+
+	switch driver := c.Email.DriverOrDefault(); driver {
+	case email.DriverLog:
+		// The log driver writes every message body to the log, reset links included, and a
+		// reset link is a password. Anyone who can read production logs could take over any
+		// account that asked for one.
+		if c.IsProduction() {
+			v.addf("email.driver=log writes reset links into the logs and is refused in production; use smtp, ses, or resend")
+		}
+	case email.DriverSMTP:
+		c.validateSMTP(v)
+	case email.DriverSES:
+		ses := c.Email.SES
+		if (ses.AccessKeyID == "") != (ses.SecretAccessKey == "") {
+			v.addf("email.ses.access_key_id and email.ses.secret_access_key must be set together, or both left empty for the default AWS credential chain")
+		}
+		if ses.Endpoint != "" && !absoluteHTTPURL(ses.Endpoint) {
+			v.addf("email.ses.endpoint must be an absolute http(s) URL, got %q", ses.Endpoint)
+		}
+	case email.DriverResend:
+		v.required("email.resend.api_key", c.Email.Resend.APIKey)
+		if c.IsProduction() {
+			v.notSample("email.resend.api_key", c.Email.Resend.APIKey)
+		}
+		if raw := c.Email.Resend.BaseURL; raw != "" && !absoluteHTTPURL(raw) {
+			v.addf("email.resend.base_url must be an absolute http(s) URL, got %q", raw)
+		}
+	default:
+		v.addf("email.driver must be log, smtp, ses, or resend, got %q", c.Email.Driver)
+	}
+
+	// Reset links are built from these. A relative or schemeless base URL would produce a link
+	// mail clients do not make clickable, discovered only when a user asks why.
+	v.required("frontend.base_url", c.Frontend.BaseURL)
+	if raw := strings.TrimSpace(c.Frontend.BaseURL); raw != "" && !absoluteHTTPURL(raw) {
+		v.addf("frontend.base_url must be an absolute http(s) URL, got %q", c.Frontend.BaseURL)
+	} else if c.IsProduction() && strings.HasPrefix(raw, "http://") {
+		v.addf("frontend.base_url must use https in production: the reset token travels in the link")
+	}
+	if !strings.HasPrefix(c.Frontend.ResetPasswordPathOrDefault(), "/") {
+		v.addf("frontend.reset_password_path must start with /, got %q", c.Frontend.ResetPasswordPath)
+	}
+}
+
+func (c *Config) validateSMTP(v *validation) {
+	smtp := c.Email.SMTP
+	v.required("email.smtp.host", smtp.Host)
+	v.port("email.smtp.port", smtp.Port)
+	if smtp.Timeout < 0 {
+		v.addf("email.smtp.timeout must not be negative")
+	}
+
+	switch smtp.TLSOrDefault() {
+	case email.SMTPTLSStartTLS, email.SMTPTLSImplicit:
+	case email.SMTPTLSNone:
+		if c.IsProduction() {
+			v.addf("email.smtp.tls=none sends mail, reset links included, unencrypted and is refused in production")
+		}
+	default:
+		v.addf("email.smtp.tls must be starttls, implicit, or none, got %q", smtp.TLS)
+	}
+
+	if smtp.Username != "" {
+		v.required("email.smtp.password", smtp.Password)
 	}
 }
 

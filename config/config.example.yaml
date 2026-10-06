@@ -104,3 +104,16 @@ jobs:
     interval: 1h
     retention: 720h
     batch_size: 1000
+
+# Forgot/reset password sends email, so it is off here. To try it locally with no mail server,
+# add the lines below: the log driver prints each message, reset link included, to the log.
+# frontend.base_url is a placeholder until the frontend's reset page exists.
+#
+# auth:
+#   email:
+#     enabled: true
+# email:
+#   driver: log
+#   from: no-reply@example.com
+# frontend:
+#   base_url: http://localhost:5173

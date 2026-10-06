@@ -35,7 +35,12 @@ type Repository interface {
 	// One-time token operations (email verification, password reset, email change)
 	CreateOneTimeToken(ctx context.Context, token *OneTimeToken) error
 	GetLatestActiveOneTimeToken(ctx context.Context, userID, tokenType string) (*OneTimeToken, error)
-	ConsumeOneTimeToken(ctx context.Context, tokenHash, tokenType string) error
+	// ConsumeOneTimeToken marks the token used and returns it, or ErrNotFound when it does not
+	// exist, was already used, or has expired.
+	ConsumeOneTimeToken(ctx context.Context, tokenHash, tokenType string) (*OneTimeToken, error)
+	// ExpireOneTimeTokens ends every still-usable token of that type for the user, so only the
+	// one issued next can be used.
+	ExpireOneTimeTokens(ctx context.Context, userID, tokenType string) error
 	IncrementOneTimeTokenAttempts(ctx context.Context, tokenID string) (int, error)
 
 	// Menu Operations

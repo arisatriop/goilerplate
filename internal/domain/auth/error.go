@@ -31,4 +31,7 @@ var (
 	// ErrSessionNotFound: the session does not exist, is not the caller's, or is already revoked
 	// — deliberately indistinguishable, so another user's session IDs cannot be confirmed.
 	ErrSessionNotFound = apperr.New(apperr.NotFound, "session_not_found", MsgSessionNotFound)
+	// ErrInvalidResetToken: the reset link is unknown, used, superseded or expired — one answer
+	// for all of them, so a guessed token learns nothing about which tokens exist.
+	ErrInvalidResetToken = apperr.New(apperr.Invalid, "invalid_reset_token", "Reset link is invalid or has expired")
 )

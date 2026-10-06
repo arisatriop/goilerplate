@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"sync"
 	"testing"
@@ -119,23 +120,30 @@ func TestOneTimeToken_ConsumeRejectsInvalidTokens(t *testing.T) {
 	require.NoError(t, repo.CreateOneTimeToken(ctx, expired))
 
 	t.Run("wrong type", func(t *testing.T) {
-		err := repo.ConsumeOneTimeToken(ctx, active.TokenHash, auth.OneTimeTokenEmailChange)
+		_, err := repo.ConsumeOneTimeToken(ctx, active.TokenHash, auth.OneTimeTokenEmailChange)
 		assert.ErrorIs(t, err, auth.ErrNotFound)
 	})
 
 	t.Run("unknown hash", func(t *testing.T) {
-		err := repo.ConsumeOneTimeToken(ctx, "does-not-exist", auth.OneTimeTokenPasswordReset)
+		_, err := repo.ConsumeOneTimeToken(ctx, "does-not-exist", auth.OneTimeTokenPasswordReset)
 		assert.ErrorIs(t, err, auth.ErrNotFound)
 	})
 
 	t.Run("expired", func(t *testing.T) {
-		err := repo.ConsumeOneTimeToken(ctx, expired.TokenHash, auth.OneTimeTokenPasswordReset)
+		_, err := repo.ConsumeOneTimeToken(ctx, expired.TokenHash, auth.OneTimeTokenPasswordReset)
 		assert.ErrorIs(t, err, auth.ErrNotFound)
 	})
 
 	t.Run("success then reuse", func(t *testing.T) {
-		require.NoError(t, repo.ConsumeOneTimeToken(ctx, active.TokenHash, auth.OneTimeTokenPasswordReset))
-		assert.ErrorIs(t, repo.ConsumeOneTimeToken(ctx, active.TokenHash, auth.OneTimeTokenPasswordReset), auth.ErrNotFound)
+		consumed, err := repo.ConsumeOneTimeToken(ctx, active.TokenHash, auth.OneTimeTokenPasswordReset)
+		require.NoError(t, err)
+		assert.Equal(t, active.ID, consumed.ID)
+		assert.Equal(t, userID, consumed.UserID, "the caller learns whose token it was")
+		assert.True(t, consumed.IsUsed(), "the returned row is the updated one")
+		assert.Equal(t, "203.0.113.7", consumed.IPAddress)
+
+		_, err = repo.ConsumeOneTimeToken(ctx, active.TokenHash, auth.OneTimeTokenPasswordReset)
+		assert.ErrorIs(t, err, auth.ErrNotFound)
 
 		lookup, err := repo.GetLatestActiveOneTimeToken(ctx, userID, auth.OneTimeTokenPasswordReset)
 		require.NoError(t, err)
@@ -161,7 +169,8 @@ func TestOneTimeToken_ConcurrentConsumeSucceedsOnce(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			results <- repo.ConsumeOneTimeToken(ctx, token.TokenHash, auth.OneTimeTokenPasswordReset)
+			_, err := repo.ConsumeOneTimeToken(ctx, token.TokenHash, auth.OneTimeTokenPasswordReset)
+			results <- err
 		}()
 	}
 	close(start)
@@ -206,7 +215,55 @@ func TestOneTimeToken_IncrementAttempts(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, stored.Attempts)
 
-	require.NoError(t, repo.ConsumeOneTimeToken(ctx, token.TokenHash, auth.OneTimeTokenPasswordReset))
+	_, err = repo.ConsumeOneTimeToken(ctx, token.TokenHash, auth.OneTimeTokenPasswordReset)
+	require.NoError(t, err)
 	_, err = repo.IncrementOneTimeTokenAttempts(ctx, token.ID)
 	assert.ErrorIs(t, err, auth.ErrNotFound, "a consumed token no longer counts attempts")
+}
+
+// Expiring ends the user's usable tokens of one type and nothing else: not another user's, not
+// another type, and not the record that a token was actually redeemed.
+func TestOneTimeToken_ExpireEndsOnlyThatUsersTokensOfThatType(t *testing.T) {
+	// Arrange
+	repo, db := newTestRepository(t)
+	ctx := context.Background()
+	userID := createTestUser(t, db)
+	otherUserID := createTestUser(t, db)
+
+	first := newToken(userID, utils.GenerateUUID(), time.Hour)
+	require.NoError(t, repo.CreateOneTimeToken(ctx, first))
+	second := newToken(userID, utils.GenerateUUID(), time.Hour)
+	require.NoError(t, repo.CreateOneTimeToken(ctx, second))
+	redeemed := newToken(userID, utils.GenerateUUID(), time.Hour)
+	require.NoError(t, repo.CreateOneTimeToken(ctx, redeemed))
+	_, err := repo.ConsumeOneTimeToken(ctx, redeemed.TokenHash, auth.OneTimeTokenPasswordReset)
+	require.NoError(t, err)
+
+	otherType := newToken(userID, utils.GenerateUUID(), time.Hour)
+	otherType.TokenType = auth.OneTimeTokenEmailVerification
+	require.NoError(t, repo.CreateOneTimeToken(ctx, otherType))
+	otherUser := newToken(otherUserID, utils.GenerateUUID(), time.Hour)
+	require.NoError(t, repo.CreateOneTimeToken(ctx, otherUser))
+
+	// Act
+	require.NoError(t, repo.ExpireOneTimeTokens(ctx, userID, auth.OneTimeTokenPasswordReset))
+
+	// Assert
+	for _, token := range []*auth.OneTimeToken{first, second} {
+		_, err := repo.ConsumeOneTimeToken(ctx, token.TokenHash, auth.OneTimeTokenPasswordReset)
+		assert.ErrorIs(t, err, auth.ErrNotFound, "a superseded token can no longer be redeemed")
+
+		var usedAt sql.NullTime
+		require.NoError(t, db.Raw("SELECT used_at FROM one_time_tokens WHERE id = ?", token.ID).Row().Scan(&usedAt))
+		assert.False(t, usedAt.Valid, "superseded is not the same as used")
+	}
+
+	var redeemedExpiry time.Time
+	require.NoError(t, db.Raw("SELECT expires_at FROM one_time_tokens WHERE id = ?", redeemed.ID).Scan(&redeemedExpiry).Error)
+	assert.WithinDuration(t, redeemed.ExpiresAt, redeemedExpiry, time.Millisecond, "a redeemed token keeps its own history")
+
+	_, err = repo.ConsumeOneTimeToken(ctx, otherType.TokenHash, auth.OneTimeTokenEmailVerification)
+	assert.NoError(t, err, "another token type is untouched")
+	_, err = repo.ConsumeOneTimeToken(ctx, otherUser.TokenHash, auth.OneTimeTokenPasswordReset)
+	assert.NoError(t, err, "another user's token is untouched")
 }
