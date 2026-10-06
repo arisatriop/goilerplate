@@ -117,6 +117,16 @@ auth:
   password_reset:
     ttl: 30m # how long an emailed reset link stays usable
     resend_cooldown: 1m # minimum gap between two reset emails to one account; must be shorter than ttl
+  # Refuse login (403 email_not_verified) until the address is verified. Checked after the password.
+  # Requires auth.email.enabled.
+  require_email_verification: false
+  # 6-digit codes sent by email (email verification). Stored as HMAC-SHA256 keyed by secret, so a
+  # leaked table cannot be reversed by trying all million codes.
+  otp:
+    secret: <AUTH_OTP_SECRET> # at least 32 bytes: openssl rand -base64 48
+    ttl: 15m # how long a code stays usable
+    max_attempts: 5 # wrong guesses one code tolerates before it stops working
+    resend_cooldown: 1m # minimum gap between two codes to one account; must be shorter than ttl
 
 log:
   level: info # debug | info | warn | error

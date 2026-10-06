@@ -263,6 +263,29 @@ func (r *authRepository) RevokeOtherUserSessions(ctx context.Context, userID, ke
 	}).Error
 }
 
+// MarkEmailVerified sets email_verified and stamps email_verified_at, unless the address was
+// already verified, whose original timestamp is the one worth keeping.
+func (r *authRepository) MarkEmailVerified(ctx context.Context, userID string) error {
+	now := utils.Now()
+
+	result := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ? AND deleted_at IS NULL", userID).
+		Updates(map[string]any{
+			"email_verified":    true,
+			"email_verified_at": gorm.Expr("COALESCE(email_verified_at, ?)", now),
+			"updated_at":        now,
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return auth.ErrNotFound
+	}
+	return nil
+}
+
 // UpdateUserPassword stores a new password hash and stamps password_changed_at, which is the
 // record of when every other session was turned out.
 func (r *authRepository) UpdateUserPassword(ctx context.Context, userID, passwordHash string) error {
@@ -546,8 +569,13 @@ func (r *authRepository) userModelToEntity(m *model.User) *auth.User {
 // One-time token operations
 
 func (r *authRepository) CreateOneTimeToken(ctx context.Context, token *auth.OneTimeToken) error {
+	id := token.ID
+	if id == "" {
+		id = utils.GenerateUUID()
+	}
+
 	tokenModel := &model.OneTimeToken{
-		ID:        utils.GenerateUUID(),
+		ID:        id,
 		UserID:    token.UserID,
 		TokenType: token.TokenType,
 		TokenHash: token.TokenHash,

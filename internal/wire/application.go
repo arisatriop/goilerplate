@@ -14,8 +14,14 @@ type ApplicationServices struct {
 	RegisterSvc register.ApplicationService
 }
 
-func WireApplicationServices(app *bootstrap.App, repos *Repositories) *ApplicationServices {
+func WireApplicationServices(app *bootstrap.App, repos *Repositories, useCases *UseCases) *ApplicationServices {
 	txManager := transaction.NewGormTransaction(app.DB.GDB)
+
+	// A new account is sent its first verification code only where email is configured.
+	var verification register.VerificationSender
+	if app.Config.Auth.Email.Enabled {
+		verification = useCases.AuthUC
+	}
 
 	return &ApplicationServices{
 		RegisterSvc: register.NewApplicationService(
@@ -26,6 +32,7 @@ func WireApplicationServices(app *bootstrap.App, repos *Repositories) *Applicati
 			// No common-password list ships with the boilerplate; supply a CommonChecker here
 			// to enable the NIST 800-63B check (roadmap F1).
 			password.NewPolicy(nil),
+			verification,
 		),
 	}
 }

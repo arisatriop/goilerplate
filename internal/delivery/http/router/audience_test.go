@@ -73,10 +73,13 @@ func TestRegister_EveryAudienceStillExposesBar(t *testing.T) {
 	}
 }
 
-// Recovery sends email, so its routes must not exist where email is not configured: the
+// Recovery and verification send email, so their routes must not exist where email is not configured: the
 // roadmap's "done when" for F1 is that a deployment without mail exposes nothing half-working.
 func TestRegister_RecoveryRoutesFollowAuthEmailEnabled(t *testing.T) {
-	recoveryPaths := []string{"/api/v1/auth/forgot-password", "/api/v1/auth/reset-password"}
+	recoveryPaths := []string{
+		"/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
+		"/api/v1/auth/send-verification-email", "/api/v1/auth/verify-email",
+	}
 
 	hasPath := func(routes []fiber.Route, path string) bool {
 		for _, route := range routes {

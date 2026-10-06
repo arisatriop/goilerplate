@@ -29,6 +29,7 @@ type recoveryRepo struct {
 	passwordHash string
 	revokedKeep  *string
 	revokeReason string
+	verified     bool
 }
 
 func (r *recoveryRepo) WithTx(context.Context) Repository { return r }
@@ -76,6 +77,9 @@ func (r *recoveryRepo) ExpireOneTimeTokens(_ context.Context, userID, tokenType 
 
 func (r *recoveryRepo) CreateOneTimeToken(_ context.Context, token *OneTimeToken) error {
 	copied := *token
+	if copied.ID == "" {
+		copied.ID = utils.GenerateUUID()
+	}
 	copied.CreatedAt = utils.Now()
 	r.tokens = append(r.tokens, &copied)
 	return nil
@@ -93,6 +97,24 @@ func (r *recoveryRepo) ConsumeOneTimeToken(_ context.Context, tokenHash, tokenTy
 	return nil, ErrNotFound
 }
 
+func (r *recoveryRepo) IncrementOneTimeTokenAttempts(_ context.Context, tokenID string) (int, error) {
+	for _, token := range r.tokens {
+		if token.ID == tokenID && !token.IsUsed() {
+			token.Attempts++
+			return token.Attempts, nil
+		}
+	}
+	return 0, ErrNotFound
+}
+
+func (r *recoveryRepo) MarkEmailVerified(context.Context, string) error {
+	r.verified = true
+	if r.user != nil {
+		r.user.EmailVerified = true
+	}
+	return nil
+}
+
 func (r *recoveryRepo) UpdateUserPassword(_ context.Context, _, hash string) error {
 	r.passwordHash = hash
 	return nil
@@ -104,11 +126,20 @@ func (r *recoveryRepo) RevokeOtherUserSessions(_ context.Context, _, keepSession
 	return nil
 }
 
-// recordingNotifier keeps every notice, so a test can read back the plaintext token the way the
-// user would from their inbox.
+// recordingNotifier keeps every notice, so a test can read back the plaintext token or code the
+// way the user would from their inbox.
 type recordingNotifier struct {
 	notices []PasswordResetNotice
+	codes   []EmailVerificationNotice
 	err     error
+}
+
+func (n *recordingNotifier) SendEmailVerification(_ context.Context, notice EmailVerificationNotice) error {
+	if n.err != nil {
+		return n.err
+	}
+	n.codes = append(n.codes, notice)
+	return nil
 }
 
 func (n *recordingNotifier) SendPasswordReset(_ context.Context, notice PasswordResetNotice) error {
@@ -126,10 +157,10 @@ func newRecoveryUseCase(repo *recoveryRepo, notifier Notifier) (*authUseCase, *f
 		sessionService: NewSessionService(repo, store, true),
 		txManager:      inlineTx{},
 		passwordPolicy: password.NewPolicy(nil),
-		recovery: Recovery{
-			Notifier:       notifier,
-			ResetTTL:       testResetTTL,
-			ResendCooldown: testResetCooldown,
+		email: EmailFlows{
+			Notifier:            notifier,
+			ResetTTL:            testResetTTL,
+			ResetResendCooldown: testResetCooldown,
 		},
 	}, store
 }
@@ -260,8 +291,8 @@ func TestForgotPassword_UnavailableWithoutANotifier(t *testing.T) {
 
 	uc, _ := newRecoveryUseCase(&recoveryRepo{user: activeUser()}, nil)
 
-	assert.ErrorIs(t, uc.ForgotPassword(t.Context(), "ana@example.org", RequestOrigin{}), errRecoveryUnavailable)
-	assert.ErrorIs(t, uc.ResetPassword(t.Context(), "token", "a-new-strong-password"), errRecoveryUnavailable)
+	assert.ErrorIs(t, uc.ForgotPassword(t.Context(), "ana@example.org", RequestOrigin{}), errEmailFlowsUnavailable)
+	assert.ErrorIs(t, uc.ResetPassword(t.Context(), "token", "a-new-strong-password"), errEmailFlowsUnavailable)
 }
 
 // issueToken runs ForgotPassword and returns the token the user would find in their inbox.
@@ -292,6 +323,7 @@ func TestResetPassword_ReplacesThePasswordAndRevokesEverySession(t *testing.T) {
 
 	assert.ErrorIs(t, uc.ResetPassword(t.Context(), token, "another-strong-password"), ErrInvalidResetToken,
 		"a link works once")
+	assert.True(t, repo.verified, "following an emailed link proves the user reads that inbox")
 }
 
 func TestResetPassword_RefusesATokenItCannotRedeem(t *testing.T) {

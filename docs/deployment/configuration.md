@@ -133,6 +133,7 @@ underscores.**
 | `internal_auth.secret` | `INTERNAL_AUTH_SECRET` |
 | `grpc.auth.secret` | `GRPC_AUTH_SECRET` |
 | `crypto.encryption_key` | `CRYPTO_ENCRYPTION_KEY` |
+| `auth.otp.secret` | `AUTH_OTP_SECRET` |
 | `email.smtp.password` | `EMAIL_SMTP_PASSWORD` |
 | `email.resend.api_key` | `EMAIL_RESEND_API_KEY` |
 | `email.ses.secret_access_key` | `EMAIL_SES_SECRET_ACCESS_KEY` (or leave empty and use the IAM role) |
@@ -150,7 +151,7 @@ PostgreSQL is the only supported database.
 ### Generating them
 
 ```bash
-openssl rand -base64 48   # jwt.access_secret, jwt.refresh_secret, internal_auth.secret
+openssl rand -base64 48   # jwt.access_secret, jwt.refresh_secret, internal_auth.secret, auth.otp.secret
 ```
 
 Use a different value for each. Minimum 32 bytes, enforced at startup.

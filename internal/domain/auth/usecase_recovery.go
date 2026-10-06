@@ -18,9 +18,9 @@ import (
 // what lets it be stored as a plain SHA-256 rather than a keyed hash (see OneTimeToken).
 const resetTokenBytes = 32
 
-// errRecoveryUnavailable is a wiring fault, not a client error: the routes are registered only
-// when recovery is configured, so reaching this means the two disagree.
-var errRecoveryUnavailable = errors.New("auth: account recovery is not configured")
+// errEmailFlowsUnavailable is a wiring fault, not a client error: the routes are registered only
+// when email is configured, so reaching this means the two disagree.
+var errEmailFlowsUnavailable = errors.New("auth: email flows are not configured")
 
 // ForgotPassword emails a reset link to the account registered under email, if there is one.
 //
@@ -28,8 +28,8 @@ var errRecoveryUnavailable = errors.New("auth: account recovery is not configure
 // even a failure to queue the email — so the response cannot be used to discover which
 // addresses are registered. The difference is visible only in the security log.
 func (uc *authUseCase) ForgotPassword(ctx context.Context, email string, origin RequestOrigin) error {
-	if uc.recovery.Notifier == nil {
-		return errRecoveryUnavailable
+	if uc.email.Notifier == nil {
+		return errEmailFlowsUnavailable
 	}
 
 	user, err := uc.authRepo.GetUserByEmail(ctx, email)
@@ -49,7 +49,7 @@ func (uc *authUseCase) ForgotPassword(ctx context.Context, email string, origin 
 	if err != nil {
 		return fmt.Errorf("getting latest reset token: %w", err)
 	}
-	if latest != nil && utils.Now().Sub(latest.CreatedAt) < uc.recovery.ResendCooldown {
+	if latest != nil && utils.Now().Sub(latest.CreatedAt) < uc.email.ResetResendCooldown {
 		uc.logResetRequested(ctx, user.ID, logger.OutcomeFailure, logger.ReasonCooldown)
 		return nil
 	}
@@ -58,7 +58,7 @@ func (uc *authUseCase) ForgotPassword(ctx context.Context, email string, origin 
 	if err != nil {
 		return fmt.Errorf("generating reset token: %w", err)
 	}
-	expiresAt := utils.Now().Add(uc.recovery.ResetTTL)
+	expiresAt := utils.Now().Add(uc.email.ResetTTL)
 
 	// Only the newest link works. Expiring the older ones in the same transaction means a link
 	// sitting in an inbox that has since been compromised stops working the moment a new one
@@ -83,7 +83,7 @@ func (uc *authUseCase) ForgotPassword(ctx context.Context, email string, origin 
 	}
 
 	notice := PasswordResetNotice{Email: user.Email, Name: user.Name, Token: token, ExpiresAt: expiresAt}
-	if err := uc.recovery.Notifier.SendPasswordReset(ctx, notice); err != nil {
+	if err := uc.email.Notifier.SendPasswordReset(ctx, notice); err != nil {
 		// Handled here rather than returned: a 500 for a registered address and a 200 for an
 		// unknown one is exactly the difference this endpoint must not show. The user can ask
 		// again; the operator learns of it from this line.
@@ -102,8 +102,8 @@ func (uc *authUseCase) ForgotPassword(ctx context.Context, email string, origin 
 // The new password is checked before the token is touched, so a password the policy refuses
 // does not use up the link.
 func (uc *authUseCase) ResetPassword(ctx context.Context, token, newPassword string) error {
-	if uc.recovery.Notifier == nil {
-		return errRecoveryUnavailable
+	if uc.email.Notifier == nil {
+		return errEmailFlowsUnavailable
 	}
 	if token == "" {
 		return ErrInvalidResetToken
@@ -147,6 +147,14 @@ func (uc *authUseCase) ResetPassword(ctx context.Context, token, newPassword str
 		}
 		if err := repo.RevokeOtherUserSessions(txCtx, user.ID, "", RevokedReasonPasswordReset); err != nil {
 			return fmt.Errorf("revoking sessions: %w", err)
+		}
+		// Following the emailed link proves the user reads that inbox, which is all
+		// verification asks. Without this, a user who reset before verifying would be locked
+		// out again by auth.require_email_verification right after choosing a new password.
+		if !user.EmailVerified {
+			if err := repo.MarkEmailVerified(txCtx, user.ID); err != nil {
+				return fmt.Errorf("marking email verified: %w", err)
+			}
 		}
 
 		userID = user.ID

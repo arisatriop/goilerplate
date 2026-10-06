@@ -72,6 +72,7 @@ func (h *Auth) Register(ctx *fiber.Ctx) error {
 			Email: req.Email,
 		},
 		Password: req.Password,
+		Origin:   requestOrigin(ctx),
 	}
 
 	if err := h.applicationService.Register(ctx.UserContext(), &register); err != nil {
@@ -302,12 +303,7 @@ func (h *Auth) ForgotPassword(ctx *fiber.Ctx) error {
 		return response.ValidationError(ctx, response.FormatValidationErrors(err))
 	}
 
-	origin := auth.RequestOrigin{
-		// ctx.IP() already applied the trusted-proxy check configured in bootstrap.
-		IPAddress: ctx.IP(),
-		UserAgent: ctx.Get(fiber.HeaderUserAgent),
-	}
-	if err := h.usecase.ForgotPassword(ctx.UserContext(), req.Email, origin); err != nil {
+	if err := h.usecase.ForgotPassword(ctx.UserContext(), req.Email, requestOrigin(ctx)); err != nil {
 		return response.HandleError(ctx, err)
 	}
 
@@ -343,6 +339,68 @@ func (h *Auth) ResetPassword(ctx *fiber.Ctx) error {
 	return response.Success(ctx, nil, response.WithMessage("Password has been reset. Sign in with the new password"))
 }
 
+// MsgVerificationEmailRequested answers every request for a verification code, whether or not
+// one was sent.
+const MsgVerificationEmailRequested = "If the address needs verifying, a verification code has been sent"
+
+// SendVerificationEmail emails a new verification code
+// @Summary      Request an email verification code
+// @Description  Always answers 200 with the same message: for an unknown, disabled or already verified address nothing is sent. A code is also sent automatically after registration. Available only when auth.email.enabled is true.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.SendVerificationEmailRequest  true  "Address to verify"
+// @Success      200      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Router       /api/v1/auth/send-verification-email [post]
+func (h *Auth) SendVerificationEmail(ctx *fiber.Ctx) error {
+	var req dtorequest.SendVerificationEmailRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return response.BadRequest(ctx, constants.MsgInvalidRequestBody, nil)
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
+
+	if err := h.usecase.SendEmailVerification(ctx.UserContext(), req.Email, requestOrigin(ctx)); err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	return response.Success(ctx, nil, response.WithMessage(MsgVerificationEmailRequested))
+}
+
+// VerifyEmail marks the address verified with the emailed code
+// @Summary      Verify an email address with the emailed code
+// @Description  Unauthenticated, so it works while auth.require_email_verification refuses login. Each code tolerates auth.otp.max_attempts guesses. Available only when auth.email.enabled is true.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dtorequest.VerifyEmailRequest  true  "Address and 6-digit code"
+// @Success      200      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse  "validation_failed or invalid_verification_code"
+// @Failure      429      {object}  response.BaseResponse
+// @Failure      500      {object}  response.BaseResponse
+// @Router       /api/v1/auth/verify-email [post]
+func (h *Auth) VerifyEmail(ctx *fiber.Ctx) error {
+	var req dtorequest.VerifyEmailRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return response.BadRequest(ctx, constants.MsgInvalidRequestBody, nil)
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
+
+	if err := h.usecase.VerifyEmail(ctx.UserContext(), req.Email, req.Code); err != nil {
+		return response.HandleError(ctx, err)
+	}
+
+	return response.Success(ctx, nil, response.WithMessage("Email address verified"))
+}
+
 // RefreshToken handles token refresh using refresh token
 // @Summary      Refresh access token
 // @Tags         auth
@@ -368,6 +426,12 @@ func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 	}
 
 	return response.Success(ctx, h.tokenResponse(ctx, loginResult), response.WithMessage("Token refreshed successfully"))
+}
+
+// requestOrigin records where a token-issuing request came from. ctx.IP() already applied the
+// trusted-proxy check configured in bootstrap.
+func requestOrigin(ctx *fiber.Ctx) auth.RequestOrigin {
+	return auth.RequestOrigin{IPAddress: ctx.IP(), UserAgent: ctx.Get(fiber.HeaderUserAgent)}
 }
 
 // newDeviceRequest collects the request attributes the auth domain uses to identify a device.

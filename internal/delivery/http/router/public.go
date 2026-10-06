@@ -21,12 +21,16 @@ func (r *PublicRouteRegistry) register(route fiber.Router) {
 	auth.Post("/register", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.Register)
 	auth.Post("/login", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.Login)
 
-	// Recovery sends email, so it exists only where email is configured. Leaving the routes out
-	// entirely, rather than answering 500 or 501, keeps a deployment without mail from
-	// advertising a flow it cannot complete.
+	// Recovery and verification send email, so they exist only where email is configured.
+	// Leaving the routes out entirely, rather than answering 500 or 501, keeps a deployment
+	// without mail from advertising a flow it cannot complete. Verification is unauthenticated
+	// for the same reason as recovery: with auth.require_email_verification on, an unverified
+	// user has no way to sign in first.
 	if r.App.Config.Auth.Email.Enabled {
 		auth.Post("/forgot-password", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.ForgotPassword)
 		auth.Post("/reset-password", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.ResetPassword)
+		auth.Post("/send-verification-email", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.SendVerificationEmail)
+		auth.Post("/verify-email", r.Wired.Middleware.RateLimit.Auth, r.Wired.Handlers.Auth.VerifyEmail)
 	}
 
 	// These already carry a verified token, so they are limited per session. Keyed by IP they

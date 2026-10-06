@@ -99,3 +99,26 @@ func TestHumanDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestAuthMailer_EmailVerificationCarriesTheCodeInTheBodyOnly(t *testing.T) {
+	sender := &capturingSender{}
+	mailer, err := NewAuthMailer(sender, AuthMailerOptions{AppName: "Acme", FrontendBaseURL: "https://app.example.com"})
+	require.NoError(t, err)
+
+	err = mailer.SendEmailVerification(t.Context(), auth.EmailVerificationNotice{
+		Email:     "user@example.org",
+		Name:      "Ana",
+		Code:      "042917",
+		ExpiresAt: utils.Now().Add(15 * time.Minute),
+	})
+	require.NoError(t, err)
+
+	require.Len(t, sender.sent, 1)
+	msg := sender.sent[0]
+	assert.Equal(t, "user@example.org", msg.To)
+	assert.Equal(t, "Acme: verify your email address", msg.Subject)
+	assert.NotContains(t, msg.Subject, "042917", "a code in the subject shows on a locked screen")
+	assert.Contains(t, msg.Text, "042917", "leading zeros survive")
+	assert.Contains(t, msg.Text, "expires in 15 minutes")
+	assert.Contains(t, msg.HTML, "042917")
+}

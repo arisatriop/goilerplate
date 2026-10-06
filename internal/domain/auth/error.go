@@ -34,4 +34,11 @@ var (
 	// ErrInvalidResetToken: the reset link is unknown, used, superseded or expired — one answer
 	// for all of them, so a guessed token learns nothing about which tokens exist.
 	ErrInvalidResetToken = apperr.New(apperr.Invalid, "invalid_reset_token", "Reset link is invalid or has expired")
+	// ErrInvalidVerificationCode: wrong, expired, superseded or exhausted code, or no code for
+	// that address — one answer, so guessing teaches nothing but "no".
+	ErrInvalidVerificationCode = apperr.New(apperr.Invalid, "invalid_verification_code", "Verification code is invalid or has expired")
+	// ErrEmailNotVerified: correct credentials, but auth.require_email_verification is on and
+	// the address is not verified yet. Like ErrAccountDisabled, it is only ever said to someone
+	// who just proved they know the password.
+	ErrEmailNotVerified = apperr.New(apperr.Forbidden, "email_not_verified", "Verify your email address before signing in")
 )

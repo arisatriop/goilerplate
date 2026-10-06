@@ -9,6 +9,7 @@
 //	usecase_credentials.go  registration, password change, deactivation
 //	usecase_sessions.go     listing and revoking the caller's own sessions
 //	usecase_recovery.go     forgot password and reset password
+//	usecase_verification.go email verification by emailed code
 //
 // The collaborators each flow leans on live in their own files already: session_service.go,
 // permission_service.go, menu_service.go, device_service.go, user_validator.go.
@@ -48,7 +49,7 @@ type authUseCase struct {
 	refreshReuseGrace time.Duration
 	txManager         transaction.Transaction
 	passwordPolicy    password.Policy
-	recovery          Recovery
+	email             EmailFlows
 }
 
 // Usecase defines the authentication use case interface
@@ -64,6 +65,8 @@ type Usecase interface {
 	RefreshToken(ctx context.Context, userID, sessionID, refreshJTI string, deviceInfo *DeviceInfo) (*LoginResult, error)
 	ForgotPassword(ctx context.Context, email string, origin RequestOrigin) error
 	ResetPassword(ctx context.Context, token, newPassword string) error
+	SendEmailVerification(ctx context.Context, email string, origin RequestOrigin) error
+	VerifyEmail(ctx context.Context, email, code string) error
 }
 
 func NewUseCase(
@@ -76,9 +79,10 @@ func NewUseCase(
 	txManager transaction.Transaction,
 	lockout Lockout,
 	passwordPolicy password.Policy,
-	recovery Recovery,
+	email EmailFlows,
 ) Usecase {
 	userValidator := NewUserValidator(authRepo, lockout)
+	userValidator.requireVerifiedEmail = email.RequireVerifiedEmail
 	menuService := NewMenuService(authRepo)
 
 	return &authUseCase{
@@ -92,6 +96,6 @@ func NewUseCase(
 		refreshReuseGrace: refreshReuseGrace,
 		txManager:         txManager,
 		passwordPolicy:    passwordPolicy,
-		recovery:          recovery,
+		email:             email,
 	}
 }

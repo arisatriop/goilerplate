@@ -27,13 +27,13 @@ wrong (P0), structurally misleading (P1), unguarded (P2), incomplete (P3), or no
 | [P0](#p0--defects) | Defects — the code does not do what it says | D1 – D7 | ✅ complete |
 | [P1](#p1--architecture-and-contracts) | Architecture and contracts | A1 – A5 | ✅ complete |
 | [P2](#p2--engineering-hygiene) | Build, CI, supply chain, tests | H1 – H6 | ✅ complete |
-| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2–F5 done · F1 in progress · F6 deferred |
+| [P3](#p3--feature-completion) | Feature completion | F1 – F6 | F2–F5 done · F1 parts 1–2 done · F6 deferred |
 | [P4](#p4--cleanup) | Dead code and drift | C1 – C4 | ✅ complete |
 | [R](#r--alignment-with-the-rules) | Code that falls short of the rewritten `.claude/rules/*` | R1 – R10 | ✅ complete |
 
 **P0, P1, P2, P4 and R are complete, and so are F2–F5.** What remains is F1 (email module) and F6
-(Google login). F1 is in progress: the email drivers and forgot/reset password have landed, and
-verification and email change follow. The product decisions it waited on are made — the provider
+(Google login). F1 is in progress: the email drivers, forgot/reset password and email verification have landed;
+email change and registration without enumeration follow. The product decisions it waited on are made — the provider
 is a config choice (`log`, `smtp`, `ses`, `resend`), verification is optional by default, and the
 frontend link is a configurable placeholder until the frontend exists. F6 stays deferred until
 account linking is decided.
@@ -669,19 +669,22 @@ Delivered in three parts. **Part 1 — email drivers and forgot/reset password �
 - [x] Tests: drivers against fake SMTP and HTTP endpoints, the queue, config rules, use case
       fakes, handlers, and `internal/integration` end to end under every cache mode
 
-**Part 2 — email verification:**
+**Part 2 — email verification — ✅ done.**
 
-- [ ] Flows: email verification by 6-digit OTP
-- [ ] Store OTP hashes as HMAC-SHA256 with a server secret — a plain SHA-256 of a 6-digit code is
-      trivially brute-forced if the database leaks
-- [ ] Verification looks up the latest active token by `(user_id, token_type)`, compares in
-      constant time, and increments `attempts` on mismatch; invalidate after
-      `auth.otp.max_attempts` (default 5). Looking up by hash alone cannot count wrong guesses
-- [ ] `auth.require_email_verification` (default `false`), checked after the password
-- [ ] Completes the one deferred test from the previous roadmap: OTP invalidated after
-      `max_attempts` — the repository already counts attempts, nothing yet enforces the ceiling
-- [ ] Consider marking the address verified on a successful password reset: following the link
-      already proves the user reads that inbox
+- [x] Flows: email verification by 6-digit OTP, `POST /auth/send-verification-email` and
+      `POST /auth/verify-email`, both unauthenticated (an unverified user may not be able to
+      sign in). A code is sent automatically after registration, once the account has committed
+- [x] OTP hashes are HMAC-SHA256 keyed by `auth.otp.secret` **and the token's own ID**. With the
+      code alone, two users drawing the same code would collide on the unique `token_hash`
+- [x] Verification looks up the latest active token by `(user_id, token_type)`, compares in
+      constant time, and invalidates after `auth.otp.max_attempts` (default 5). **The attempt is
+      counted before the comparison**, in one atomic `UPDATE`: counting after would let a burst
+      of concurrent guesses all be compared before any was counted
+- [x] `auth.require_email_verification` (default `false`), checked after the password; refused
+      by validation without `auth.email.enabled`, which would lock everyone out
+- [x] The deferred test: a code is dead after `max_attempts`, the right code included — in
+      unit tests, end to end, and under 20 concurrent guesses against PostgreSQL
+- [x] A successful password reset marks the address verified
 
 **Part 3 — email change and registration without enumeration:**
 

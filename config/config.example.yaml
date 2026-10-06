@@ -112,6 +112,8 @@ jobs:
 # auth:
 #   email:
 #     enabled: true
+#   otp:
+#     secret: dev-only-changeme-otp-secret-0000000000 # verification codes are keyed with it
 # email:
 #   driver: log
 #   from: no-reply@example.com

@@ -38,7 +38,7 @@ func Init(app *bootstrap.App) (*ApplicationContainer, error) {
 	useCases := WireUseCases(app, repositories, infrastructure)
 
 	// Layer 4: Application Service Layer (Multi-domain orchestration)
-	applicationServices := WireApplicationServices(app, repositories)
+	applicationServices := WireApplicationServices(app, repositories, useCases)
 
 	// Layer 5: Handler Layer (Delivery/Presentation)
 	handlers := WireHandlers(app, useCases, applicationServices, infrastructure)

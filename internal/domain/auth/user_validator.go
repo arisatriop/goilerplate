@@ -30,6 +30,8 @@ type Lockout struct {
 type UserValidator struct {
 	authRepo Repository
 	lockout  Lockout
+	// requireVerifiedEmail refuses login to an unverified address (auth.require_email_verification).
+	requireVerifiedEmail bool
 }
 
 // NewUserValidator creates a new user validator
@@ -51,6 +53,7 @@ func NewUserValidator(authRepo Repository, lockout Lockout) *UserValidator {
 //  3. Wrong password — counted, possibly locking the account, then answered generically.
 //  4. Disabled — reported plainly, but only to someone who already proved they know the
 //     password, so it cannot be used to enumerate accounts.
+//  5. Unverified email, when verification is required — the same reasoning as disabled.
 func (uv *UserValidator) ValidateUserForLogin(ctx context.Context, email, password string) (*User, error) {
 	user, err := uv.authRepo.GetUserByEmail(ctx, email)
 	if err != nil {
@@ -110,6 +113,16 @@ func (uv *UserValidator) ValidateUserForLogin(ctx context.Context, email, passwo
 			Reason:  logger.ReasonAccountDisabled,
 		})
 		return nil, ErrAccountDisabled
+	}
+
+	if uv.requireVerifiedEmail && !user.EmailVerified {
+		logger.Security(ctx, logger.SecurityEvent{
+			Action:  logger.ActionLoginFailed,
+			Outcome: logger.OutcomeFailure,
+			UserID:  user.ID,
+			Reason:  logger.ReasonEmailNotVerified,
+		})
+		return nil, ErrEmailNotVerified
 	}
 
 	return user, nil

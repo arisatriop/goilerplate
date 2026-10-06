@@ -425,9 +425,28 @@ func (c *Config) validateEmail(v *validation) {
 		v.addf("auth.password_reset.resend_cooldown must be shorter than auth.password_reset.ttl")
 	}
 
+	otp := c.Auth.OTP
+	if otp.TTL < 0 {
+		v.addf("auth.otp.ttl must not be negative")
+	}
+	if otp.MaxAttempts < 0 {
+		v.addf("auth.otp.max_attempts must not be negative")
+	}
+	if otp.ResendCooldown < 0 {
+		v.addf("auth.otp.resend_cooldown must not be negative")
+	} else if otp.ResendCooldownOrDefault() >= otp.TTLOrDefault() {
+		v.addf("auth.otp.resend_cooldown must be shorter than auth.otp.ttl")
+	}
+
 	if !c.Auth.Email.Enabled {
+		// Nobody could ever verify, so every login would be refused for good.
+		if c.Auth.RequireEmailVerification {
+			v.addf("auth.require_email_verification requires auth.email.enabled=true")
+		}
 		return
 	}
+
+	v.secret("auth.otp.secret", otp.Secret, MinSecretBytes, c.IsProduction())
 
 	v.required("email.from", c.Email.From)
 	if from := strings.TrimSpace(c.Email.From); from != "" {

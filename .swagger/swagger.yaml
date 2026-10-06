@@ -76,6 +76,23 @@ definitions:
     - newPassword
     - token
     type: object
+  dtorequest.SendVerificationEmailRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  dtorequest.VerifyEmailRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+    required:
+    - code
+    - email
+    type: object
   dtoresponse.ActiveSessionResponse:
     properties:
       createdAt:
@@ -469,6 +486,78 @@ paths:
           schema:
             $ref: '#/definitions/response.BaseResponse'
       summary: Reset the password with an emailed token
+      tags:
+      - auth
+  /api/v1/auth/send-verification-email:
+    post:
+      consumes:
+      - application/json
+      description: 'Always answers 200 with the same message: for an unknown, disabled
+        or already verified address nothing is sent. A code is also sent automatically
+        after registration. Available only when auth.email.enabled is true.'
+      parameters:
+      - description: Address to verify
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dtorequest.SendVerificationEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      summary: Request an email verification code
+      tags:
+      - auth
+  /api/v1/auth/verify-email:
+    post:
+      consumes:
+      - application/json
+      description: Unauthenticated, so it works while auth.require_email_verification
+        refuses login. Each code tolerates auth.otp.max_attempts guesses. Available
+        only when auth.email.enabled is true.
+      parameters:
+      - description: Address and 6-digit code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dtorequest.VerifyEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "400":
+          description: validation_failed or invalid_verification_code
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.BaseResponse'
+      summary: Verify an email address with the emailed code
       tags:
       - auth
   /api/v1/bars:
