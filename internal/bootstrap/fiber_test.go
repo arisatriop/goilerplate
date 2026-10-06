@@ -350,3 +350,55 @@ func TestErrorHandler_ReturnedClientErrorKeepsItsStatusAndCode(t *testing.T) {
 	assert.Equal(t, fiber.StatusNotFound, status)
 	assert.Equal(t, "widget_not_found", body["code"])
 }
+
+// A request fasthttp cannot parse reaches the error handler as a fiber.Error whose message is
+// fasthttp's own, and that message quotes the raw request: headers, bearer token and body. It
+// used to be sent straight back. Nothing of the request may come back in the answer.
+func TestErrorHandler_MalformedRequestIsNotEchoed(t *testing.T) {
+	// Arrange
+	app := NewFiber(baseConfig())
+	app.Post("/api/v1/users/me/email-change", func(c *fiber.Ctx) error { return c.SendString("accepted") })
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() { _ = app.Listener(listener) }()
+	t.Cleanup(func() { _ = app.Shutdown() })
+
+	const token, password = "eyJsecret-access-token", "hunter2-current-password"
+	body := `{"currentPassword":"` + password + `"}`
+	// The leading space makes " Authorization" an invalid header key.
+	request := fmt.Sprintf("POST /api/v1/users/me/email-change HTTP/1.1\r\nHost: localhost\r\n"+
+		"Content-Type: application/json\r\n Authorization: Bearer %s\r\nContent-Length: %d\r\n\r\n%s",
+		token, len(body), body)
+
+	conn, err := net.Dial("tcp", listener.Addr().String())
+	require.NoError(t, err)
+	defer conn.Close()
+
+	// Act
+	_, _ = conn.Write([]byte(request))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
+	answer, err := io.ReadAll(conn)
+	require.False(t, errors.Is(err, os.ErrDeadlineExceeded), "the server never answered")
+
+	// Assert
+	assert.Contains(t, string(answer), "400")
+	assert.Contains(t, string(answer), `"code":"bad_request"`, "still the envelope")
+	assert.NotContains(t, string(answer), token)
+	assert.NotContains(t, string(answer), password)
+	assert.NotContains(t, string(answer), "email-change", "not even the path")
+	assert.NotContains(t, string(answer), "accepted", "the handler must never run")
+}
+
+// Fiber puts the file path in SendFile's 404. The message is replaced by the status text for
+// every fiber.Error, so no future Fiber message can leak through either.
+func TestErrorHandler_FiberMessagesAreReplacedByTheStatusText(t *testing.T) {
+	app := NewFiber(baseConfig())
+	app.Get("/file", func(c *fiber.Ctx) error { return c.SendFile("/srv/secret/layout/missing.txt") })
+
+	status, body := errorBody(t, app, fiber.MethodGet, "/file")
+
+	assert.Equal(t, fiber.StatusNotFound, status)
+	assert.Equal(t, "Not Found", body["message"])
+	assert.NotContains(t, fmt.Sprint(body), "/srv/secret")
+}
