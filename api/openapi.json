@@ -1140,7 +1140,7 @@
         "operationId": "barsGet",
         "parameters": [
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -1164,6 +1164,31 @@
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/BarResponse"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed bar ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/BaseResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
+                          }
                         }
                       }
                     }
@@ -1246,7 +1271,7 @@
         "operationId": "barsUpdate",
         "parameters": [
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -1380,7 +1405,7 @@
         "operationId": "barsDelete",
         "parameters": [
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -1390,8 +1415,40 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content"
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed bar ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/BaseResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized",
@@ -2251,7 +2308,7 @@
             }
           },
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -2275,6 +2332,31 @@
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/BarResponse"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/BaseResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
+                          }
                         }
                       }
                     }
@@ -2337,7 +2419,7 @@
             }
           },
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -2451,7 +2533,7 @@
             }
           },
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -2461,8 +2543,40 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content"
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/BaseResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized",
@@ -2790,7 +2904,7 @@
         "operationId": "partnerBarsGet",
         "parameters": [
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -2814,6 +2928,31 @@
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/BarResponse"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/BaseResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
+                          }
                         }
                       }
                     }
@@ -2886,7 +3025,7 @@
         "operationId": "partnerBarsUpdate",
         "parameters": [
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -3010,7 +3149,7 @@
         "operationId": "partnerBarsDelete",
         "parameters": [
           {
-            "description": "Bar ID",
+            "description": "Bar ID (UUID)",
             "name": "id",
             "in": "path",
             "required": true,
@@ -3020,8 +3159,40 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content"
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/BaseResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized",

@@ -78,7 +78,7 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 // @Tags         bars
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string                       true  "Bar ID"
+// @Param        id       path      string                       true  "Bar ID (UUID)"
 // @Description  Replaces the bar's content. code may be omitted or repeated but not changed: it is the business key (400 bar_code_immutable).
 // @Param        request  body      dtorequest.BarUpdateRequest  true  "Bar data"
 // @Success      200      {object}  response.BaseResponse{data=dtoresponse.BarResponse}
@@ -92,7 +92,13 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /api/v1/bars/{id} [put]
 func (h *Bar) Update(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	var param dtorequest.BarIDParam
+	if err := ctx.ParamsParser(&param); err != nil {
+		return response.BadRequest(ctx, "Invalid path parameters", nil)
+	}
+	if err := h.Validator.Struct(&param); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
 
 	var req dtorequest.BarUpdateRequest
 	if err := ctx.BodyParser(&req); err != nil {
@@ -105,7 +111,7 @@ func (h *Bar) Update(ctx *fiber.Ctx) error {
 	}
 
 	entity := &bar.Bar{
-		ID:   id,
+		ID:   param.ID,
 		Code: req.Code,
 		Bar:  req.Bar,
 	}
@@ -123,8 +129,9 @@ func (h *Bar) Update(ctx *fiber.Ctx) error {
 // @Description  Soft deletes the bar. Repeating the call is 404.
 // @Tags         bars
 // @Produce      json
-// @Param        id   path      string  true  "Bar ID"
-// @Success      204  "No Content"
+// @Param        id   path      string  true  "Bar ID (UUID)"
+// @Success      200  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}  "Malformed bar ID"
 // @Failure      401  {object}  response.BaseResponse
 // @Failure      403      {object}  response.BaseResponse  "The caller lacks the bar delete permission"
 // @Failure      404  {object}  response.BaseResponse
@@ -134,18 +141,23 @@ func (h *Bar) Update(ctx *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /api/v1/bars/{id} [delete]
 func (h *Bar) Delete(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
-
-	entity := &bar.Bar{
-		ID: id,
+	var param dtorequest.BarIDParam
+	if err := ctx.ParamsParser(&param); err != nil {
+		return response.BadRequest(ctx, "Invalid path parameters", nil)
+	}
+	if err := h.Validator.Struct(&param); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
 	}
 
-	err := h.Usecase.Delete(ctx.UserContext(), entity)
-	if err != nil {
+	entity := &bar.Bar{
+		ID: param.ID,
+	}
+
+	if err := h.Usecase.Delete(ctx.UserContext(), entity); err != nil {
 		return response.HandleError(ctx, err)
 	}
 
-	return response.NoContent(ctx)
+	return response.Success(ctx, nil, response.WithMessage(bar.MsgBarDeletedSuccessfully))
 }
 
 // @Summary      List bars
@@ -188,8 +200,9 @@ func (h *Bar) List(ctx *fiber.Ctx) error {
 // @Description  A bar that does not exist is 404.
 // @Tags         bars
 // @Produce      json
-// @Param        id   path      string  true  "Bar ID"
+// @Param        id   path      string  true  "Bar ID (UUID)"
 // @Success      200  {object}  response.BaseResponse{data=dtoresponse.BarResponse}
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}  "Malformed bar ID"
 // @Failure      401  {object}  response.BaseResponse
 // @Failure      403      {object}  response.BaseResponse  "The caller lacks the bar get permission"
 // @Failure      404  {object}  response.BaseResponse
@@ -199,9 +212,15 @@ func (h *Bar) List(ctx *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /api/v1/bars/{id} [get]
 func (h *Bar) Get(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	var param dtorequest.BarIDParam
+	if err := ctx.ParamsParser(&param); err != nil {
+		return response.BadRequest(ctx, "Invalid path parameters", nil)
+	}
+	if err := h.Validator.Struct(&param); err != nil {
+		return response.ValidationError(ctx, response.FormatValidationErrors(err))
+	}
 
-	entity, err := h.Usecase.GetByID(ctx.UserContext(), id)
+	entity, err := h.Usecase.GetByID(ctx.UserContext(), param.ID)
 	if err != nil {
 		return response.HandleError(ctx, err)
 	}

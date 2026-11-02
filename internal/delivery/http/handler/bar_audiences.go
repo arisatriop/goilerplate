@@ -35,7 +35,7 @@ func barInternalCreateDoc() {}
 // @Accept       json
 // @Produce      json
 // @Param        X-Service-Name  header  string  false  "Calling service, recorded in logs. An unverified claim"
-// @Param        id  path  string  true  "Bar ID"
+// @Param        id  path  string  true  "Bar ID (UUID)"
 // @Param        request  body  dtorequest.BarUpdateRequest  true  "Bar data"
 // @Success      200  {object}  response.BaseResponse{data=dtoresponse.BarResponse}
 // @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
@@ -56,8 +56,9 @@ func barInternalUpdateDoc() {}
 // @Tags         internal
 // @Produce      json
 // @Param        X-Service-Name  header  string  false  "Calling service, recorded in logs. An unverified claim"
-// @Param        id  path  string  true  "Bar ID"
-// @Success      204  "No Content"
+// @Param        id  path  string  true  "Bar ID (UUID)"
+// @Success      200  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401  {object}  response.BaseResponse
 // @Failure      404  {object}  response.BaseResponse
 // @Failure      500  {object}  response.BaseResponse
@@ -95,8 +96,9 @@ func barInternalListDoc() {}
 // @Tags         internal
 // @Produce      json
 // @Param        X-Service-Name  header  string  false  "Calling service, recorded in logs. An unverified claim"
-// @Param        id  path  string  true  "Bar ID"
+// @Param        id  path  string  true  "Bar ID (UUID)"
 // @Success      200  {object}  response.BaseResponse{data=dtoresponse.BarResponse}
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401  {object}  response.BaseResponse
 // @Failure      404  {object}  response.BaseResponse
 // @Failure      500  {object}  response.BaseResponse
@@ -137,7 +139,7 @@ func barPartnerCreateDoc() {}
 // @Tags         partner
 // @Accept       json
 // @Produce      json
-// @Param        id  path  string  true  "Bar ID"
+// @Param        id  path  string  true  "Bar ID (UUID)"
 // @Param        request  body  dtorequest.BarUpdateRequest  true  "Bar data"
 // @Success      200  {object}  response.BaseResponse{data=dtoresponse.BarResponse}
 // @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
@@ -159,8 +161,9 @@ func barPartnerUpdateDoc() {}
 // @Description  Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.
 // @Tags         partner
 // @Produce      json
-// @Param        id  path  string  true  "Bar ID"
-// @Success      204  "No Content"
+// @Param        id  path  string  true  "Bar ID (UUID)"
+// @Success      200  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401  {object}  response.BaseResponse
 // @Failure      404  {object}  response.BaseResponse
 // @Failure      429  {object}  response.BaseResponse
@@ -200,8 +203,9 @@ func barPartnerListDoc() {}
 // @Description  Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.
 // @Tags         partner
 // @Produce      json
-// @Param        id  path  string  true  "Bar ID"
+// @Param        id  path  string  true  "Bar ID (UUID)"
 // @Success      200  {object}  response.BaseResponse{data=dtoresponse.BarResponse}
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401  {object}  response.BaseResponse
 // @Failure      404  {object}  response.BaseResponse
 // @Failure      429  {object}  response.BaseResponse

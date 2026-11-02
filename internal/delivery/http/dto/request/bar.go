@@ -12,6 +12,12 @@ type BarUpdateRequest struct {
 	Bar  string `json:"bar" validate:"required" example:"First bar"`
 }
 
+// BarIDParam is the :id path segment of /bars/:id. It is validated as a UUID so a malformed value
+// is a 400 here rather than a type error from PostgreSQL.
+type BarIDParam struct {
+	ID string `params:"id" validate:"required,uuid"`
+}
+
 type BarListRequest struct {
 	Keyword string `json:"keyword" query:"keyword" form:"keyword"`
 }

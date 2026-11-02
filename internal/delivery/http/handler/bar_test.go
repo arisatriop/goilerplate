@@ -304,21 +304,21 @@ func TestBarUpdate_Returns200AndCarriesTheRouteID(t *testing.T) {
 	usecase := &stubBarUsecase{}
 
 	// Act
-	status, body := call(t, usecase, fiber.MethodPut, "/bars/abc-123", `{"code":"EXP002","bar":"second"}`)
+	status, body := call(t, usecase, fiber.MethodPut, "/bars/0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", `{"code":"EXP002","bar":"second"}`)
 
 	// Assert
 	assert.Equal(t, fiber.StatusOK, status)
 	assert.JSONEq(t, `{"success":true,"message":"Bar updated successfully",
-		"data":{"id":"abc-123","code":"EXP002","bar":"second"}}`, body)
+		"data":{"id":"0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f","code":"EXP002","bar":"second"}}`, body)
 	require.NotNil(t, usecase.updated)
-	assert.Equal(t, "abc-123", usecase.updated.ID, "the id comes from the path, not the body")
+	assert.Equal(t, "0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", usecase.updated.ID, "the id comes from the path, not the body")
 	assert.Equal(t, "EXP002", usecase.updated.Code)
 }
 
 func TestBarUpdate_RejectsBadInput(t *testing.T) {
 	usecase := &stubBarUsecase{}
 
-	status, _ := call(t, usecase, fiber.MethodPut, "/bars/abc-123", `{"code":"EXP002"}`)
+	status, _ := call(t, usecase, fiber.MethodPut, "/bars/0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", `{"code":"EXP002"}`)
 
 	assert.Equal(t, fiber.StatusBadRequest, status)
 	assert.Nil(t, usecase.updated)
@@ -328,7 +328,7 @@ func TestBarUpdate_RejectsBadInput(t *testing.T) {
 func TestBarUpdate_CodeMayBeOmitted(t *testing.T) {
 	usecase := &stubBarUsecase{}
 
-	status, _ := call(t, usecase, fiber.MethodPut, "/bars/abc-123", `{"bar":"second"}`)
+	status, _ := call(t, usecase, fiber.MethodPut, "/bars/0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", `{"bar":"second"}`)
 
 	assert.Equal(t, fiber.StatusOK, status)
 	require.NotNil(t, usecase.updated)
@@ -338,7 +338,7 @@ func TestBarUpdate_CodeMayBeOmitted(t *testing.T) {
 func TestBarUpdate_ChangingTheCodeIsA400WithItsCode(t *testing.T) {
 	usecase := &stubBarUsecase{err: bar.ErrCodeImmutable}
 
-	status, body := call(t, usecase, fiber.MethodPut, "/bars/abc-123", `{"code":"EXP999","bar":"second"}`)
+	status, body := call(t, usecase, fiber.MethodPut, "/bars/0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", `{"code":"EXP999","bar":"second"}`)
 
 	assert.Equal(t, fiber.StatusBadRequest, status)
 	assert.Contains(t, body, `"code":"bar_code_immutable"`)
@@ -347,32 +347,61 @@ func TestBarUpdate_ChangingTheCodeIsA400WithItsCode(t *testing.T) {
 func TestBarUpdate_MissingRowIsA404(t *testing.T) {
 	usecase := &stubBarUsecase{err: bar.ErrNotFound}
 
-	status, _ := call(t, usecase, fiber.MethodPut, "/bars/missing", `{"code":"EXP002","bar":"second"}`)
+	status, _ := call(t, usecase, fiber.MethodPut, "/bars/0190a3f4-7b1c-7e2a-9d3f-000000000000", `{"code":"EXP002","bar":"second"}`)
 
 	assert.Equal(t, fiber.StatusNotFound, status)
 }
 
 // ── Delete ───────────────────────────────────────────────────────────────────
 
-// 204 carries no body by definition, so the envelope helpers must not write one.
-func TestBarDelete_Returns204WithNoBody(t *testing.T) {
+func TestBarDelete_Returns200WithTheEnvelope(t *testing.T) {
 	// Arrange
 	usecase := &stubBarUsecase{}
 
 	// Act
-	status, body := call(t, usecase, fiber.MethodDelete, "/bars/abc-123", "")
+	status, body := call(t, usecase, fiber.MethodDelete, "/bars/0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", "")
 
 	// Assert
-	assert.Equal(t, fiber.StatusNoContent, status)
-	assert.Empty(t, body)
+	assert.Equal(t, fiber.StatusOK, status)
+	assert.JSONEq(t, `{"success":true,"message":"Bar deleted successfully"}`, body)
 	require.NotNil(t, usecase.deleted)
-	assert.Equal(t, "abc-123", usecase.deleted.ID)
+	assert.Equal(t, "0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", usecase.deleted.ID)
+}
+
+// PostgreSQL rejects a non-UUID value for a uuid column with a type error, which used to surface as
+// a 500 on every audience.
+func TestBar_MalformedIDIsA400BeforeTheUsecase(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		target string
+		body   string
+	}{
+		{"get", fiber.MethodGet, "/bars/not-a-uuid", ""},
+		{"update", fiber.MethodPut, "/bars/not-a-uuid", `{"bar":"second"}`},
+		{"delete", fiber.MethodDelete, "/bars/not-a-uuid", ""},
+		{"sql in the id", fiber.MethodGet, "/bars/1%27%20OR%20%271%27=%271", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			usecase := &stubBarUsecase{}
+
+			status, body := call(t, usecase, tt.method, tt.target, tt.body)
+
+			assert.Equal(t, fiber.StatusBadRequest, status)
+			assert.Contains(t, body, `"code":"validation_failed"`)
+			assert.Empty(t, usecase.gotID)
+			assert.Nil(t, usecase.updated)
+			assert.Nil(t, usecase.deleted)
+		})
+	}
 }
 
 func TestBarDelete_MissingRowIsA404(t *testing.T) {
 	usecase := &stubBarUsecase{err: bar.ErrNotFound}
 
-	status, body := call(t, usecase, fiber.MethodDelete, "/bars/missing", "")
+	status, body := call(t, usecase, fiber.MethodDelete, "/bars/0190a3f4-7b1c-7e2a-9d3f-000000000000", "")
 
 	assert.Equal(t, fiber.StatusNotFound, status)
 	assert.Contains(t, body, `"success":false`)
@@ -382,25 +411,25 @@ func TestBarDelete_MissingRowIsA404(t *testing.T) {
 
 func TestBarGet_ReturnsTheDTOShape(t *testing.T) {
 	// Arrange
-	usecase := &stubBarUsecase{single: &bar.Bar{ID: "abc-123", Code: "EXP001", Bar: "first"}}
+	usecase := &stubBarUsecase{single: &bar.Bar{ID: "0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", Code: "EXP001", Bar: "first"}}
 
 	// Act
-	status, body := call(t, usecase, fiber.MethodGet, "/bars/abc-123", "")
+	status, body := call(t, usecase, fiber.MethodGet, "/bars/0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", "")
 
 	// Assert
 	assert.Equal(t, fiber.StatusOK, status)
 	assert.JSONEq(t, `{
 		"success": true,
 		"message": "Bar fetched successfully",
-		"data": {"id": "abc-123", "code": "EXP001", "bar": "first"}
+		"data": {"id": "0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", "code": "EXP001", "bar": "first"}
 	}`, body)
-	assert.Equal(t, "abc-123", usecase.gotID)
+	assert.Equal(t, "0190a3f4-7b1c-7e2a-9d3f-1a2b3c4d5e6f", usecase.gotID)
 }
 
 func TestBarGet_MissingRowIsA404(t *testing.T) {
 	usecase := &stubBarUsecase{err: bar.ErrNotFound}
 
-	status, _ := call(t, usecase, fiber.MethodGet, "/bars/missing", "")
+	status, _ := call(t, usecase, fiber.MethodGet, "/bars/0190a3f4-7b1c-7e2a-9d3f-000000000000", "")
 
 	assert.Equal(t, fiber.StatusNotFound, status)
 }

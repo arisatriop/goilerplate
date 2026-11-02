@@ -128,20 +128,6 @@ func Created(ctx *fiber.Ctx, data any, options ...ResponseOption) error {
 	return ctx.Status(http.StatusCreated).JSON(response)
 }
 
-// NoContent sends a successful response with no content
-func NoContent(ctx *fiber.Ctx, options ...ResponseOption) error {
-	response := &BaseResponse{
-		Success: true,
-		Message: constants.MsgOperationCompletedSuccessfully,
-	}
-
-	for _, opt := range options {
-		opt(response)
-	}
-
-	return ctx.Status(http.StatusNoContent).JSON(response)
-}
-
 // Paginated sends a list response: data is the plain array, and the page counters go in meta.
 //
 // There used to be three descriptions of this shape and no two agreed — one in the conventions
