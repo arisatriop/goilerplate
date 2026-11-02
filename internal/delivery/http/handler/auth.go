@@ -110,6 +110,7 @@ func (h *Auth) Register(ctx *fiber.Ctx) error {
 // Login handles user authentication
 // @Summary      Login
 // @ID           authLogin
+// @Description  Answers the tokens, the user, and their menus and permissions. Accounts lock after repeated failures (401 account_locked).
 // @Tags         auth
 // @Accept       json
 // @Produce      json
@@ -152,6 +153,7 @@ func (h *Auth) Login(ctx *fiber.Ctx) error {
 // Logout handles user logout by invalidating the access token
 // @Summary      Logout
 // @ID           authLogout
+// @Description  Revokes the session making the request.
 // @Tags         auth
 // @Produce      json
 // @Success      200  {object}  response.BaseResponse

@@ -8,6 +8,7 @@ package handler
 //
 // @Summary      Create bar (internal)
 // @ID           internalBarsCreate
+// @Description  Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.
 // @Tags         internal
 // @Accept       json
 // @Produce      json
@@ -29,6 +30,7 @@ func barInternalCreateDoc() {}
 //
 // @Summary      Update bar (internal)
 // @ID           internalBarsUpdate
+// @Description  Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.
 // @Tags         internal
 // @Accept       json
 // @Produce      json
@@ -50,6 +52,7 @@ func barInternalUpdateDoc() {}
 //
 // @Summary      Delete bar (internal)
 // @ID           internalBarsDelete
+// @Description  Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.
 // @Tags         internal
 // @Produce      json
 // @Param        X-Service-Name  header  string  false  "Calling service, recorded in logs. An unverified claim"
@@ -68,6 +71,7 @@ func barInternalDeleteDoc() {}
 //
 // @Summary      List bars (internal)
 // @ID           internalBarsList
+// @Description  Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.
 // @Tags         internal
 // @Produce      json
 // @Param        X-Service-Name  header  string  false  "Calling service, recorded in logs. An unverified claim"
@@ -87,6 +91,7 @@ func barInternalListDoc() {}
 //
 // @Summary      Get bar by ID (internal)
 // @ID           internalBarsGet
+// @Description  Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.
 // @Tags         internal
 // @Produce      json
 // @Param        X-Service-Name  header  string  false  "Calling service, recorded in logs. An unverified claim"
@@ -105,6 +110,7 @@ func barInternalGetDoc() {}
 //
 // @Summary      Create bar (partner)
 // @ID           partnerBarsCreate
+// @Description  Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.
 // @Tags         partner
 // @Accept       json
 // @Produce      json
@@ -127,6 +133,7 @@ func barPartnerCreateDoc() {}
 //
 // @Summary      Update bar (partner)
 // @ID           partnerBarsUpdate
+// @Description  Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.
 // @Tags         partner
 // @Accept       json
 // @Produce      json
@@ -149,6 +156,7 @@ func barPartnerUpdateDoc() {}
 //
 // @Summary      Delete bar (partner)
 // @ID           partnerBarsDelete
+// @Description  Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.
 // @Tags         partner
 // @Produce      json
 // @Param        id  path  string  true  "Bar ID"
@@ -168,6 +176,7 @@ func barPartnerDeleteDoc() {}
 //
 // @Summary      List bars (partner)
 // @ID           partnerBarsList
+// @Description  Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.
 // @Tags         partner
 // @Produce      json
 // @Param        keyword  query  string  false  "Search keyword"
@@ -188,6 +197,7 @@ func barPartnerListDoc() {}
 //
 // @Summary      Get bar by ID (partner)
 // @ID           partnerBarsGet
+// @Description  Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.
 // @Tags         partner
 // @Produce      json
 // @Param        id  path  string  true  "Bar ID"

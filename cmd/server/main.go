@@ -7,6 +7,8 @@
 // @description     Any route can also answer 413 (body larger than server.body_limit) and 500 (generic message, details only in the server log).
 // @description
 // @description     Some routes depend on the configuration: the email routes exist only with auth.email.enabled, the partner routes only when an API key is configured, and /metrics only with OpenTelemetry enabled.
+// @license.name    MIT
+// @license.url     https://opensource.org/license/mit
 // @host            localhost:3000
 // @BasePath        /
 // @schemes         http

@@ -136,7 +136,7 @@ for byte, so changing it here without changing the code fails the build.
   Handlers don't set them
 
 ## Documentation
-- Every handler carries swag annotations that describe what it actually returns: the status
-  codes, and `data` typed as the real DTO. Run `make swag` and commit `.swagger/openapi.json`
+- Every handler carries annotations, read by `make openapi`, that describe what it actually returns: the status
+  codes, and `data` typed as the real DTO. Run `make openapi` and commit `api/openapi.json`
   in the same change as the handler. `TestOpenAPI_MatchesRegisteredRoutes` fails on a route the
   spec is missing. See `docs/api/openapi.md`

@@ -275,7 +275,7 @@ foo.Post("",
 
 - [CRUD Operations](../guides/crud-operations.md) - How to create new endpoints
 - [Authentication & Authorization](../guides/auth.md) - JWT & RBAC details
-- [OpenAPI spec](./openapi.md) - Every route, importable into Postman or Apidog
+- [OpenAPI spec](./openapi.md) - Every route, importable into any OpenAPI tool
 
 ---
 

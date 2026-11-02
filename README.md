@@ -77,7 +77,7 @@ All detailed documentation is in the [`/docs`](./docs/README.md) folder:
 - **[Getting Started](./docs/getting-started/)** — Installation, Docker, development setup
 - **[Guides](./docs/guides/)** — CRUD operations, clean architecture
 - **[Deployment](./docs/deployment/)** — Kubernetes, CI/CD, configuration
-- **[API Reference](./docs/api/)** — Routes, authentication, permissions, and the [OpenAPI spec](./docs/api/openapi.md) for Postman or Apidog
+- **[API Reference](./docs/api/)** — Routes, authentication, permissions, and the [OpenAPI spec](./docs/api/openapi.md)
 
 ---
 

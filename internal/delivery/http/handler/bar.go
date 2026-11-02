@@ -120,6 +120,7 @@ func (h *Bar) Update(ctx *fiber.Ctx) error {
 
 // @Summary      Delete bar
 // @ID           barsDelete
+// @Description  Soft deletes the bar. Repeating the call is 404.
 // @Tags         bars
 // @Produce      json
 // @Param        id   path      string  true  "Bar ID"
@@ -149,6 +150,7 @@ func (h *Bar) Delete(ctx *fiber.Ctx) error {
 
 // @Summary      List bars
 // @ID           barsList
+// @Description  Paginated: data is the array, and the page counters are in meta. An out-of-range page or limit is clamped, not rejected.
 // @Tags         bars
 // @Produce      json
 // @Param        keyword  query     string  false  "Search keyword"
@@ -183,6 +185,7 @@ func (h *Bar) List(ctx *fiber.Ctx) error {
 
 // @Summary      Get bar by ID
 // @ID           barsGet
+// @Description  A bar that does not exist is 404.
 // @Tags         bars
 // @Produce      json
 // @Param        id   path      string  true  "Bar ID"

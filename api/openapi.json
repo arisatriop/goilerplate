@@ -1,14 +1,18 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.0.3",
   "info": {
     "description": "Go backend boilerplate using Clean Architecture: auth, RBAC and a worked CRUD example.\n\nEvery JSON response uses one envelope: `success`, `message`, and on an error a stable snake_case `code`, which is what clients branch on. `data` and `meta` carry results, and `errors` carries validation details. Every response echoes `X-Request-ID`.\n\nAny route can also answer 413 (body larger than server.body_limit) and 500 (generic message, details only in the server log).\n\nSome routes depend on the configuration: the email routes exist only with auth.email.enabled, the partner routes only when an API key is configured, and /metrics only with OpenTelemetry enabled.",
     "title": "Goilerplate API",
-    "contact": {},
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/license/mit"
+    },
     "version": "1.0"
   },
   "paths": {
     "/": {
       "get": {
+        "description": "Answers a plain-text greeting.",
         "tags": [
           "health"
         ],
@@ -25,7 +29,8 @@
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/forgot-password": {
@@ -40,7 +45,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.ForgotPasswordRequest"
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
               }
             }
           },
@@ -53,7 +58,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -65,7 +70,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -73,7 +78,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -96,7 +101,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -106,16 +111,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/login": {
       "post": {
+        "description": "Answers the tokens, the user, and their menus and permissions. Accounts lock after repeated failures (401 account_locked).",
         "tags": [
           "auth"
         ],
@@ -125,7 +132,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.LoginRequest"
+                "$ref": "#/components/schemas/LoginRequest"
               }
             }
           },
@@ -140,13 +147,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.LoginResponse"
+                          "$ref": "#/components/schemas/LoginResponse"
                         }
                       }
                     }
@@ -162,7 +169,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -170,7 +177,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -185,7 +192,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -195,7 +202,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -213,7 +220,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -223,12 +230,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/logout": {
@@ -238,6 +246,7 @@
             "BearerAuth": []
           }
         ],
+        "description": "Revokes the session making the request.",
         "tags": [
           "auth"
         ],
@@ -249,7 +258,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -259,7 +268,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -277,7 +286,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -287,7 +296,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -324,7 +333,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -336,7 +345,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -344,7 +353,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -359,7 +368,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -377,7 +386,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -387,7 +396,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -419,13 +428,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.LoginResponse"
+                          "$ref": "#/components/schemas/LoginResponse"
                         }
                       }
                     }
@@ -439,7 +448,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -449,7 +458,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -467,7 +476,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -477,7 +486,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -497,7 +506,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.RegisterRequest"
+                "$ref": "#/components/schemas/RegisterRequest"
               }
             }
           },
@@ -510,7 +519,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -522,7 +531,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -530,7 +539,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -545,7 +554,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -563,7 +572,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -573,12 +582,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/reset-password": {
@@ -593,7 +603,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.ResetPasswordRequest"
+                "$ref": "#/components/schemas/ResetPasswordRequest"
               }
             }
           },
@@ -606,7 +616,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -618,7 +628,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -626,7 +636,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -649,7 +659,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -659,12 +669,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/send-verification-email": {
@@ -679,7 +690,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.SendVerificationEmailRequest"
+                "$ref": "#/components/schemas/SendVerificationEmailRequest"
               }
             }
           },
@@ -692,7 +703,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -704,7 +715,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -712,7 +723,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -735,7 +746,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -745,12 +756,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/verify-email": {
@@ -765,7 +777,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.VerifyEmailRequest"
+                "$ref": "#/components/schemas/VerifyEmailRequest"
               }
             }
           },
@@ -778,7 +790,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -790,7 +802,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -798,7 +810,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -821,7 +833,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -831,12 +843,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/bars": {
@@ -846,6 +859,7 @@
             "BearerAuth": []
           }
         ],
+        "description": "Paginated: data is the array, and the page counters are in meta. An out-of-range page or limit is clamped, not rejected.",
         "tags": [
           "bars"
         ],
@@ -887,7 +901,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -895,11 +909,11 @@
                         "data": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                            "$ref": "#/components/schemas/BarResponse"
                           }
                         },
                         "meta": {
-                          "$ref": "#/components/schemas/response.Meta"
+                          "$ref": "#/components/schemas/Meta"
                         }
                       }
                     }
@@ -913,7 +927,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -923,7 +937,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -941,7 +955,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -951,7 +965,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1000,13 +1014,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -1022,7 +1036,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -1030,7 +1044,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -1045,7 +1059,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1055,7 +1069,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1065,7 +1079,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1075,7 +1089,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1093,7 +1107,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1103,7 +1117,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1118,6 +1132,7 @@
             "BearerAuth": []
           }
         ],
+        "description": "A bar that does not exist is 404.",
         "tags": [
           "bars"
         ],
@@ -1142,13 +1157,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -1162,7 +1177,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1172,7 +1187,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1182,7 +1197,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1200,7 +1215,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1210,7 +1225,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1251,13 +1266,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -1273,7 +1288,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -1281,7 +1296,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -1296,7 +1311,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1306,7 +1321,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1316,7 +1331,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1334,7 +1349,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1344,7 +1359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1357,6 +1372,7 @@
             "BearerAuth": []
           }
         ],
+        "description": "Soft deletes the bar. Repeating the call is 404.",
         "tags": [
           "bars"
         ],
@@ -1382,7 +1398,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1392,7 +1408,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1402,7 +1418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1420,7 +1436,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1430,7 +1446,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1455,7 +1471,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.EmailChangeRequest"
+                "$ref": "#/components/schemas/EmailChangeRequest"
               }
             }
           },
@@ -1468,7 +1484,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1480,7 +1496,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -1488,7 +1504,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -1503,7 +1519,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1521,7 +1537,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1531,7 +1547,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1556,7 +1572,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.ConfirmEmailChangeRequest"
+                "$ref": "#/components/schemas/ConfirmEmailChangeRequest"
               }
             }
           },
@@ -1569,7 +1585,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1581,7 +1597,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -1589,7 +1605,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -1604,7 +1620,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1614,7 +1630,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1632,7 +1648,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1642,7 +1658,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1667,7 +1683,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/dtorequest.ChangePasswordRequest"
+                "$ref": "#/components/schemas/ChangePasswordRequest"
               }
             }
           },
@@ -1680,7 +1696,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1692,7 +1708,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -1700,7 +1716,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -1715,7 +1731,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1733,7 +1749,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1743,7 +1759,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1772,7 +1788,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -1780,7 +1796,7 @@
                         "data": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/dtoresponse.ActiveSessionResponse"
+                            "$ref": "#/components/schemas/ActiveSessionResponse"
                           }
                         }
                       }
@@ -1795,7 +1811,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1813,7 +1829,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1823,7 +1839,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1861,7 +1877,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1873,7 +1889,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -1881,7 +1897,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -1896,7 +1912,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1906,7 +1922,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1924,7 +1940,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1934,7 +1950,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -1944,6 +1960,7 @@
     },
     "/health": {
       "get": {
+        "description": "Same response as /livez, kept for existing probes.",
         "tags": [
           "health"
         ],
@@ -1955,16 +1972,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/router.liveResponse"
+                  "$ref": "#/components/schemas/LiveResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/healthcheck": {
       "get": {
+        "description": "Same response as /readyz, kept for existing probes.",
         "tags": [
           "health"
         ],
@@ -1976,7 +1995,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/router.readyResponse"
+                  "$ref": "#/components/schemas/ReadyResponse"
                 }
               }
             }
@@ -1986,12 +2005,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/router.readyResponse"
+                  "$ref": "#/components/schemas/ReadyResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/internal/bars": {
@@ -2001,6 +2021,7 @@
             "InternalSecret": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.",
         "tags": [
           "internal"
         ],
@@ -2050,7 +2071,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -2058,11 +2079,11 @@
                         "data": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                            "$ref": "#/components/schemas/BarResponse"
                           }
                         },
                         "meta": {
-                          "$ref": "#/components/schemas/response.Meta"
+                          "$ref": "#/components/schemas/Meta"
                         }
                       }
                     }
@@ -2076,7 +2097,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2086,7 +2107,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2099,6 +2120,7 @@
             "InternalSecret": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.",
         "tags": [
           "internal"
         ],
@@ -2133,13 +2155,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -2155,7 +2177,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -2163,7 +2185,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -2178,7 +2200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2188,7 +2210,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2198,7 +2220,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2213,6 +2235,7 @@
             "InternalSecret": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.",
         "tags": [
           "internal"
         ],
@@ -2245,13 +2268,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -2265,7 +2288,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2275,7 +2298,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2285,7 +2308,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2298,6 +2321,7 @@
             "InternalSecret": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.",
         "tags": [
           "internal"
         ],
@@ -2333,13 +2357,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -2355,7 +2379,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -2363,7 +2387,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -2378,7 +2402,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2388,7 +2412,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2398,7 +2422,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2411,6 +2435,7 @@
             "InternalSecret": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for other services in the cluster: no user and no permission check.",
         "tags": [
           "internal"
         ],
@@ -2444,7 +2469,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2454,7 +2479,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2464,7 +2489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2486,12 +2511,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/router.liveResponse"
+                  "$ref": "#/components/schemas/LiveResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/metrics": {
@@ -2513,7 +2539,8 @@
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/partner/v1/bars": {
@@ -2523,6 +2550,7 @@
             "ApiKeyAuth": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.",
         "tags": [
           "partner"
         ],
@@ -2564,7 +2592,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -2572,11 +2600,11 @@
                         "data": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                            "$ref": "#/components/schemas/BarResponse"
                           }
                         },
                         "meta": {
-                          "$ref": "#/components/schemas/response.Meta"
+                          "$ref": "#/components/schemas/Meta"
                         }
                       }
                     }
@@ -2590,7 +2618,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2608,7 +2636,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2618,7 +2646,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2631,6 +2659,7 @@
             "ApiKeyAuth": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.",
         "tags": [
           "partner"
         ],
@@ -2655,13 +2684,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -2677,7 +2706,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -2685,7 +2714,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -2700,7 +2729,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2710,7 +2739,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2728,7 +2757,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2738,7 +2767,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2753,6 +2782,7 @@
             "ApiKeyAuth": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.",
         "tags": [
           "partner"
         ],
@@ -2777,13 +2807,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -2797,7 +2827,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2807,7 +2837,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2825,7 +2855,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2835,7 +2865,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2848,6 +2878,7 @@
             "ApiKeyAuth": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.",
         "tags": [
           "partner"
         ],
@@ -2875,13 +2906,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/dtoresponse.BarResponse"
+                          "$ref": "#/components/schemas/BarResponse"
                         }
                       }
                     }
@@ -2897,7 +2928,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/response.BaseResponse"
+                      "$ref": "#/components/schemas/BaseResponse"
                     },
                     {
                       "type": "object",
@@ -2905,7 +2936,7 @@
                         "errors": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/response.ValidationErrorDetail"
+                            "$ref": "#/components/schemas/ValidationErrorDetail"
                           }
                         }
                       }
@@ -2920,7 +2951,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2930,7 +2961,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2948,7 +2979,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2958,7 +2989,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -2971,6 +3002,7 @@
             "ApiKeyAuth": []
           }
         ],
+        "description": "Same behaviour as the /api/v1 route, for an external partner. Rate limited per API key.",
         "tags": [
           "partner"
         ],
@@ -2996,7 +3028,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -3006,7 +3038,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -3024,7 +3056,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -3034,7 +3066,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/response.BaseResponse"
+                  "$ref": "#/components/schemas/BaseResponse"
                 }
               }
             }
@@ -3056,7 +3088,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/router.readyResponse"
+                  "$ref": "#/components/schemas/ReadyResponse"
                 }
               }
             }
@@ -3066,12 +3098,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/router.readyResponse"
+                  "$ref": "#/components/schemas/ReadyResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     }
   },
@@ -3109,7 +3142,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/dtorequest.BarCreateRequest"
+              "$ref": "#/components/schemas/BarCreateRequest"
             }
           }
         },
@@ -3120,7 +3153,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/dtorequest.BarUpdateRequest"
+              "$ref": "#/components/schemas/BarUpdateRequest"
             }
           }
         },
@@ -3155,190 +3188,7 @@
       }
     },
     "schemas": {
-      "dtorequest.BarCreateRequest": {
-        "type": "object",
-        "required": [
-          "bar",
-          "code"
-        ],
-        "properties": {
-          "bar": {
-            "type": "string",
-            "example": "First bar"
-          },
-          "code": {
-            "type": "string",
-            "minLength": 3,
-            "example": "EXP001"
-          }
-        }
-      },
-      "dtorequest.BarUpdateRequest": {
-        "type": "object",
-        "required": [
-          "bar"
-        ],
-        "properties": {
-          "bar": {
-            "type": "string",
-            "example": "First bar"
-          },
-          "code": {
-            "type": "string",
-            "example": "EXP001"
-          }
-        }
-      },
-      "dtorequest.ChangePasswordRequest": {
-        "type": "object",
-        "required": [
-          "currentPassword",
-          "newPassword"
-        ],
-        "properties": {
-          "currentPassword": {
-            "type": "string",
-            "example": "a-strong-password"
-          },
-          "newPassword": {
-            "type": "string",
-            "minLength": 8,
-            "example": "another-strong-password"
-          }
-        }
-      },
-      "dtorequest.ConfirmEmailChangeRequest": {
-        "type": "object",
-        "required": [
-          "code"
-        ],
-        "properties": {
-          "code": {
-            "type": "string",
-            "example": "123456"
-          }
-        }
-      },
-      "dtorequest.EmailChangeRequest": {
-        "type": "object",
-        "required": [
-          "currentPassword",
-          "newEmail"
-        ],
-        "properties": {
-          "currentPassword": {
-            "type": "string",
-            "example": "a-strong-password"
-          },
-          "newEmail": {
-            "type": "string",
-            "example": "new@example.test"
-          }
-        }
-      },
-      "dtorequest.ForgotPasswordRequest": {
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "first@example.test"
-          }
-        }
-      },
-      "dtorequest.LoginRequest": {
-        "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "first@example.test"
-          },
-          "password": {
-            "type": "string",
-            "example": "a-strong-password"
-          },
-          "rememberMe": {
-            "type": "boolean"
-          }
-        }
-      },
-      "dtorequest.RegisterRequest": {
-        "type": "object",
-        "required": [
-          "email",
-          "name",
-          "password"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "first@example.test"
-          },
-          "name": {
-            "type": "string",
-            "example": "First User"
-          },
-          "password": {
-            "type": "string",
-            "minLength": 8,
-            "example": "a-strong-password"
-          }
-        }
-      },
-      "dtorequest.ResetPasswordRequest": {
-        "type": "object",
-        "required": [
-          "newPassword",
-          "token"
-        ],
-        "properties": {
-          "newPassword": {
-            "type": "string",
-            "minLength": 8,
-            "example": "another-strong-password"
-          },
-          "token": {
-            "type": "string",
-            "maxLength": 256
-          }
-        }
-      },
-      "dtorequest.SendVerificationEmailRequest": {
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "first@example.test"
-          }
-        }
-      },
-      "dtorequest.VerifyEmailRequest": {
-        "type": "object",
-        "required": [
-          "code",
-          "email"
-        ],
-        "properties": {
-          "code": {
-            "type": "string",
-            "example": "123456"
-          },
-          "email": {
-            "type": "string",
-            "example": "first@example.test"
-          }
-        }
-      },
-      "dtoresponse.ActiveSessionResponse": {
+      "ActiveSessionResponse": {
         "type": "object",
         "properties": {
           "createdAt": {
@@ -3371,7 +3221,25 @@
           }
         }
       },
-      "dtoresponse.BarResponse": {
+      "BarCreateRequest": {
+        "type": "object",
+        "required": [
+          "bar",
+          "code"
+        ],
+        "properties": {
+          "bar": {
+            "type": "string",
+            "example": "First bar"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 3,
+            "example": "EXP001"
+          }
+        }
+      },
+      "BarResponse": {
         "type": "object",
         "properties": {
           "bar": {
@@ -3385,13 +3253,141 @@
           }
         }
       },
-      "dtoresponse.LoginResponse": {
+      "BarUpdateRequest": {
+        "type": "object",
+        "required": [
+          "bar"
+        ],
+        "properties": {
+          "bar": {
+            "type": "string",
+            "example": "First bar"
+          },
+          "code": {
+            "type": "string",
+            "example": "EXP001"
+          }
+        }
+      },
+      "BaseResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "description": "Code is set on every error: a stable, machine-readable, snake_case identifier. Clients\nbranch on it (and on the status); Message is prose for humans and may change.",
+            "type": "string"
+          },
+          "data": {},
+          "errors": {},
+          "message": {
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "example": "a-strong-password"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "example": "another-strong-password"
+          }
+        }
+      },
+      "ConfirmEmailChangeRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "123456"
+          }
+        }
+      },
+      "EmailChangeRequest": {
+        "type": "object",
+        "required": [
+          "currentPassword",
+          "newEmail"
+        ],
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "example": "a-strong-password"
+          },
+          "newEmail": {
+            "type": "string",
+            "example": "new@example.test"
+          }
+        }
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "first@example.test"
+          }
+        }
+      },
+      "LiveResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-01-02T15:04:05Z"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "first@example.test"
+          },
+          "password": {
+            "type": "string",
+            "example": "a-strong-password"
+          },
+          "rememberMe": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LoginResponse": {
         "type": "object",
         "properties": {
           "menus": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/dtoresponse.MenuResponse"
+              "$ref": "#/components/schemas/MenuResponse"
             }
           },
           "permissions": {
@@ -3401,23 +3397,23 @@
             }
           },
           "session": {
-            "$ref": "#/components/schemas/dtoresponse.SessionResponse"
+            "$ref": "#/components/schemas/SessionResponse"
           },
           "tokens": {
-            "$ref": "#/components/schemas/dtoresponse.TokenPairResponse"
+            "$ref": "#/components/schemas/TokenPairResponse"
           },
           "user": {
-            "$ref": "#/components/schemas/dtoresponse.UserResponse"
+            "$ref": "#/components/schemas/UserResponse"
           }
         }
       },
-      "dtoresponse.MenuResponse": {
+      "MenuResponse": {
         "type": "object",
         "properties": {
           "child": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/dtoresponse.MenuResponse"
+              "$ref": "#/components/schemas/MenuResponse"
             }
           },
           "displayOrder": {
@@ -3446,116 +3442,7 @@
           }
         }
       },
-      "dtoresponse.SessionResponse": {
-        "type": "object",
-        "properties": {
-          "deviceId": {
-            "type": "string"
-          },
-          "deviceName": {
-            "type": "string"
-          },
-          "deviceType": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "ipAddress": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "lastUsedAt": {
-            "type": "string"
-          },
-          "userAgent": {
-            "type": "string"
-          }
-        }
-      },
-      "dtoresponse.TokenPairResponse": {
-        "type": "object",
-        "properties": {
-          "accessToken": {
-            "type": "string"
-          },
-          "accessTokenExpiresAt": {
-            "type": "string"
-          },
-          "accessTokenExpiresIn": {
-            "type": "integer"
-          },
-          "accessTokenType": {
-            "type": "string"
-          },
-          "refreshToken": {
-            "description": "absent in cookie mode",
-            "type": "string"
-          },
-          "refreshTokenExpiresAt": {
-            "type": "string"
-          },
-          "refreshTokenExpiresIn": {
-            "type": "integer"
-          },
-          "refreshTokenType": {
-            "type": "string"
-          }
-        }
-      },
-      "dtoresponse.UserResponse": {
-        "type": "object",
-        "properties": {
-          "avatar": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "emailVerified": {
-            "type": "boolean"
-          },
-          "id": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "lastLoginAt": {
-            "type": "string",
-            "nullable": true
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "response.BaseResponse": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "description": "Code is set on every error: a stable, machine-readable, snake_case identifier. Clients\nbranch on it (and on the status); Message is prose for humans and may change.",
-            "type": "string"
-          },
-          "data": {},
-          "errors": {},
-          "message": {
-            "type": "string"
-          },
-          "meta": {
-            "$ref": "#/components/schemas/response.Meta"
-          },
-          "success": {
-            "type": "boolean"
-          }
-        }
-      },
-      "response.Meta": {
+      "Meta": {
         "type": "object",
         "properties": {
           "hasNext": {
@@ -3587,34 +3474,7 @@
           }
         }
       },
-      "response.ValidationErrorDetail": {
-        "type": "object",
-        "properties": {
-          "field": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "tag": {
-            "type": "string"
-          }
-        }
-      },
-      "router.liveResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "example": "ok"
-          },
-          "timestamp": {
-            "type": "string",
-            "example": "2026-01-02T15:04:05Z"
-          }
-        }
-      },
-      "router.readyResponse": {
+      "ReadyResponse": {
         "type": "object",
         "properties": {
           "checks": {
@@ -3642,6 +3502,179 @@
           "version": {
             "type": "string",
             "example": "1.0.0"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "name",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "first@example.test"
+          },
+          "name": {
+            "type": "string",
+            "example": "First User"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "a-strong-password"
+          }
+        }
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "required": [
+          "newPassword",
+          "token"
+        ],
+        "properties": {
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "example": "another-strong-password"
+          },
+          "token": {
+            "type": "string",
+            "maxLength": 256
+          }
+        }
+      },
+      "SendVerificationEmailRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "first@example.test"
+          }
+        }
+      },
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "deviceName": {
+            "type": "string"
+          },
+          "deviceType": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ipAddress": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "lastUsedAt": {
+            "type": "string"
+          },
+          "userAgent": {
+            "type": "string"
+          }
+        }
+      },
+      "TokenPairResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "accessTokenExpiresAt": {
+            "type": "string"
+          },
+          "accessTokenExpiresIn": {
+            "type": "integer"
+          },
+          "accessTokenType": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "description": "absent in cookie mode",
+            "type": "string"
+          },
+          "refreshTokenExpiresAt": {
+            "type": "string"
+          },
+          "refreshTokenExpiresIn": {
+            "type": "integer"
+          },
+          "refreshTokenType": {
+            "type": "string"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "avatar": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "lastLoginAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ValidationErrorDetail": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          }
+        }
+      },
+      "VerifyEmailRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "email"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "123456"
+          },
+          "email": {
+            "type": "string",
+            "example": "first@example.test"
           }
         }
       }

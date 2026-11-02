@@ -2,11 +2,11 @@ package router
 
 import (
 	"encoding/json"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
 
+	"goilerplate/api"
 	"goilerplate/config"
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/delivery/http/handler"
@@ -108,15 +108,12 @@ func TestRegister_RecoveryRoutesFollowAuthEmailEnabled(t *testing.T) {
 func loadOpenAPIOperations(t *testing.T) map[string][]string {
 	t.Helper()
 
-	raw, err := os.ReadFile("../../../../.swagger/openapi.json")
-	require.NoError(t, err)
-
 	var spec struct {
 		Paths map[string]map[string]struct {
 			Security []map[string][]string `json:"security"`
 		} `json:"paths"`
 	}
-	require.NoError(t, json.Unmarshal(raw, &spec))
+	require.NoError(t, json.Unmarshal(api.OpenAPISpec, &spec))
 
 	operations := map[string][]string{}
 	for path, methods := range spec.Paths {
@@ -133,7 +130,7 @@ func loadOpenAPIOperations(t *testing.T) map[string][]string {
 	return operations
 }
 
-// A route nobody documented cannot be imported into Postman or Apidog, and it is easy to add one
+// A route nobody documented is missing from every tool that imports the spec, and it is easy to add one
 // and forget: the spec is generated from annotations, which the compiler does not check.
 func TestOpenAPI_MatchesRegisteredRoutes(t *testing.T) {
 	cfg := &config.Config{}
@@ -155,10 +152,10 @@ func TestOpenAPI_MatchesRegisteredRoutes(t *testing.T) {
 	}
 
 	for route := range registered {
-		assert.Contains(t, operations, route, "route is not in .swagger/openapi.json; annotate it and run make swag")
+		assert.Contains(t, operations, route, "route is not in api/openapi.json; annotate it and run make openapi")
 	}
 	for operation := range operations {
-		assert.True(t, registered[operation], "%s is in .swagger/openapi.json but no such route exists", operation)
+		assert.True(t, registered[operation], "%s is in api/openapi.json but no such route exists", operation)
 	}
 }
 

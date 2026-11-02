@@ -3,7 +3,7 @@
 # Build and run commands
 .PHONY: build run test test-quick test-integration cover vuln clean \
 	migrate-up migrate-down migrate-status migrate-create \
-	swag dev-setup format lint lint-install \
+	openapi dev-setup format lint lint-install \
 	docker-build docker-run docker-build-local docker-run-local up help
 
 # Application
@@ -79,11 +79,11 @@ migrate-create:
 	go run cmd/migrate/main.go -action=create -name=$(name)
 
 # Swagger docs
-swag:
+openapi:
 	@echo "Generating the OpenAPI spec..."
-	swag init -g cmd/server/main.go -o tmp/swagger --outputTypes json
-	npx -y swagger2openapi@7.0.8 --outfile .swagger/openapi.json tmp/swagger/swagger.json
-	node .scripts/openapi-finalize.mjs .swagger/openapi.json
+	go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -g cmd/server/main.go -o tmp/openapi --outputTypes json
+	npx -y swagger2openapi@7.0.8 --outfile api/openapi.json tmp/openapi/swagger.json
+	node .scripts/openapi-finalize.mjs api/openapi.json
 
 # Development helpers
 dev-setup:
@@ -146,5 +146,5 @@ help:
 	@echo "  dev-setup      - Setup development environment"
 	@echo "  format         - Format code"
 	@echo "  lint           - Run linter"
-	@echo "  swag           - Generate Swagger docs"
+	@echo "  openapi        - Generate the OpenAPI spec"
 	@echo "  help           - Show this help message"

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"goilerplate/api"
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/wire"
 	"goilerplate/pkg/logger"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
-	fiberswagger "github.com/gofiber/swagger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -33,6 +33,7 @@ func NewRouteRegistry(app *bootstrap.App, wired *wire.ApplicationContainer) *Rou
 //
 // @Summary      Welcome message
 // @ID           index
+// @Description  Answers a plain-text greeting.
 // @Tags         health
 // @Produce      plain
 // @Success      200  {string}  string
@@ -78,6 +79,7 @@ func (r *RouteRegistry) live(ctx *fiber.Ctx) error {
 //
 // @Summary      Liveness probe (alias of /livez)
 // @ID           health
+// @Description  Same response as /livez, kept for existing probes.
 // @Tags         health
 // @Produce      json
 // @Success      200  {object}  liveResponse
@@ -90,6 +92,7 @@ func liveAliasDoc() {}
 //
 // @Summary      Readiness probe (alias of /readyz)
 // @ID           healthcheck
+// @Description  Same response as /readyz, kept for existing probes.
 // @Tags         health
 // @Produce      json
 // @Success      200  {object}  readyResponse
@@ -201,10 +204,10 @@ func (r *RouteRegistry) Register() {
 	}
 
 	if strings.ToLower(r.App.Config.App.Env) != "production" {
-		http.Static("/swagger-ui", ".swagger")
-		http.Get("/swaggerui/*", fiberswagger.New(fiberswagger.Config{
-			URL: "/swagger-ui/openapi.json",
-		}))
+		http.Get("/openapi.json", func(ctx *fiber.Ctx) error {
+			ctx.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			return ctx.Send(api.OpenAPISpec)
+		})
 	}
 	http.Use(r.Wired.Middleware.RequestLogger.LogRequest())
 
