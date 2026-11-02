@@ -26,4 +26,4 @@
 - [ ] No `float64` for financial values — `shopspring/decimal` used
 - [ ] DB access only through the repository interface — no GORM in handlers/use cases
 - [ ] New migration has matching `.up.sql` and `.down.sql` (if applicable)
-- [ ] No secrets committed — configuration comes from `config/.env`
+- [ ] No secrets committed — secrets come from environment variables

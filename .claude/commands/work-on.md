@@ -12,8 +12,8 @@ Usage:
 - `/work-on` — list tickets assigned to you, then pick one
 
 Jira credentials (`JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`) are read from
-`config/.env` by the helper scripts in `.claude/scripts/`. If a script reports
-missing credentials, stop and tell the user which vars to add to `config/.env`.
+`.claude/.env` by the helper scripts in `.claude/scripts/`. If a script reports
+missing credentials, stop and tell the user which vars to add to `.claude/.env`.
 
 ---
 

@@ -1,9 +1,9 @@
 # Shared Jira helpers — source this from other scripts in .claude/scripts/.
 # Not meant to be executed directly.
 
-JIRA_ENV_FILE="${JIRA_ENV_FILE:-config/.env}"
+JIRA_ENV_FILE="${JIRA_ENV_FILE:-.claude/.env}"
 
-# Load and validate Jira credentials from config/.env into the environment.
+# Load and validate Jira credentials from .claude/.env into the environment.
 jira_load_env() {
   if [ ! -f "$JIRA_ENV_FILE" ]; then
     echo "ERROR: $JIRA_ENV_FILE not found. Run this from the repo root." >&2

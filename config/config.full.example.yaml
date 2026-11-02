@@ -196,10 +196,10 @@ filesystem:
   # Leave access_key_id / secret_access_key both empty to use the default AWS credential chain
   # (environment, IAM role, IRSA) — preferred on AWS. The bucket stays private: no ACLs are set.
   s3:
-    access_key_id: <S3_ACCESS_KEY_ID>
-    secret_access_key: <S3_SECRET_ACCESS_KEY>
+    access_key_id: <FILESYSTEM_S3_ACCESS_KEY_ID>
+    secret_access_key: <FILESYSTEM_S3_SECRET_ACCESS_KEY>
     region: us-east-1 # required; "auto" for Cloudflare R2
-    bucket: <S3_BUCKET> # required
+    bucket: <FILESYSTEM_S3_BUCKET> # required
     # S3-compatible stores only, without the bucket: http://minio:9000,
     # https://<account>.r2.cloudflarestorage.com. Empty = AWS.
     endpoint: ""

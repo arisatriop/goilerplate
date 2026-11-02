@@ -73,7 +73,7 @@ Technical documentation and special setup.
 ## 📡 API Documentation
 
 - Endpoint authentication at **[Router & API Routes](./api/router.md)**
-- Request/response examples at **[README root](../README.md#-api-endpoints)**
+- Request/response examples at **[Swagger spec](../.swagger/swagger.yaml)**
 
 ---
 
@@ -85,7 +85,7 @@ Technical documentation and special setup.
 | Authentication | [guides/auth.md](./guides/auth.md) |
 | gRPC Guide | [guides/grpc.md](./guides/grpc.md) |
 | Observability | [guides/observability.md](./guides/observability.md) |
-| Project Structure | [README.md#-project-structure](../README.md#-project-structure) |
+| Project Structure | [getting-started/installation.md#-project-structure](./getting-started/installation.md#-project-structure) |
 | Tech Stack | [README.md#-tech-stack](../README.md#-tech-stack) |
 | Contributing | [README.md#-contributing](../README.md#-contributing) |
 

@@ -8,7 +8,7 @@ main
 tmp/
 
 # Configuration and secrets
-*.env
+**/*.env
 deploy/
 credentials/
 oauth-token.json

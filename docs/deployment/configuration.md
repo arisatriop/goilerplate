@@ -156,16 +156,20 @@ openssl rand -base64 48   # jwt.access_secret, jwt.refresh_secret, internal_auth
 
 Use a different value for each. Minimum 32 bytes, enforced at startup.
 
-### ⚠️ `config/.env` is **not** read by the application
+### ⚠️ No `.env` file is read by the application
 
-This surprises people, so it is worth being blunt: nothing in the server loads `config/.env`.
-There is no dotenv dependency and no code that reads the file. Putting `DB_NAME` in it and
-starting the app has no effect — the value in `config.yaml` is used instead, silently.
+This surprises people, so it is worth being blunt: nothing in the server loads a `.env` file.
+There is no dotenv dependency and no code that reads one. Putting `DB_NAME` in one and starting
+the app has no effect — the value in `config.yaml` is used instead, silently.
 
-The file exists for the **MCP servers** in [`.mcp.json`](../../.mcp.json), which source it
-themselves for the PostgreSQL, GitHub and Jira integrations.
+Two exist, and each has its own reader:
 
-If you want those values to reach the application, export them yourself:
+| File | Purpose | Read by |
+|---|---|---|
+| `config/.env` | Source of the Kubernetes Secret, from [`config/.env.example`](../../config/.env.example) | `kubectl --from-env-file`, which puts the values in the pod's environment |
+| `.claude/.env` | AI agent credentials, from [`.claude/.env.example`](../../.claude/.env.example) | The MCP servers in [`.mcp.json`](../../.mcp.json) and the scripts in `.claude/scripts/` |
+
+If you want `config/.env` to reach the application outside Kubernetes, export it yourself:
 
 ```bash
 set -a && . config/.env && set +a && make run

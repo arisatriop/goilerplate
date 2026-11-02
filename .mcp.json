@@ -2,11 +2,11 @@
   "mcpServers": {
     "postgres": {
       "command": "sh",
-      "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && npx -y @modelcontextprotocol/server-postgres \"postgresql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME\""]
+      "args": ["-c", "export $(grep -v '^#' .claude/.env | xargs) && npx -y @modelcontextprotocol/server-postgres \"postgresql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME\""]
     },
     "github": {
       "command": "sh",
-      "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN npx -y @modelcontextprotocol/server-github"]
+      "args": ["-c", "export $(grep -v '^#' .claude/.env | xargs) && GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN npx -y @modelcontextprotocol/server-github"]
     },
     "fetch": {
       "command": "npx",
@@ -14,7 +14,7 @@
     },
     "jira": {
       "command": "sh",
-      "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && ATLASSIAN_BASE_URL=$JIRA_URL ATLASSIAN_EMAIL=$JIRA_EMAIL ATLASSIAN_API_TOKEN=$JIRA_API_TOKEN npx -y mcp-atlassian"]
+      "args": ["-c", "export $(grep -v '^#' .claude/.env | xargs) && ATLASSIAN_BASE_URL=$JIRA_URL ATLASSIAN_EMAIL=$JIRA_EMAIL ATLASSIAN_API_TOKEN=$JIRA_API_TOKEN npx -y mcp-atlassian"]
     }
   }
 }

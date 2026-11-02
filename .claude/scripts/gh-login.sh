@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Authenticate the gh CLI non-interactively using the token in config/.env.
+# Authenticate the gh CLI non-interactively using the token in .claude/.env.
 # Safe to run repeatedly and in non-interactive shells — exits early if gh is
 # already authenticated. Run this before any command that uses gh.
 set -euo pipefail
@@ -10,7 +10,7 @@ if gh auth status >/dev/null 2>&1; then
   exit 0
 fi
 
-ENV_FILE="config/.env"
+ENV_FILE=".claude/.env"
 if [ ! -f "$ENV_FILE" ]; then
   echo "ERROR: $ENV_FILE not found. Run this from the repo root." >&2
   exit 1

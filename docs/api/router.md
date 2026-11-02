@@ -274,8 +274,8 @@ foo.Post("",
 ## 🔗 Related Docs
 
 - [CRUD Operations](../guides/crud-operations.md) - How to create new endpoints
-- [Authentication & Authorization](../guides/architecture.md) - JWT & RBAC details
-- [Main README - API Endpoints](../../README.md#-api-endpoints) - Request examples
+- [Authentication & Authorization](../guides/auth.md) - JWT & RBAC details
+- [Swagger spec](../../.swagger/swagger.yaml) - Request examples
 
 ---
 

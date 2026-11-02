@@ -10,7 +10,7 @@ MCP uses 3 files for setup:
 
 1. **`.mcp.json`** — Defines MCP servers (committed to git)
 2. **`.claude/settings.json`** — Enables specific MCP servers automatically (committed to git)
-3. **`config/.env`** — Provides credentials (gitignored, created locally)
+3. **`.claude/.env`** — Provides credentials (gitignored, created locally)
 
 When you open the project in Claude Code, the enabled MCP servers start automatically.
 
@@ -22,19 +22,19 @@ When you open the project in Claude Code, the enabled MCP servers start automati
 |------------|----------------------------------------------|--------------------|
 | `postgres` | Query local PostgreSQL database              | Yes                |
 | `github`   | Read/write GitHub issues, PRs, files         | Yes                |
-| `fetch`    | Fetch web URLs (documentation, APIs)         | Yes                |
-| `jira`     | Read/write Jira tickets and comments         | No — opt-in below  |
+| `fetch`    | Fetch web URLs (documentation, APIs)         | No — opt-in below  |
+| `jira`     | Read/write Jira tickets and comments         | Yes                |
 
 ---
 
 ## Setup for New Team Members
 
-### Step 1 — Create `config/.env`
+### Step 1 — Create `.claude/.env`
 
 Copy from the example and fill in your credentials:
 
 ```bash
-cp config/.env.example config/.env
+cp .claude/.env.example .claude/.env
 ```
 
 Minimum required variables:
@@ -56,7 +56,7 @@ JIRA_EMAIL=your@email.com
 JIRA_API_TOKEN=your_jira_api_token
 ```
 
-**Never commit `config/.env` — it is gitignored.**
+**Never commit `.claude/.env` — it is gitignored.**
 
 ### Step 2 — Open the Project in Claude Code
 
@@ -64,7 +64,7 @@ JIRA_API_TOKEN=your_jira_api_token
 claude
 ```
 
-`postgres`, `github`, and `fetch` start automatically via `.claude/settings.json`.
+`postgres`, `github`, and `jira` start automatically via `.claude/settings.json`.
 
 ### Step 3 — Verify
 
@@ -72,15 +72,17 @@ Ask Claude: "please query the database and show me the tables" — or run `/mcp`
 
 ---
 
-## Enabling the Jira MCP Server
+## Enabling the Fetch MCP Server
 
-The `jira` server is defined in `.mcp.json` but not auto-enabled. To activate it, add `"jira"` to `enabledMcpjsonServers` in `.claude/settings.json`:
+The `fetch` server is defined in `.mcp.json` but not auto-enabled. To activate it, add `"fetch"` to `enabledMcpjsonServers` in `.claude/settings.json`:
 
 ```json
-"enabledMcpjsonServers": ["postgres", "github", "fetch", "jira"]
+"enabledMcpjsonServers": ["postgres", "github", "jira", "fetch"]
 ```
 
-Note: the Jira slash commands (`/ship`, `/work-on`, `/mark-as-start`, etc.) call the Jira REST API directly via `curl` using credentials from `config/.env` — they do not require the Jira MCP server. The MCP server is for ad-hoc interactive queries.
+## Jira Slash Commands
+
+Note: the Jira slash commands (`/ship`, `/work-on`, `/mark-as-start`, etc.) call the Jira REST API directly via `curl` using credentials from `.claude/.env` — they do not require the Jira MCP server. The MCP server is for ad-hoc interactive queries.
 
 ---
 
@@ -93,11 +95,11 @@ Note: the Jira slash commands (`/ship`, `/work-on`, `/mark-as-start`, etc.) call
   "mcpServers": {
     "postgres": {
       "command": "sh",
-      "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && npx -y @modelcontextprotocol/server-postgres \"postgresql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME\""]
+      "args": ["-c", "export $(grep -v '^#' .claude/.env | xargs) && npx -y @modelcontextprotocol/server-postgres \"postgresql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME\""]
     },
     "github": {
       "command": "sh",
-      "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN npx -y @modelcontextprotocol/server-github"]
+      "args": ["-c", "export $(grep -v '^#' .claude/.env | xargs) && GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN npx -y @modelcontextprotocol/server-github"]
     },
     "fetch": {
       "command": "npx",
@@ -105,7 +107,7 @@ Note: the Jira slash commands (`/ship`, `/work-on`, `/mark-as-start`, etc.) call
     },
     "jira": {
       "command": "sh",
-      "args": ["-c", "export $(grep -v '^#' config/.env | xargs) && JIRA_URL=$JIRA_URL JIRA_USERNAME=$JIRA_EMAIL JIRA_API_TOKEN=$JIRA_API_TOKEN npx -y mcp-atlassian"]
+      "args": ["-c", "export $(grep -v '^#' .claude/.env | xargs) && ATLASSIAN_BASE_URL=$JIRA_URL ATLASSIAN_EMAIL=$JIRA_EMAIL ATLASSIAN_API_TOKEN=$JIRA_API_TOKEN npx -y mcp-atlassian"]
     }
   }
 }
@@ -115,7 +117,7 @@ Note: the Jira slash commands (`/ship`, `/work-on`, `/mark-as-start`, etc.) call
 
 ```json
 {
-  "enabledMcpjsonServers": ["postgres", "github", "fetch"]
+  "enabledMcpjsonServers": ["postgres", "github", "jira"]
 }
 ```
 
@@ -133,7 +135,7 @@ If a server disconnects, run:
 
 ## Best Practices
 
-- Keep `config/.env` in `.gitignore` — everyone sets up their own locally
+- Keep `.claude/.env` in `.gitignore` — everyone sets up their own locally
 - Use a GitHub PAT scoped to the minimum required permissions (repo read/write)
 - Use a Jira API token (not your password) — generate one at `id.atlassian.com`
 - Do not use production DB credentials locally
@@ -144,13 +146,13 @@ If a server disconnects, run:
 
 ### postgres MCP not connecting
 
-1. Confirm `config/.env` has correct `DB_*` values
+1. Confirm `.claude/.env` has correct `DB_*` values
 2. Verify PostgreSQL is running locally
 3. Run `/mcp` to reconnect
 
 ### github MCP not working
 
-1. Confirm `GITHUB_PERSONAL_ACCESS_TOKEN` is set in `config/.env`
+1. Confirm `GITHUB_PERSONAL_ACCESS_TOKEN` is set in `.claude/.env`
 2. Ensure the token has `repo` scope
 
 ### Database not found

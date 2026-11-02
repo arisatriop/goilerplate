@@ -62,9 +62,14 @@ kubectl apply -f configmap.yaml
 
 ### Secret (from .env file)
 
-**Create Secret from env file:**
+**Create Secret from env file.** [`config/.env.example`](../../config/.env.example) lists what the
+application can take: the required values, and the optional ones to uncomment for the features
+your `config.yaml` enables. `config/.env` is gitignored. Don't use `.claude/.env` here: it holds
+AI agent credentials (GitHub and Jira tokens) that have no place in the cluster.
 
 ```bash
+cp config/.env.example config/.env   # then fill it in
+
 kubectl create secret generic goilerplate-secret -n <namespace> \
   --from-env-file=./config/.env \
   --dry-run=client -o yaml | kubectl apply -f -

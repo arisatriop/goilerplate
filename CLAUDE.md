@@ -23,8 +23,9 @@ Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundat
 
 ## Project Structure
 ```
+.claude/        AI agent tooling: commands, scripts, rules, and .env (its credentials, not the app's)
 cmd/            Entry points (server, migrate, seed)
-config/         YAML config (.env here is for the MCP servers, not the app)
+config/         YAML config, and .env.example (source of the Kubernetes Secret)
 internal/
   application/  Cross-domain orchestration services (only where a flow spans domains)
   bootstrap/    App initialization (Fiber, DB, Redis, gRPC, Viper)
@@ -67,9 +68,10 @@ make migrate-create name=<name>  # create new migration files
 ```
 
 Config file: `config/config.yaml` (copy from `config/config.example.yaml`)
-Secrets: environment variables. **`config/.env` is not read by the application** — no dotenv
-dependency exists; the file is sourced by the MCP servers in `.mcp.json`. To make it reach the
-app: `set -a && . config/.env && set +a`. See [docs/deployment/configuration.md](docs/deployment/configuration.md).
+Secrets: environment variables. **No `.env` file is read by the application** — no dotenv
+dependency exists. `config/.env` is the source of the Kubernetes Secret; to make it reach the app
+locally: `set -a && . config/.env && set +a`. `.claude/.env` holds AI agent credentials, read by
+the MCP servers in `.mcp.json` and the helper scripts in `.claude/scripts/`. See [docs/deployment/configuration.md](docs/deployment/configuration.md).
 
 The repository, cache and `internal/integration` suites need `POSTGRES_TEST_DSN` and
 `REDIS_TEST_ADDR`. Without them they **skip**, so plain `make test` can be green while they

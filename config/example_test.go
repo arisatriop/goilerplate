@@ -1,7 +1,10 @@
 package config
 
 import (
+	"bufio"
+	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -77,6 +80,47 @@ func TestConfigExample_FullDocumentsEveryOption(t *testing.T) {
 	assert.NotEmpty(t, cfg.JWT.PreviousKeys[0].KeyID)
 	assert.NotEmpty(t, cfg.JWT.PreviousKeys[0].AccessSecret)
 	assert.NotEmpty(t, cfg.JWT.PreviousKeys[0].RefreshSecret)
+}
+
+// envExampleLine matches a variable in .env.example, commented out or not.
+var envExampleLine = regexp.MustCompile(`^(?:# )?([A-Z][A-Z0-9_]*)=`)
+
+// TestEnvExample_EveryVariableIsAConfigKey stops the Secret template from drifting: the application
+// silently ignores a misspelled variable, so the mistake would otherwise surface only as a
+// production secret that never took effect.
+func TestEnvExample_EveryVariableIsAConfigKey(t *testing.T) {
+	file, err := os.Open(".env.example")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = file.Close() })
+
+	known := map[string]bool{}
+	var mapPrefixes []string
+	for _, key := range configKeys(reflect.TypeOf(Config{}), "") {
+		env := strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
+		known[env] = true
+		if key == "api_key" || key == "service" {
+			mapPrefixes = append(mapPrefixes, env+"_")
+		}
+	}
+
+	var found int
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		match := envExampleLine.FindStringSubmatch(scanner.Text())
+		if match == nil {
+			continue
+		}
+		found++
+
+		name := match[1]
+		isMapEntry := false
+		for _, prefix := range mapPrefixes {
+			isMapEntry = isMapEntry || strings.HasPrefix(name, prefix)
+		}
+		assert.True(t, known[name] || isMapEntry, "%s does not override any config key", name)
+	}
+	require.NoError(t, scanner.Err())
+	assert.NotZero(t, found, "no variables found in .env.example")
 }
 
 // configKeys lists the dotted key of every struct field; maps count as a single key.

@@ -13,7 +13,7 @@ Usage:
 - `/mark-as-done` — list tickets assigned to you, then pick one
 
 Jira credentials (`JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`) are read from
-`config/.env` by the helper scripts in `.claude/scripts/`.
+`.claude/.env` by the helper scripts in `.claude/scripts/`.
 
 ## 1. Resolve the ticket
 

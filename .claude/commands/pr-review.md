@@ -13,11 +13,11 @@ automatically from the PR size.
 
 ## Preflight — GitHub auth
 
-Ensure the gh CLI is authenticated (non-interactive — reads the token from `config/.env`):
+Ensure the gh CLI is authenticated (non-interactive — reads the token from `.claude/.env`):
 ```bash
 .claude/scripts/gh-login.sh
 ```
-If it reports a missing or invalid token, stop and tell the user to set a valid `GITHUB_PERSONAL_ACCESS_TOKEN` (scopes `repo` + `read:org`) in `config/.env`.
+If it reports a missing or invalid token, stop and tell the user to set a valid `GITHUB_PERSONAL_ACCESS_TOKEN` (scopes `repo` + `read:org`) in `.claude/.env`.
 
 ## 1. Select the PR
 
