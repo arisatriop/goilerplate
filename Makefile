@@ -80,8 +80,10 @@ migrate-create:
 
 # Swagger docs
 swag:
-	@echo "Generating Swagger docs..."
-	swag init -g cmd/server/main.go -o .swagger/
+	@echo "Generating the OpenAPI spec..."
+	swag init -g cmd/server/main.go -o tmp/swagger --outputTypes json
+	npx -y swagger2openapi@7.0.8 --outfile .swagger/openapi.json tmp/swagger/swagger.json
+	node .scripts/openapi-finalize.mjs .swagger/openapi.json
 
 # Development helpers
 dev-setup:

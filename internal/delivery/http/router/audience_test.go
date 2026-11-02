@@ -1,6 +1,9 @@
 package router
 
 import (
+	"encoding/json"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -97,5 +100,88 @@ func TestRegister_RecoveryRoutesFollowAuthEmailEnabled(t *testing.T) {
 	for _, path := range recoveryPaths {
 		assert.False(t, hasPath(disabled, path), "%s is registered with auth.email.enabled=false", path)
 		assert.True(t, hasPath(enabled, path), "%s is missing with auth.email.enabled=true", path)
+	}
+}
+
+// loadOpenAPIOperations returns "METHOD /path" of every operation in the committed spec, with the
+// names of the security schemes each one accepts.
+func loadOpenAPIOperations(t *testing.T) map[string][]string {
+	t.Helper()
+
+	raw, err := os.ReadFile("../../../../.swagger/openapi.json")
+	require.NoError(t, err)
+
+	var spec struct {
+		Paths map[string]map[string]struct {
+			Security []map[string][]string `json:"security"`
+		} `json:"paths"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &spec))
+
+	operations := map[string][]string{}
+	for path, methods := range spec.Paths {
+		for method, operation := range methods {
+			schemes := []string{}
+			for _, requirement := range operation.Security {
+				for scheme := range requirement {
+					schemes = append(schemes, scheme)
+				}
+			}
+			operations[strings.ToUpper(method)+" "+path] = schemes
+		}
+	}
+	return operations
+}
+
+// A route nobody documented cannot be imported into Postman or Apidog, and it is easy to add one
+// and forget: the spec is generated from annotations, which the compiler does not check.
+func TestOpenAPI_MatchesRegisteredRoutes(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Auth.Email.Enabled = true
+	operations := loadOpenAPIOperations(t)
+
+	// Registered by RouteRegistry.Register, which needs a running application.
+	registered := map[string]bool{
+		"GET /": true, "GET /livez": true, "GET /health": true,
+		"GET /readyz": true, "GET /healthcheck": true, "GET /metrics": true,
+	}
+	param := regexp.MustCompile(`:([a-zA-Z]+)`)
+	for _, route := range registeredRoutesWith(t, cfg) {
+		// Fiber registers a HEAD alongside every GET.
+		if route.Method == fiber.MethodHead {
+			continue
+		}
+		registered[route.Method+" "+param.ReplaceAllString(route.Path, "{$1}")] = true
+	}
+
+	for route := range registered {
+		assert.Contains(t, operations, route, "route is not in .swagger/openapi.json; annotate it and run make swag")
+	}
+	for operation := range operations {
+		assert.True(t, registered[operation], "%s is in .swagger/openapi.json but no such route exists", operation)
+	}
+}
+
+func TestOpenAPI_EveryAudienceDeclaresItsCredential(t *testing.T) {
+	public := map[string]bool{
+		"POST /api/v1/auth/register": true, "POST /api/v1/auth/login": true,
+		"POST /api/v1/auth/forgot-password": true, "POST /api/v1/auth/reset-password": true,
+		"POST /api/v1/auth/send-verification-email": true, "POST /api/v1/auth/verify-email": true,
+	}
+
+	for operation, schemes := range loadOpenAPIOperations(t) {
+		path := strings.SplitN(operation, " ", 2)[1]
+		switch {
+		case public[operation]:
+			assert.Empty(t, schemes, "%s needs no credential", operation)
+		case strings.HasPrefix(path, "/api/"):
+			assert.Contains(t, schemes, "BearerAuth", operation)
+		case strings.HasPrefix(path, "/internal/"):
+			assert.Equal(t, []string{"InternalSecret"}, schemes, operation)
+		case strings.HasPrefix(path, "/partner/"):
+			assert.Equal(t, []string{"ApiKeyAuth"}, schemes, operation)
+		default:
+			assert.Empty(t, schemes, "%s is a public probe", operation)
+		}
 	}
 }

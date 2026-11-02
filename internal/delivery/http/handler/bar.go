@@ -26,15 +26,22 @@ func NewBar(validator *validator.Validate, usecase bar.Usecase) *Bar {
 }
 
 // @Summary      Create bar
+// @ID           barsCreate
+// @Description  code must start with EXP (400 bar_code_invalid) and be unique (409 bar_code_already_exists). Retrying with the same Idempotency-Key replays the first response with Idempotency-Replayed: true.
 // @Tags         bars
 // @Accept       json
 // @Produce      json
+// @Param        Idempotency-Key  header  string  true  "Unique per logical request, at most 255 characters"
 // @Param        request  body      dtorequest.BarCreateRequest  true  "Bar data"
 // @Success      201      {object}  response.BaseResponse{data=dtoresponse.BarResponse}
 // @Header       201      {string}  Location  "Path of the created bar"
-// @Failure      400      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401      {object}  response.BaseResponse
-// @Failure      409      {object}  response.BaseResponse
+// @Failure      403      {object}  response.BaseResponse  "The caller lacks the bar create permission"
+// @Failure      409      {object}  response.BaseResponse  "bar_code_already_exists, or a request with this Idempotency-Key is still being processed"
+// @Failure      422      {object}  response.BaseResponse  "Idempotency-Key reused with a different payload"
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/bars [post]
@@ -67,6 +74,7 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 }
 
 // @Summary      Update bar
+// @ID           barsUpdate
 // @Tags         bars
 // @Accept       json
 // @Produce      json
@@ -74,9 +82,12 @@ func (h *Bar) Create(ctx *fiber.Ctx) error {
 // @Description  Replaces the bar's content. code may be omitted or repeated but not changed: it is the business key (400 bar_code_immutable).
 // @Param        request  body      dtorequest.BarUpdateRequest  true  "Bar data"
 // @Success      200      {object}  response.BaseResponse{data=dtoresponse.BarResponse}
-// @Failure      400      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401      {object}  response.BaseResponse
+// @Failure      403      {object}  response.BaseResponse  "The caller lacks the bar update permission"
 // @Failure      404      {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/bars/{id} [put]
@@ -108,12 +119,16 @@ func (h *Bar) Update(ctx *fiber.Ctx) error {
 }
 
 // @Summary      Delete bar
+// @ID           barsDelete
 // @Tags         bars
 // @Produce      json
 // @Param        id   path      string  true  "Bar ID"
-// @Success      204  {object}  response.BaseResponse
+// @Success      204  "No Content"
 // @Failure      401  {object}  response.BaseResponse
+// @Failure      403      {object}  response.BaseResponse  "The caller lacks the bar delete permission"
 // @Failure      404  {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/bars/{id} [delete]
@@ -133,6 +148,7 @@ func (h *Bar) Delete(ctx *fiber.Ctx) error {
 }
 
 // @Summary      List bars
+// @ID           barsList
 // @Tags         bars
 // @Produce      json
 // @Param        keyword  query     string  false  "Search keyword"
@@ -140,6 +156,9 @@ func (h *Bar) Delete(ctx *fiber.Ctx) error {
 // @Param        limit    query     int     false  "Page size, capped at 100"  default(10)
 // @Success      200      {object}  response.BaseResponse{data=[]dtoresponse.BarResponse,meta=response.Meta}
 // @Failure      401      {object}  response.BaseResponse
+// @Failure      403      {object}  response.BaseResponse  "The caller lacks the bar list permission"
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/bars [get]
@@ -163,12 +182,16 @@ func (h *Bar) List(ctx *fiber.Ctx) error {
 }
 
 // @Summary      Get bar by ID
+// @ID           barsGet
 // @Tags         bars
 // @Produce      json
 // @Param        id   path      string  true  "Bar ID"
 // @Success      200  {object}  response.BaseResponse{data=dtoresponse.BarResponse}
 // @Failure      401  {object}  response.BaseResponse
+// @Failure      403      {object}  response.BaseResponse  "The caller lacks the bar get permission"
 // @Failure      404  {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/bars/{id} [get]

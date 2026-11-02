@@ -1,18 +1,46 @@
 // @title           Goilerplate API
 // @version         1.0
-// @description     Go backend boilerplate using Clean Architecture. Provides a ready-to-use foundation for REST APIs with auth, RBAC, file uploads, and PostgreSQL.
+// @description     Go backend boilerplate using Clean Architecture: auth, RBAC and a worked CRUD example.
+// @description
+// @description     Every JSON response uses one envelope: `success`, `message`, and on an error a stable snake_case `code`, which is what clients branch on. `data` and `meta` carry results, and `errors` carries validation details. Every response echoes `X-Request-ID`.
+// @description
+// @description     Any route can also answer 413 (body larger than server.body_limit) and 500 (generic message, details only in the server log).
+// @description
+// @description     Some routes depend on the configuration: the email routes exist only with auth.email.enabled, the partner routes only when an API key is configured, and /metrics only with OpenTelemetry enabled.
 // @host            localhost:3000
 // @BasePath        /
+// @schemes         http
+
+// @tag.name         auth
+// @tag.description  Accounts, tokens and the caller's own sessions. The caller comes from the token.
+// @tag.name         bars
+// @tag.description  The worked CRUD example for end users. Requires the bar.* permission of each operation, which no migration grants: add it to a role first, or every call answers 403.
+// @tag.name         internal
+// @tag.description  Service-to-service routes. Never expose them through the ingress.
+// @tag.name         partner
+// @tag.description  Routes for external partners, authenticated with an API key.
+// @tag.name         health
+// @tag.description  Probes and metrics. Unauthenticated.
 
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-// @description Type "Bearer" followed by a space and your JWT token.
+// @description JWT access token. On /api/v1/auth/refresh, the refresh token instead.
+
+// @securityDefinitions.apikey RefreshCookie
+// @in cookie
+// @name refresh_token
+// @description Refresh token cookie when auth.refresh_transport=cookie. The name is __Secure-refresh_token outside local/dev/development/test.
 
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name X-API-Key
 // @description Partner API key.
+
+// @securityDefinitions.apikey InternalSecret
+// @in header
+// @name X-Internal-Secret
+// @description Required only when internal_auth.mode=shared_secret. Otherwise the header is ignored.
 
 package main
 

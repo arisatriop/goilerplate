@@ -73,7 +73,7 @@ Technical documentation and special setup.
 ## 📡 API Documentation
 
 - Endpoint authentication at **[Router & API Routes](./api/router.md)**
-- Request/response examples at **[Swagger spec](../.swagger/swagger.yaml)**
+- Request/response examples at **[OpenAPI spec](./api/openapi.md)**
 
 ---
 

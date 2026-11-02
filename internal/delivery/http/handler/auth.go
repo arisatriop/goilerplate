@@ -63,14 +63,17 @@ func (h *Auth) tokenResponse(ctx *fiber.Ctx, result *auth.LoginResult) *dtorespo
 
 // Register handles user registration
 // @Summary      Register a new user
+// @ID           authRegister
 // @Description  With auth.email.enabled, an address that is already registered gets the same 201 as a new one and its owner is emailed instead, so the response never says which addresses have accounts. Without email, a taken address is 409 email_already_registered.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.RegisterRequest  true  "Registration data"
 // @Success      201      {object}  response.BaseResponse
-// @Failure      400      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      409      {object}  response.BaseResponse  "email_already_registered, only when auth.email.enabled is false"
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Router       /api/v1/auth/register [post]
 func (h *Auth) Register(ctx *fiber.Ctx) error {
@@ -106,13 +109,17 @@ func (h *Auth) Register(ctx *fiber.Ctx) error {
 
 // Login handles user authentication
 // @Summary      Login
+// @ID           authLogin
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.LoginRequest  true  "Login credentials"
 // @Success      200      {object}  response.BaseResponse{data=dtoresponse.LoginResponse}
-// @Failure      400      {object}  response.BaseResponse
-// @Failure      401      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
+// @Failure      401      {object}  response.BaseResponse  "invalid_credentials or account_locked"
+// @Failure      403      {object}  response.BaseResponse  "account_disabled or email_not_verified"
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Router       /api/v1/auth/login [post]
 func (h *Auth) Login(ctx *fiber.Ctx) error {
@@ -144,10 +151,13 @@ func (h *Auth) Login(ctx *fiber.Ctx) error {
 
 // Logout handles user logout by invalidating the access token
 // @Summary      Logout
+// @ID           authLogout
 // @Tags         auth
 // @Produce      json
 // @Success      200  {object}  response.BaseResponse
 // @Failure      401  {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/auth/logout [post]
@@ -167,13 +177,16 @@ func (h *Auth) Logout(ctx *fiber.Ctx) error {
 
 // LogoutAll handles logout from all devices for a user
 // @Summary      Logout from all devices
+// @ID           authLogoutAll
 // @Description  Revokes every session of the caller. With keep_current=true the session making the request is spared.
 // @Tags         auth
 // @Produce      json
 // @Param        keep_current  query     bool  false  "Keep the current session signed in"
 // @Success      200  {object}  response.BaseResponse
-// @Failure      400  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401  {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/auth/logout-all [post]
@@ -206,11 +219,14 @@ func (h *Auth) LogoutAll(ctx *fiber.Ctx) error {
 
 // ListSessions lists the devices the signed-in user is signed in on
 // @Summary      List my sessions
+// @ID           usersMeSessionsList
 // @Description  Active, unexpired sessions of the caller, most recently used first. The session making the request has current=true.
 // @Tags         auth
 // @Produce      json
 // @Success      200  {object}  response.BaseResponse{data=[]dtoresponse.ActiveSessionResponse}
 // @Failure      401  {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/users/me/sessions [get]
@@ -231,14 +247,17 @@ func (h *Auth) ListSessions(ctx *fiber.Ctx) error {
 
 // RevokeSession signs one of the caller's own sessions out
 // @Summary      Revoke one of my sessions
+// @ID           usersMeSessionsRevoke
 // @Description  Signs out one device. A session that does not exist, is already revoked, or belongs to someone else is 404 — the three are indistinguishable on purpose.
 // @Tags         auth
 // @Produce      json
 // @Param        id   path      string  true  "Session ID"
 // @Success      200  {object}  response.BaseResponse
-// @Failure      400  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401  {object}  response.BaseResponse
 // @Failure      404  {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/users/me/sessions/{id} [delete]
@@ -264,14 +283,17 @@ func (h *Auth) RevokeSession(ctx *fiber.Ctx) error {
 
 // ChangePassword changes the signed-in user's password
 // @Summary      Change password
+// @ID           usersMePasswordChange
 // @Description  Requires the current password. Revokes every other session; the caller stays signed in.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.ChangePasswordRequest  true  "Password change payload"
 // @Success      200  {object}  response.BaseResponse
-// @Failure      400  {object}  response.BaseResponse
+// @Failure      400  {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      401  {object}  response.BaseResponse
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/users/me/password [put]
@@ -305,14 +327,16 @@ const MsgPasswordResetRequested = "If an account exists for that email, a passwo
 
 // ForgotPassword emails a password reset link
 // @Summary      Request a password reset link
+// @ID           authForgotPassword
 // @Description  Always answers 200 with the same message, whether or not the address is registered. Available only when auth.email.enabled is true.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.ForgotPasswordRequest  true  "Account email"
 // @Success      200      {object}  response.BaseResponse
-// @Failure      400      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Router       /api/v1/auth/forgot-password [post]
 func (h *Auth) ForgotPassword(ctx *fiber.Ctx) error {
@@ -334,14 +358,16 @@ func (h *Auth) ForgotPassword(ctx *fiber.Ctx) error {
 
 // ResetPassword sets a new password using the token from a reset link
 // @Summary      Reset the password with an emailed token
+// @ID           authResetPassword
 // @Description  Signs the account out on every device. Available only when auth.email.enabled is true.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.ResetPasswordRequest  true  "Reset token and new password"
 // @Success      200      {object}  response.BaseResponse
-// @Failure      400      {object}  response.BaseResponse  "validation_failed, a password the policy refuses, or invalid_reset_token"
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}  "validation_failed, a password the policy refuses, or invalid_reset_token"
 // @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Router       /api/v1/auth/reset-password [post]
 func (h *Auth) ResetPassword(ctx *fiber.Ctx) error {
@@ -367,14 +393,16 @@ const MsgVerificationEmailRequested = "If the address needs verifying, a verific
 
 // SendVerificationEmail emails a new verification code
 // @Summary      Request an email verification code
+// @ID           authSendVerificationEmail
 // @Description  Always answers 200 with the same message: for an unknown, disabled or already verified address nothing is sent. A code is also sent automatically after registration. Available only when auth.email.enabled is true.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.SendVerificationEmailRequest  true  "Address to verify"
 // @Success      200      {object}  response.BaseResponse
-// @Failure      400      {object}  response.BaseResponse
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}
 // @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Router       /api/v1/auth/send-verification-email [post]
 func (h *Auth) SendVerificationEmail(ctx *fiber.Ctx) error {
@@ -396,14 +424,16 @@ func (h *Auth) SendVerificationEmail(ctx *fiber.Ctx) error {
 
 // VerifyEmail marks the address verified with the emailed code
 // @Summary      Verify an email address with the emailed code
+// @ID           authVerifyEmail
 // @Description  Unauthenticated, so it works while auth.require_email_verification refuses login. Each code tolerates auth.otp.max_attempts guesses. Available only when auth.email.enabled is true.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.VerifyEmailRequest  true  "Address and 6-digit code"
 // @Success      200      {object}  response.BaseResponse
-// @Failure      400      {object}  response.BaseResponse  "validation_failed or invalid_verification_code"
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}  "validation_failed or invalid_verification_code"
 // @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Router       /api/v1/auth/verify-email [post]
 func (h *Auth) VerifyEmail(ctx *fiber.Ctx) error {
@@ -429,14 +459,17 @@ const MsgEmailChangeRequested = "If the address can be used, a confirmation code
 
 // RequestEmailChange sends a code to the new address
 // @Summary      Start changing the account's email address
+// @ID           usersMeEmailChangeRequest
 // @Description  Requires the current password. Answers 200 with the same message whether or not the address is free; a code is sent only when it is. Available only when auth.email.enabled is true.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.EmailChangeRequest  true  "New address and current password"
 // @Success      200      {object}  response.BaseResponse
-// @Failure      400      {object}  response.BaseResponse  "validation_failed or email_unchanged"
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}  "validation_failed or email_unchanged"
 // @Failure      401      {object}  response.BaseResponse  "invalid_credentials"
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/users/me/email-change [post]
@@ -460,15 +493,18 @@ func (h *Auth) RequestEmailChange(ctx *fiber.Ctx) error {
 
 // ConfirmEmailChange moves the account to the new address
 // @Summary      Confirm an email change with the code sent to the new address
+// @ID           usersMeEmailChangeConfirm
 // @Description  The old address is told once the change is made. Available only when auth.email.enabled is true.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dtorequest.ConfirmEmailChangeRequest  true  "6-digit code"
 // @Success      200      {object}  response.BaseResponse
-// @Failure      400      {object}  response.BaseResponse  "validation_failed or invalid_verification_code"
+// @Failure      400      {object}  response.BaseResponse{errors=[]response.ValidationErrorDetail}  "validation_failed or invalid_verification_code"
 // @Failure      401      {object}  response.BaseResponse
 // @Failure      409      {object}  response.BaseResponse  "email_already_registered: the address was taken since the code was sent"
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500      {object}  response.BaseResponse
 // @Security     BearerAuth
 // @Router       /api/v1/users/me/email-change/confirm [post]
@@ -492,12 +528,18 @@ func (h *Auth) ConfirmEmailChange(ctx *fiber.Ctx) error {
 
 // RefreshToken handles token refresh using refresh token
 // @Summary      Refresh access token
+// @ID           authRefresh
+// @Description  Rotates the refresh token, which travels per auth.refresh_transport: in the Authorization header as Bearer (body mode), or in the HttpOnly cookie (cookie mode). Access tokens are refused here.
 // @Tags         auth
 // @Produce      json
 // @Success      200  {object}  response.BaseResponse{data=dtoresponse.LoginResponse}
 // @Failure      401  {object}  response.BaseResponse
+// @Failure      403      {object}  response.BaseResponse  "Cookie mode only: the request came from an origin that is not allowed"
+// @Failure      429      {object}  response.BaseResponse
+// @Header       429      {integer}  Retry-After  "Seconds until the limit resets"
 // @Failure      500  {object}  response.BaseResponse
 // @Security     BearerAuth
+// @Security     RefreshCookie
 // @Router       /api/v1/auth/refresh [post]
 func (h *Auth) RefreshToken(ctx *fiber.Ctx) error {
 	// Get data from context (guaranteed by AuthenticateRefreshToken middleware)

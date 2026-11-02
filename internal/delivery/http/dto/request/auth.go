@@ -2,15 +2,15 @@ package dtorequest
 
 // RegisterRequest represents the registration request data
 type RegisterRequest struct {
-	Name     string `json:"name" validate:"required"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8"`
+	Name     string `json:"name" validate:"required" example:"First User"`
+	Email    string `json:"email" validate:"required,email" example:"first@example.test"`
+	Password string `json:"password" validate:"required,min=8" example:"a-strong-password"`
 }
 
 // LoginRequest represents the login request data
 type LoginRequest struct {
-	Email      string `json:"email" validate:"required,email"`
-	Password   string `json:"password" validate:"required"`
+	Email      string `json:"email" validate:"required,email" example:"first@example.test"`
+	Password   string `json:"password" validate:"required" example:"a-strong-password"`
 	RememberMe bool   `json:"rememberMe"`
 }
 
@@ -31,13 +31,13 @@ type SessionIDParam struct {
 // The length ceiling is enforced by pkg/password, which counts bytes rather than characters
 // because that is where bcrypt truncates.
 type ChangePasswordRequest struct {
-	CurrentPassword string `json:"currentPassword" validate:"required"`
-	NewPassword     string `json:"newPassword" validate:"required,min=8"`
+	CurrentPassword string `json:"currentPassword" validate:"required" example:"a-strong-password"`
+	NewPassword     string `json:"newPassword" validate:"required,min=8" example:"another-strong-password"`
 }
 
 // ForgotPasswordRequest asks for a password reset link.
 type ForgotPasswordRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email string `json:"email" validate:"required,email" example:"first@example.test"`
 }
 
 // ResetPasswordRequest completes a reset with the token from the emailed link. The token's
@@ -45,27 +45,27 @@ type ForgotPasswordRequest struct {
 // value from being hashed and queried.
 type ResetPasswordRequest struct {
 	Token       string `json:"token" validate:"required,max=256"`
-	NewPassword string `json:"newPassword" validate:"required,min=8"`
+	NewPassword string `json:"newPassword" validate:"required,min=8" example:"another-strong-password"`
 }
 
 // SendVerificationEmailRequest asks for a new email verification code.
 type SendVerificationEmailRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email string `json:"email" validate:"required,email" example:"first@example.test"`
 }
 
 // VerifyEmailRequest proves the user reads their inbox with the code sent to it.
 type VerifyEmailRequest struct {
-	Email string `json:"email" validate:"required,email"`
-	Code  string `json:"code" validate:"required,len=6,numeric"`
+	Email string `json:"email" validate:"required,email" example:"first@example.test"`
+	Code  string `json:"code" validate:"required,len=6,numeric" example:"123456"`
 }
 
 // EmailChangeRequest starts moving the caller's account to another address.
 type EmailChangeRequest struct {
-	NewEmail        string `json:"newEmail" validate:"required,email"`
-	CurrentPassword string `json:"currentPassword" validate:"required"`
+	NewEmail        string `json:"newEmail" validate:"required,email" example:"new@example.test"`
+	CurrentPassword string `json:"currentPassword" validate:"required" example:"a-strong-password"`
 }
 
 // ConfirmEmailChangeRequest confirms the change with the code sent to the new address.
 type ConfirmEmailChangeRequest struct {
-	Code string `json:"code" validate:"required,len=6,numeric"`
+	Code string `json:"code" validate:"required,len=6,numeric" example:"123456"`
 }

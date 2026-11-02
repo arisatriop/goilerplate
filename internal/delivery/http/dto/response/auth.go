@@ -19,7 +19,7 @@ type UserResponse struct {
 	Avatar        string     `json:"avatar"`
 	IsActive      bool       `json:"isActive"`
 	EmailVerified bool       `json:"emailVerified"`
-	LastLoginAt   *time.Time `json:"lastLoginAt"`
+	LastLoginAt   *time.Time `json:"lastLoginAt" extensions:"x-nullable"`
 }
 
 // TokenPairResponse represents token data in API response
