@@ -1,6 +1,6 @@
 # OpenAPI Spec
 
-[`api/openapi.json`](../../api/openapi.json) describes every HTTP route as a standard OpenAPI 3.0.3
+[`docs/api/openapi.json`](./openapi.json) describes every HTTP route as a standard OpenAPI 3.0.3
 document: the end-user API, `/internal`, `/partner/v1`, and the health and metrics endpoints. It
 contains no tool-specific extensions, so it works with anything that reads OpenAPI: API clients
 such as Postman, Apidog, Insomnia or Bruno, documentation renderers, mock servers, and client
@@ -13,7 +13,8 @@ gRPC is not part of it. Its contract is the
 
 Import the file into your tool. Tools that import from a URL can use
 `http://localhost:3000/openapi.json` with the server running. That route exists only when `app.env`
-is not `production`; the file itself works everywhere.
+is not `production`, and it reads the file from disk, so it needs the server started from the
+repository root. The file itself works everywhere.
 
 ## Credentials
 
@@ -33,6 +34,24 @@ The spec lists every route, but a running server may not have them all:
 - `/metrics` exists only with OpenTelemetry enabled
 - `/api/v1/bars` answers 403 until a role holds the `bar.*` permissions. No migration grants them
 
+No migration grants those permissions on purpose. Registration makes every new account an `owner`,
+so granting them to that role would let anyone who signs up change shared data. To try the bars
+routes on a local database:
+
+```sql
+INSERT INTO permissions (id, name, slug, created_at, created_by, updated_at, updated_by)
+SELECT gen_random_uuid(), slug, slug, now(), 'local', now(), 'local'
+  FROM unnest(ARRAY['bar.list', 'bar.get', 'bar.create', 'bar.update', 'bar.delete']) AS slug;
+
+INSERT INTO role_permissions (role_id, permission_id, created_at, created_by)
+SELECT r.id, p.id, now(), 'local'
+  FROM roles r CROSS JOIN permissions p
+ WHERE r.slug = 'owner' AND p.slug LIKE 'bar.%';
+```
+
+With Redis, permissions are cached, and a direct SQL change does not invalidate the cache. It takes
+effect within `auth.permission_cache_ttl`.
+
 ## Changing it
 
 The spec is generated from the annotations on the handlers, so don't edit the file by hand. After
@@ -42,7 +61,7 @@ changing a route, a DTO or a status code:
 make openapi    # needs Go and Node.js
 ```
 
-Commit `api/openapi.json` with the change. How the file gets built is an internal detail that
+Commit `docs/api/openapi.json` with the change. How the file gets built is an internal detail that
 consumers never see: `make openapi` reads the annotations with
 [swag](https://github.com/swaggo/swag), upgrades the result to OpenAPI 3 with
 [swagger2openapi](https://github.com/Mermade/oas-kit), and `.scripts/openapi-finalize.mjs` removes

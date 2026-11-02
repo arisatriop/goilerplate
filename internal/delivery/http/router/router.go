@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"goilerplate/api"
 	"goilerplate/internal/bootstrap"
 	"goilerplate/internal/wire"
 	"goilerplate/pkg/logger"
@@ -204,9 +203,9 @@ func (r *RouteRegistry) Register() {
 	}
 
 	if strings.ToLower(r.App.Config.App.Env) != "production" {
+		// Read from disk, so this is 404 where the docs are not deployed, such as the Docker image.
 		http.Get("/openapi.json", func(ctx *fiber.Ctx) error {
-			ctx.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-			return ctx.Send(api.OpenAPISpec)
+			return ctx.SendFile("docs/api/openapi.json")
 		})
 	}
 	http.Use(r.Wired.Middleware.RequestLogger.LogRequest())

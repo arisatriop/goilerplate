@@ -137,6 +137,6 @@ for byte, so changing it here without changing the code fails the build.
 
 ## Documentation
 - Every handler carries annotations, read by `make openapi`, that describe what it actually returns: the status
-  codes, and `data` typed as the real DTO. Run `make openapi` and commit `api/openapi.json`
+  codes, and `data` typed as the real DTO. Run `make openapi` and commit `docs/api/openapi.json`
   in the same change as the handler. `TestOpenAPI_MatchesRegisteredRoutes` fails on a route the
   spec is missing. See `docs/api/openapi.md`

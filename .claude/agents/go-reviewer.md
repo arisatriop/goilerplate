@@ -61,7 +61,7 @@ Spend most of the review on what the linters and tests cannot catch:
 
 ### API contract
 - Status codes, envelope, casing and pagination as in `api-conventions.md`
-- API annotations match what the handler actually returns, and `api/openapi.json` is regenerated
+- API annotations match what the handler actually returns, and `docs/api/openapi.json` is regenerated
 
 ### Tests
 - New behaviour and every new error path are covered; security-relevant code has its hostile case

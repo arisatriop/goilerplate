@@ -82,8 +82,8 @@ migrate-create:
 openapi:
 	@echo "Generating the OpenAPI spec..."
 	go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -g cmd/server/main.go -o tmp/openapi --outputTypes json
-	npx -y swagger2openapi@7.0.8 --outfile api/openapi.json tmp/openapi/swagger.json
-	node .scripts/openapi-finalize.mjs api/openapi.json
+	npx -y swagger2openapi@7.0.8 --outfile docs/api/openapi.json tmp/openapi/swagger.json
+	node .scripts/openapi-finalize.mjs docs/api/openapi.json
 
 # Development helpers
 dev-setup:
