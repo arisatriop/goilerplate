@@ -103,6 +103,11 @@ func TestEnvExample_EveryVariableIsAConfigKey(t *testing.T) {
 		}
 	}
 
+	// Read directly by the loader: a list entry has no dots-to-underscores name.
+	for _, name := range []string{"JWT_PREVIOUS_KEY_ID", "JWT_PREVIOUS_ACCESS_SECRET", "JWT_PREVIOUS_REFRESH_SECRET"} {
+		known[name] = true
+	}
+
 	var found int
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

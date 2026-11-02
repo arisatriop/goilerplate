@@ -369,18 +369,19 @@ what makes a report traceable. A missing one is generated.
 ## 🔁 Rotating JWT secrets
 
 `jwt.key_id` is published as each token's `kid` header. To rotate without signing everyone out,
-move the current key into `previous_keys` and set a new active one:
+move the current key into the `JWT_PREVIOUS_*` variables and set a new active one:
 
-```yaml
-jwt:
-  key_id: v2
-  access_secret: <JWT_ACCESS_SECRET>
-  refresh_secret: <JWT_REFRESH_SECRET>
-  previous_keys:
-    - key_id: v1
-      access_secret: <JWT_PREVIOUS_ACCESS_SECRET>
-      refresh_secret: <JWT_PREVIOUS_REFRESH_SECRET>
+```bash
+JWT_PREVIOUS_KEY_ID=v1
+JWT_PREVIOUS_ACCESS_SECRET=...
+JWT_PREVIOUS_REFRESH_SECRET=...
+JWT_KEY_ID=v2
+JWT_ACCESS_SECRET=...
+JWT_REFRESH_SECRET=...
 ```
+
+The application adds that key to `jwt.previous_keys`, after any listed in `config.yaml`. See
+[Rotating JWT secrets](../deployment/configuration.md#-rotating-jwt-secrets).
 
 Previous keys verify but never sign. Retire one once no token it signed can still be alive — that
 is `auth.session_expiry` after the rotation, because the refresh token lives as long as the

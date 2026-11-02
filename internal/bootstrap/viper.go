@@ -45,7 +45,28 @@ func Load() (*config.Config, error) {
 		return nil, fmt.Errorf("decoding config: %w", err)
 	}
 
+	appendPreviousJWTKeyFromEnv(&cfg)
+
 	return &cfg, nil
+}
+
+// appendPreviousJWTKeyFromEnv adds the retired key named by JWT_PREVIOUS_KEY_ID,
+// JWT_PREVIOUS_ACCESS_SECRET and JWT_PREVIOUS_REFRESH_SECRET to jwt.previous_keys. A list entry
+// cannot be overridden through the usual dots-to-underscores rule, and without this a rotation
+// would have to put a live signing secret in config.yaml.
+//
+// Setting only some of the three still adds the key, so that Config.Validate reports what is
+// missing instead of the rotation silently not happening and signing everyone out.
+func appendPreviousJWTKeyFromEnv(cfg *config.Config) {
+	key := config.JWTKey{
+		KeyID:         os.Getenv("JWT_PREVIOUS_KEY_ID"),
+		AccessSecret:  os.Getenv("JWT_PREVIOUS_ACCESS_SECRET"),
+		RefreshSecret: os.Getenv("JWT_PREVIOUS_REFRESH_SECRET"),
+	}
+	if key == (config.JWTKey{}) {
+		return
+	}
+	cfg.JWT.PreviousKeys = append(cfg.JWT.PreviousKeys, key)
 }
 
 // bindEnvs recursively binds environment variables for nested structs using reflection.

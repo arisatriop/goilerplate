@@ -88,6 +88,8 @@ jwt:
   # Retired keys, accepted for verification only. To rotate: move the current key_id and
   # secrets here, set a new key_id and new secrets above, and drop the entry once every
   # token signed with it has expired (auth.remember_me_expiry after the rotation).
+  # Prefer JWT_PREVIOUS_KEY_ID, JWT_PREVIOUS_ACCESS_SECRET and JWT_PREVIOUS_REFRESH_SECRET, which
+  # add one more entry to this list and keep the secrets out of this file.
   previous_keys:
     - key_id: v0
       access_secret: <JWT_PREVIOUS_ACCESS_SECRET>

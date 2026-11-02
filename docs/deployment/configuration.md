@@ -193,19 +193,21 @@ export JWT_REFRESH_SECRET=...
 
 ## 🔑 Rotating JWT secrets
 
-Move the current key into `previous_keys` and set a new active one. Previous keys verify but never
-sign, so nobody is signed out mid-rotation:
+Move the current key's values into the `JWT_PREVIOUS_*` variables and set new active ones. Previous
+keys verify but never sign, so nobody is signed out mid-rotation:
 
-```yaml
-jwt:
-  key_id: v2
-  access_secret: ${JWT_ACCESS_SECRET}
-  refresh_secret: ${JWT_REFRESH_SECRET}
-  previous_keys:
-    - key_id: v1
-      access_secret: ${JWT_PREVIOUS_ACCESS_SECRET}
-      refresh_secret: ${JWT_PREVIOUS_REFRESH_SECRET}
+```bash
+JWT_PREVIOUS_KEY_ID=v1                  # the key being retired
+JWT_PREVIOUS_ACCESS_SECRET=...          # its access secret
+JWT_PREVIOUS_REFRESH_SECRET=...         # its refresh secret
+JWT_KEY_ID=v2                           # or jwt.key_id in config.yaml
+JWT_ACCESS_SECRET=...                   # openssl rand -base64 48
+JWT_REFRESH_SECRET=...                  # openssl rand -base64 48
 ```
+
+The application adds that key to `jwt.previous_keys`, after any listed in `config.yaml`. Set all
+three variables, or startup reports the one missing. The variables hold one key; retire older keys
+first. `${...}` in `config.yaml` is not expanded, so don't write secrets that way.
 
 Retire the old key once no token it signed can still be alive — `auth.session_expiry` after the
 rotation, not `jwt.access_token_expiry`, because the refresh token lives as long as the session.
