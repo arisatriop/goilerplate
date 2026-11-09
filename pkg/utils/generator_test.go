@@ -24,9 +24,8 @@ func TestGenerateUUID_IsTimeOrderedV7(t *testing.T) {
 	assert.Less(t, first, second, "later IDs sort after earlier ones")
 }
 
-// GenerateSecureToken is kept although nothing calls it yet: it is the crypto/rand primitive
-// the password-reset flow needs, and it is the one function in this file that would be
-// dangerous to get wrong. The generators that were deleted alongside it — GenerateRandomString
+// GenerateSecureToken is the crypto/rand primitive the password-reset flow draws its tokens
+// from, and the one function in this file that would be dangerous to get wrong. The generators that were deleted alongside it — GenerateRandomString
 // and GenerateRandomNumberString — panicked on a rand failure under a comment reading "In real
 // applications, handle the error appropriately".
 func TestGenerateSecureToken_IsUnpredictableAndTheRightLength(t *testing.T) {

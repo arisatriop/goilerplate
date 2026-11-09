@@ -25,6 +25,6 @@ type PermissionCache interface {
 	Set(ctx context.Context, userID string, permissions []string) error
 	// Invalidate evicts one user's permissions (user roles or overrides changed).
 	Invalidate(ctx context.Context, userID string) error
-	// InvalidateAll evicts every user's permissions (role permissions or role menus changed).
+	// InvalidateAll evicts every user's permissions (role permissions changed).
 	InvalidateAll(ctx context.Context) error
 }

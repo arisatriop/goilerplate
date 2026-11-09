@@ -124,7 +124,7 @@ func (m *Migrator) LoadMigrations(migrationDir string) ([]Migration, error) {
 			return nil
 		}
 
-		// Parse filename: 001_create_users_table.up.sql or 001_create_users_table.down.sql
+		// Parse filename: 20251013192632_create_users_table.up.sql or 20251013192632_create_users_table.down.sql
 		parts := strings.Split(info.Name(), "_")
 		if len(parts) < 2 {
 			return nil

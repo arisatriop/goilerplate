@@ -113,7 +113,7 @@ func (s *PermissionService) InvalidateUserPermissions(ctx context.Context, userI
 }
 
 // InvalidateAllPermissions clears cached permissions for all users.
-// Call it whenever role permissions or role menus change.
+// Call it whenever role permissions change.
 func (s *PermissionService) InvalidateAllPermissions(ctx context.Context) error {
 	if err := s.cache.InvalidateAll(ctx); err != nil {
 		return fmt.Errorf("invalidating all permissions: %w", err)

@@ -11,8 +11,8 @@ import (
 )
 
 type RateLimiter struct {
-	// Auth limits unauthenticated endpoints by IP: login, register, and later forgot-password
-	// and OTP. These are the ones an attacker can hammer without credentials.
+	// Auth limits unauthenticated endpoints by IP: login, register, password recovery and email
+	// verification. These are the ones an attacker can hammer without credentials.
 	Auth fiber.Handler
 	// Session limits endpoints that already carry a valid token but run before the user
 	// limiter, keyed per session rather than per IP. Everyone behind one NAT shares an IP, so
@@ -34,7 +34,7 @@ func NewRateLimiter(cfg config.RateLimit, storage fiber.Storage) *RateLimiter {
 	}
 }
 
-// newAuthLimiter limits by IP — protects login/register from brute force.
+// newAuthLimiter limits by IP, protecting the unauthenticated auth endpoints from brute force.
 // Only unauthenticated endpoints belong here: an authenticated one keyed by IP punishes every
 // user behind the same NAT for one user's traffic.
 func newAuthLimiter(cfg config.RateLimitRule, storage fiber.Storage) fiber.Handler {

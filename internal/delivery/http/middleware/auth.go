@@ -126,7 +126,6 @@ func (m *Auth) AuthenticateRefreshToken() fiber.Handler {
 //   - is_granted = false: revoked (user doesn't have permission)
 //
 // 2. Role-based permissions (user -> roles -> role_permissions)
-// 3. Menu-based permissions (user -> roles -> role_menus -> menus + children -> menu_permissions)
 func (m *Auth) RequiredPermission(permission string) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		// Get user ID from context (set by Authenticate middleware)

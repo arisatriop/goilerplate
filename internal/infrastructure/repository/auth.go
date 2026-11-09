@@ -156,6 +156,8 @@ func (r *authRepository) ResetExpiredLock(ctx context.Context, userID string) er
 }
 
 // Session operations
+
+// CreateSession inserts a new session row and returns it as stored.
 func (r *authRepository) CreateSession(ctx context.Context, session *auth.UserSession) (*auth.UserSession, error) {
 	sessionModel := &model.UserSession{
 		ID:                 session.ID,
@@ -583,7 +585,7 @@ func (r *authRepository) GetMenuPermissionsByMenuID(ctx context.Context, menuID 
 	return permissionSlugs, nil
 }
 
-// usermodelToEntity converts model.User to auth.User entity
+// userModelToEntity converts model.User to auth.User entity
 func (r *authRepository) userModelToEntity(m *model.User) *auth.User {
 	if m == nil {
 		return nil
